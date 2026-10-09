@@ -1,5 +1,9 @@
 # Autristik
 
+<img src="src/assets/menu-village.webp" alt="A small village of tiles: fields, a pond with a waterfall, pine trees and a lookout tower" width="360">
+
+**[Play it in your browser](https://autristic.pages.unistra.fr/autristik/)**, no install needed.
+
 A cozy tile-placement game in the spirit of Dorfromantik. You place square tiles next to the
 board one at a time. Each tile is split into four terrain squares, and squares that match the
 neighbouring tile across a seam score points.
