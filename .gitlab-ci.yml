@@ -47,21 +47,35 @@ release:
         exit 1
       fi
     - apk add --no-cache git >/dev/null
-    - git config user.name "$GITLAB_USER_NAME"
-    - git config user.email "$GITLAB_USER_EMAIL"
+    # The runner checks the repo out as a different user than the one running this
+    # script, and git refuses to touch a repo it doesn't own unless told it's safe.
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - git config --global user.name "$GITLAB_USER_NAME"
+    - git config --global user.email "$GITLAB_USER_EMAIL"
     - remote="$(echo "$CI_SERVER_URL" | sed "s#://#://release:${RELEASE_TOKEN}@#")/$CI_PROJECT_PATH.git"
     - tree="$(git rev-parse "$CI_COMMIT_SHA^{tree}")"
     # Stack the squash on the previous release (if any) so the push is a fast-forward.
     # Whatever prod held before is ignored: the new commit has exactly main's files.
     - |
       parent=""
-      if git fetch --quiet --depth=1 "$remote" "$PAGES_BRANCH" 2>/dev/null; then
-        parent="$(git rev-parse FETCH_HEAD)"
-        if [ "$(git rev-parse "$parent^{tree}")" = "$tree" ]; then
-          echo "$PAGES_BRANCH already matches $CI_COMMIT_SHORT_SHA. Nothing to release."
-          exit 0
-        fi
-      fi
+      found=0
+      git ls-remote --exit-code --heads "$remote" "$PAGES_BRANCH" >/dev/null || found=$?
+      case "$found" in
+        0)
+          git fetch --quiet --depth=1 "$remote" "$PAGES_BRANCH"
+          parent="$(git rev-parse FETCH_HEAD)"
+          if [ "$(git rev-parse "$parent^{tree}")" = "$tree" ]; then
+            echo "$PAGES_BRANCH already matches $CI_COMMIT_SHORT_SHA. Nothing to release."
+            exit 0
+          fi
+          ;;
+        2) echo "$PAGES_BRANCH doesn't exist yet; this release creates it." ;;
+        *)
+          echo "Couldn't reach the repository with RELEASE_TOKEN. Check that the token is"
+          echo "valid, has the write_repository scope and at least the Maintainer role."
+          exit 1
+          ;;
+      esac
     - |
       subject="$(printf '%s' "$CI_COMMIT_TITLE" | sed -E 's/^\(RELEASE\)[[:space:]:-]*//')"
       [ -n "$subject" ] || subject="chore(release): $CI_DEFAULT_BRANCH@$CI_COMMIT_SHORT_SHA"
