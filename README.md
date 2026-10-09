@@ -143,8 +143,9 @@ reserved for the Pages artifact.
 
 - `main` is where the team works. Every push runs the `test` job: lint, Prettier check, Vitest
   and a production build (which also type-checks). Nothing is deployed from `main`.
-- `prod` is what's live. A push to `prod` runs `test` and then `pages`, which builds the site,
-  moves `dist/` to `public/` and publishes it to GitLab Pages.
+- `prod` is what's live. A push to `prod` runs only `pages`, which builds the site, moves `dist/`
+  to `public/` and publishes it to GitLab Pages. `test` is skipped there: everything on `prod`
+  already passed it on `main` with the same files.
 
 To release, start the commit message with `(RELEASE)` and push to `main`:
 
@@ -160,7 +161,7 @@ stripped from the message (`feat: timed levels` above; a bare `(RELEASE)` become
 `chore(release): main@<sha>`), the commit is authored by whoever pushed, and the body records the
 `main` commit it came from. The squash sits on top of the previous release, so the push is a
 plain fast-forward and never needs force. That push starts a pipeline on `prod`, which runs
-`test` and then `pages`. Once it passes, the URL is listed under Deploy > Pages.
+`pages`. Once it passes, the URL is listed under Deploy > Pages.
 
 Only the last commit of a push counts: if you push several commits at once, put the flag on the
 newest one. The branch name is the `PAGES_BRANCH` variable at the top of `.gitlab-ci.yml`.

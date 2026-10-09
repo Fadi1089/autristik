@@ -1,4 +1,4 @@
-# Every branch: lint, format check, tests and a build (which also type-checks).
+# Every branch except prod: lint, format check, tests and a build (which also type-checks).
 #
 # Releasing: a commit on main with a message starting with "(RELEASE)" is squashed onto
 # prod once its tests pass. The push to prod starts a prod pipeline, and only prod
@@ -25,6 +25,10 @@ default:
 
 test:
   stage: test
+  # prod only ever receives commits whose exact files already passed this job on main,
+  # and the pages job builds (and so type-checks) again anyway.
+  rules:
+    - if: $CI_COMMIT_BRANCH != $PAGES_BRANCH
   script:
     - npm run lint
     - npm run format:check
