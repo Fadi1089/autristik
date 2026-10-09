@@ -31,7 +31,7 @@ function LevelCard() {
 
   return (
     <div className="relative">
-      <div className="card w-48 px-5 pt-2.5 pb-3">
+      <div className="card w-40 px-4 pt-2.5 pb-3 sm:w-48 sm:px-5">
         <div className="flex items-baseline justify-between gap-3">
           <span className="eyebrow">Level {level}</span>
           <span className="text-[0.65rem] font-semibold text-ink/45 tabular-nums">
@@ -47,7 +47,7 @@ function LevelCard() {
       {last && last.points > 0 && (
         <div
           key={`${last.coord.q},${last.coord.r}`}
-          className="absolute top-3 left-full ml-2 animate-float-up rounded-full bg-moss px-2.5 py-0.5 font-display text-sm font-semibold whitespace-nowrap text-paper shadow"
+          className="absolute top-full left-3 mt-2 animate-float-up sm:top-3 sm:left-full sm:mt-0 sm:ml-2 rounded-full bg-moss px-2.5 py-0.5 font-display text-sm font-semibold whitespace-nowrap text-paper shadow"
         >
           +{last.points}
           {last.perfect ? ' perfect' : ''}
@@ -64,8 +64,10 @@ function Countdown() {
   const urgent = seconds <= URGENT_SECONDS
 
   return (
-    <div className="card w-36 px-5 pt-2.5 pb-3 text-right">
-      <div className="eyebrow">Time left</div>
+    <div className="card w-28 px-4 pt-2.5 pb-3 text-right sm:w-36 sm:px-5">
+      <div className="eyebrow">
+        Time<span className="hidden sm:inline"> left</span>
+      </div>
       <div
         className={`font-display text-[2rem] leading-tight font-semibold tabular-nums transition-colors ${
           urgent ? 'text-clay' : ''
@@ -105,14 +107,14 @@ export function HUD() {
 
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-4 select-none sm:p-6">
-      <header className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
+      <header className="flex items-start justify-between gap-2 sm:gap-3">
+        <div className="flex items-start gap-2 sm:gap-3">
           <button
             type="button"
             onClick={openMenu}
             aria-label="Open menu (Esc)"
             title="Menu (Esc)"
-            className="card grid size-[4.6rem] place-items-center text-ink/80 transition hover:text-ink active:scale-95"
+            className="card grid size-14 place-items-center sm:size-[4.6rem] text-ink/80 transition hover:text-ink active:scale-95"
           >
             <MenuIcon className="size-6" />
           </button>

@@ -86,6 +86,10 @@ export function Ghost() {
                 +{preview.bonusTiles} tile{preview.bonusTiles > 1 ? 's' : ''}
               </span>
             )}
+            {/* Touch screens place on a second tap, so say so there. */}
+            <span className="hidden text-[0.7rem] text-ink/60 pointer-coarse:inline">
+              tap again
+            </span>
           </div>
         </Html>
       </group>

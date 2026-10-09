@@ -101,8 +101,8 @@ function HowToPlay() {
       </div>
       <ol className="space-y-2.5 text-sm text-ink/80">
         <Rule n="1">
-          Place each tile next to the board, by clicking or with the keyboard alone (move, then
-          Enter or Space). Rotate it to line up the squares.
+          Place each tile next to the board: click a square, tap it twice on a touch screen, or use
+          the keyboard alone (move, then Enter or Space). Rotate it to line up the squares.
         </Rule>
         <Rule n="2">
           Every matching square along a seam scores 5 points. Reach each level&rsquo;s goal before

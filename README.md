@@ -27,6 +27,8 @@ flush, so where two tiles meet, each square on one side faces one square on the 
   the seams show which squares match (green) and which don't (red), and the label shows what the
   placement is worth.
 - Click, or press `Enter` / `Space`, to place it. Dragging the camera doesn't count as a click.
+  On touch screens there is no hover, so the first tap on a square shows the preview and a
+  second tap on the same square places the tile; tapping another square moves the preview.
 - The `?` tab on the right edge of the screen slides out the terrain legend and key list when
   you hover it (tap it on touch screens).
 - `R` or `E` rotates the tile clockwise, `Q` anticlockwise. The buttons beside the floating tile
