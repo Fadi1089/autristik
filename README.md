@@ -1,93 +1,202 @@
-# autristik 
+# Autristik
 
+A cozy tile-placement game in the spirit of Dorfromantik. You place square tiles next to the
+board one at a time. Each tile is split into four terrain squares, and squares that match the
+neighbouring tile across a seam score points.
 
+Built with Vite, React, TypeScript, Three.js (via @react-three/fiber and drei), Zustand and
+Tailwind CSS v4. It deploys to GitLab Pages.
 
-## Getting started
+## How to play
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Each tile is a 2×2 grid of terrain squares (meadow, forest, field, water or village). Tiles sit
+flush, so where two tiles meet, each square on one side faces one square on the other.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- The game opens on the menu. Press Play (or `Enter`, or `Esc`) to start. `Esc` or the button in the top
+  left brings the menu back and pauses the game and the timer.
+- Hover a highlighted square next to the board, or move the keyboard cursor onto one, to see the
+  tile in hand floating over it. Dots on
+  the seams show which squares match (green) and which don't (red), and the label shows what the
+  placement is worth.
+- Click, or press `Enter` / `Space`, to place it. Dragging the camera doesn't count as a click.
+- The `?` tab on the right edge of the screen slides out the terrain legend and key list when
+  you hover it (tap it on touch screens).
+- `R` or `E` rotates the tile clockwise, `Q` anticlockwise. The buttons beside the floating tile
+  preview do the same, and so does clicking the preview. It is drawn from the same angle as the
+  main camera, so it always matches the board on screen.
 
-## Add your files
+The game is fully playable with the keyboard alone. Default keys:
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+| Key                       | Action                                 |
+| ------------------------- | -------------------------------------- |
+| Arrows or `W` `A` `S` `D` | Move the cursor (relative to the view) |
+| `Enter` or `Space`        | Place the tile                         |
+| `R` or `E` / `Q`          | Rotate clockwise / anticlockwise       |
+| `Z` / `X`                 | Pivot the camera                       |
+| `=` / `-`                 | Zoom                                   |
+| `Esc`                     | Menu (always, can't be rebound)        |
+
+The first movement key drops the cursor on the open square nearest the middle of the view, and
+the camera follows it. Keys are matched by physical position, so on AZERTY the movement keys are
+`Z` `Q` `S` `D`; in Chromium browsers the labels show what is printed on your keyboard. Every key
+except `Esc` can be changed under Menu > Settings (two keys per action, saved in the browser).
+
+Mouse and touchpad:
+
+| Input                                   | Action                  |
+| --------------------------------------- | ----------------------- |
+| Click                                   | Place the tile          |
+| Left-drag, one finger                   | Pan                     |
+| Scroll wheel, pinch                     | Zoom                    |
+| Sideways touchpad scroll, Shift + wheel | Pivot around the board  |
+| Right-drag                              | Tilt (limited) and turn |
+
+Scoring:
+
+| Placement                                               | Reward               |
+| ------------------------------------------------------- | -------------------- |
+| Each matching square along a seam                       | +5 points            |
+| Harmonious: every touching side fully matches, 2+ sides | +1 tile              |
+| Perfect: all four sides occupied and fully matching     | +30 points, +2 tiles |
+
+A side counts as matching only when both of its squares match. Mismatches cost nothing.
+
+Levels: each level has a points goal and a countdown (top right). Earn the goal's points within
+the level before the clock hits zero and the next level starts at once, on the same board, with a
+fresh clock and 6 extra tiles. Points toward the goal start from zero each level; the total score
+keeps adding up.
+
+| Level | Goal              | Time                                 |
+| ----- | ----------------- | ------------------------------------ |
+| 1     | 50                | 1:15                                 |
+| 2     | 75                | 1:10                                 |
+| 3     | 100               | 1:05                                 |
+| n     | 50 + 25 × (n − 1) | 75 − 5 × (n − 1) s, never under 40 s |
+
+The game ends when the countdown runs out or the stack (30 tiles to start) is empty. The menu
+pauses the clock. The numbers live in `src/game/levels.ts`. Add `?seed=123` to the URL to replay
+the same sequence of tiles.
+
+## Requirements
+
+Node.js 22.12 or newer (CI uses Node 24).
+
+```sh
+npm install
+```
+
+## Develop
+
+```sh
+npm run dev
+```
+
+Open the URL Vite prints. It includes the base path, e.g. <http://localhost:5173/autristik/>.
+
+In dev builds the Zustand store is exposed as `window.gameStore` for debugging from the console,
+e.g. `gameStore.getState().restart(42)`.
+
+Other scripts:
+
+| Script                 | What it does                      |
+| ---------------------- | --------------------------------- |
+| `npm run lint`         | ESLint                            |
+| `npm run format`       | Prettier, writes changes          |
+| `npm run format:check` | Prettier, check only (used in CI) |
+| `npm run typecheck`    | `tsc -b` in strict mode           |
+
+## Test
+
+```sh
+npm test            # single run
+npm run test:watch  # watch mode
+```
+
+Tests live next to the code (`src/**/*.test.ts`). They cover square neighbours, rotation, which
+squares face each other across a seam, matching and scoring, placement rules, the game flow and
+the timer format.
+
+## Build
+
+```sh
+npm run build    # type-checks, then writes dist/
+npm run preview  # serves dist/ locally
+```
+
+### Base path
+
+GitLab Pages serves a project site from `https://<namespace>.gitlab.io/<repo-name>/`, so the
+assets need that prefix. `vite.config.ts` reads it from the `BASE_PATH` environment variable
+and falls back to `/autristik/`:
+
+```sh
+BASE_PATH=/ npm run build            # site at a domain root
+BASE_PATH=/my-fork/ npm run build    # repo renamed or forked
+```
+
+A `.env.local` file containing `BASE_PATH=/` works too.
+
+Static files that should be copied as-is go in `static/`, not `public/`. The `public/` name is
+reserved for the Pages artifact.
+
+## Branches and deploying
+
+- `main` is where the team works. Every push runs the `test` job: lint, Prettier check, Vitest
+  and a production build (which also type-checks). Nothing is deployed from `main`.
+- `prod` is what's live. A push to `prod` runs `test` and then `pages`, which builds the site,
+  moves `dist/` to `public/` and publishes it to GitLab Pages.
+
+To release the current `main`:
+
+```sh
+git push origin main:prod
+```
+
+Or open a merge request from `main` into `prod` if you want a review step first. Once the
+pipeline passes, the URL is listed under Deploy > Pages in the project. The branch name is the
+`PAGES_BRANCH` variable at the top of `.gitlab-ci.yml`.
+
+Recommended project settings (Settings > Repository > Protected branches): protect `prod` so only
+maintainers can push or merge to it, and keep `main` protected against force pushes.
+
+In the `pages` job, `BASE_PATH` comes from `CI_PAGES_URL` when GitLab provides it, so it works
+on self-hosted instances with their own Pages domain and with the "unique domain" setting (where
+the site sits at the domain root). If neither is available it uses `/$CI_PROJECT_NAME/`. To force
+a value, set a `BASE_PATH` CI/CD variable in the project settings.
+
+## Project layout
 
 ```
-cd existing_repo
-git remote add origin https://git.unistra.fr/autristic/autristik.git
-git branch -M main
-git push -uf origin main
+src/
+  game/      Pure TypeScript game logic. No React, Three or store imports (ESLint enforces this).
+    coords.ts    Square axial coordinates, directions, neighbours
+    tiles.ts     Terrain types, 2×2 quadrants, rotation, which squares face each other
+    board.ts     Board map and the starting layout
+    matching.ts  Seam matching and placement rules
+    scoring.ts   Points and bonus tiles
+    game.ts      Game state transitions (place, rotate, draw, countdown, level up)
+    levels.ts    Goal and time limit for each level
+    random.ts    Seedable PRNG so games are reproducible
+  input/     Pure keyboard logic: bindings and defaults, key labels, screen-relative movement
+  store/
+    gameStore.ts      Game state plus hover, keyboard cursor, menu and timer
+    viewStore.ts      Camera angles and focus, plus keyboard pivot/zoom requests
+    settingsStore.ts  Key bindings, saved to localStorage
+  scene/     React Three Fiber components
+    Board.tsx       Placed tiles as two InstancedMeshes (soil, terrain squares), plus open-square markers
+    SquareTile.tsx  A single non-instanced tile (used for the ghost)
+    Ghost.tsx       Hover preview with seam feedback
+    Ground.tsx      Ground plane; also the pointer target for picking squares
+    Lights.tsx      Hemisphere fill and a shadow-casting sun that follows the camera
+    CameraRig.tsx   MapControls with zoom and tilt limits, scroll pivot, clamped to the board
+  ui/        Tailwind overlay: HUD (score, timer, tile tray), main menu, game-over screen,
+             keyboard shortcuts and the game clock
+  palette.ts Colours shared by the scene and the HUD
 ```
 
-## Integrate with your tools
+Grid convention: `q` grows east (+x), `r` grows south (+z). A tile's squares are stored clockwise
+from the north-west corner as `[NW, NE, SE, SW]`, and one clockwise turn moves the north-west
+square to the north-east corner.
 
-- [ ] [Set up project integrations](https://git.unistra.fr/autristic/autristik/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Fonts (Fraunces and Figtree) are bundled from `@fontsource-variable`, so the built site makes no
+requests to external font hosts.

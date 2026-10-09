@@ -1,0 +1,57 @@
+# Every branch: lint, format check, tests and a build (which also type-checks).
+# Only the prod branch publishes to GitLab Pages: day-to-day work happens on main,
+# and pushing main to prod releases a new version of the site.
+image: node:24-alpine
+
+stages:
+  - test
+  - deploy
+
+variables:
+  npm_config_cache: '$CI_PROJECT_DIR/.npm'
+  # Branch that GitLab Pages is deployed from.
+  PAGES_BRANCH: prod
+
+default:
+  cache:
+    key:
+      files: [package-lock.json]
+    paths: [.npm/]
+  before_script:
+    - npm ci --prefer-offline --no-audit --no-fund
+
+test:
+  stage: test
+  script:
+    - npm run lint
+    - npm run format:check
+    - npm test
+    - npm run build
+
+pages:
+  stage: deploy
+  # Runs after the test job has passed for the same commit.
+  rules:
+    - if: $CI_COMMIT_BRANCH == $PAGES_BRANCH
+  script:
+    # Serve assets under the Pages sub-path. Taking it from CI_PAGES_URL also covers
+    # instances with custom Pages domains and projects with "unique domain" enabled
+    # (where the site lives at the domain root and the path is just "/").
+    - |
+      if [ -z "${BASE_PATH:-}" ]; then
+        if [ -n "${CI_PAGES_URL:-}" ]; then
+          BASE_PATH="$(echo "$CI_PAGES_URL" | sed -E 's#^https?://[^/]+##; s#/+$##')/"
+        else
+          BASE_PATH="/$CI_PROJECT_NAME/"
+        fi
+      fi
+      export BASE_PATH
+    - echo "Building with BASE_PATH=$BASE_PATH"
+    - npm run build
+    - rm -rf public && mv dist public
+  artifacts:
+    paths:
+      - public
+  environment:
+    name: pages
+    url: $CI_PAGES_URL

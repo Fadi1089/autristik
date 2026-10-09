@@ -1,0 +1,165 @@
+@import '@fontsource-variable/fraunces/soft.css';
+@import '@fontsource-variable/fraunces/soft-italic.css';
+@import '@fontsource-variable/figtree/index.css';
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Figtree Variable', ui-rounded, system-ui, sans-serif;
+  --font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
+
+  --color-paper: #f8f1e4;
+  --color-paper-deep: #efe3cc;
+  --color-ink: #3b2e22;
+  --color-moss: #5f8f43;
+  --color-moss-deep: #4c7535;
+  --color-clay: #c4643c;
+
+  --animate-float-up: float-up 1.4s ease-out forwards;
+  --animate-banner: banner 2.8s ease-out forwards;
+  --animate-rise: rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-fade: fade 0.35s ease-out both;
+  --animate-spin-cw: spin-cw 0.5s cubic-bezier(0.3, 1.4, 0.5, 1);
+  --animate-spin-ccw: spin-ccw 0.5s cubic-bezier(0.3, 1.4, 0.5, 1);
+
+  @keyframes float-up {
+    0% {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    15% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+  }
+  @keyframes banner {
+    0% {
+      opacity: 0;
+      transform: translateY(-12px) scale(0.96);
+    }
+    10%,
+    80% {
+      opacity: 1;
+      transform: none;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes spin-cw {
+    from {
+      transform: rotate(-360deg);
+    }
+  }
+  @keyframes spin-ccw {
+    from {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+  }
+}
+
+/* Fraunces with its soft, rounded terminals switched on. */
+@utility font-display {
+  font-family: var(--font-display);
+  font-variation-settings:
+    'SOFT' 100,
+    'WONK' 0;
+}
+
+/* A paper label with a faint printed inner rule. */
+@utility card {
+  pointer-events: auto;
+  border-radius: 1.25rem;
+  background: color-mix(in oklab, var(--color-paper) 92%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--color-ink) 9%, transparent),
+    inset 0 0 0 4px var(--color-paper),
+    inset 0 0 0 5px color-mix(in oklab, var(--color-ink) 6%, transparent),
+    0 10px 30px -12px color-mix(in oklab, var(--color-ink) 35%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+/* Small caps label used above numbers. */
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 650;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-ink) 55%, transparent);
+}
+
+/* Fine paper grain, multiplied over whatever sits beneath. */
+@utility grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.23 0 0 0 0 0.18 0 0 0 0 0.13 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: #f3eadb;
+    overscroll-behavior: none;
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  kbd {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.6rem;
+    height: 1.6rem;
+    padding: 0 0.4rem;
+    border-radius: 0.45rem;
+    background: var(--color-paper);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, var(--color-ink) 14%, transparent),
+      0 2px 0 color-mix(in oklab, var(--color-ink) 14%, transparent);
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    font-weight: 650;
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-moss);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: 1ms !important;
+    }
+  }
+}
