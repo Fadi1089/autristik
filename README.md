@@ -146,18 +146,39 @@ reserved for the Pages artifact.
 - `prod` is what's live. A push to `prod` runs `test` and then `pages`, which builds the site,
   moves `dist/` to `public/` and publishes it to GitLab Pages.
 
-To release the current `main`:
+To release, start the commit message with `(RELEASE)` and push to `main`:
 
 ```sh
-git push origin main:prod
+git commit -m "(RELEASE) feat: timed levels"
+git push origin main
 ```
 
-Or open a merge request from `main` into `prod` if you want a review step first. Once the
-pipeline passes, the URL is listed under Deploy > Pages in the project. The branch name is the
-`PAGES_BRANCH` variable at the top of `.gitlab-ci.yml`.
+On `main`, a commit flagged like this runs one more job after `test` passes: `release`. It adds
+one squash commit to `prod` whose files are exactly those of the flagged commit. Whatever was on
+`prod` before is ignored, so there are no merges, merge requests or conflicts. The flag is
+stripped from the message (`feat: timed levels` above; a bare `(RELEASE)` becomes
+`chore(release): main@<sha>`), the commit is authored by whoever pushed, and the body records the
+`main` commit it came from. The squash sits on top of the previous release, so the push is a
+plain fast-forward and never needs force. That push starts a pipeline on `prod`, which runs
+`test` and then `pages`. Once it passes, the URL is listed under Deploy > Pages.
 
-Recommended project settings (Settings > Repository > Protected branches): protect `prod` so only
-maintainers can push or merge to it, and keep `main` protected against force pushes.
+Only the last commit of a push counts: if you push several commits at once, put the flag on the
+newest one. The branch name is the `PAGES_BRANCH` variable at the top of `.gitlab-ci.yml`.
+
+### One-time setup
+
+The `release` job pushes with a token, because the built-in CI job token can't push to the
+repository.
+
+1. Settings > Access tokens: create a project access token with the Maintainer role and the
+   `write_repository` scope. (If project access tokens are turned off on the instance, a
+   maintainer's personal access token with the same scope works too.)
+2. Settings > CI/CD > Variables: add it as `RELEASE_TOKEN`, with "Mask variable" and "Protect
+   variable" checked. Protected variables are only given to protected branches, which `main` is
+   by default.
+3. Settings > Repository > Protected branches: protect `prod` with "Allowed to push and merge"
+   set to Maintainers and force push off, so the release job is the usual way in. Keep `main`
+   protected against force pushes.
 
 In the `pages` job, `BASE_PATH` comes from `CI_PAGES_URL` when GitLab provides it, so it works
 on self-hosted instances with their own Pages domain and with the "unique domain" setting (where

@@ -1,10 +1,13 @@
 # Every branch: lint, format check, tests and a build (which also type-checks).
-# Only the prod branch publishes to GitLab Pages: day-to-day work happens on main,
-# and pushing main to prod releases a new version of the site.
+#
+# Releasing: a commit on main with a message starting with "(RELEASE)" is squashed onto
+# prod once its tests pass. The push to prod starts a prod pipeline, and only prod
+# deploys GitLab Pages. Needs a RELEASE_TOKEN CI/CD variable (see README).
 image: node:24-alpine
 
 stages:
   - test
+  - release
   - deploy
 
 variables:
@@ -27,6 +30,50 @@ test:
     - npm run format:check
     - npm test
     - npm run build
+
+release:
+  stage: release
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE =~ /^\(RELEASE\)/
+  # One release at a time, so two quick pushes can't race each other to prod.
+  resource_group: release
+  cache: []
+  before_script: []
+  script:
+    - |
+      if [ -z "${RELEASE_TOKEN:-}" ]; then
+        echo "RELEASE_TOKEN is not set. Add a project access token with write_repository"
+        echo "as a masked CI/CD variable named RELEASE_TOKEN (see README)."
+        exit 1
+      fi
+    - apk add --no-cache git >/dev/null
+    - git config user.name "$GITLAB_USER_NAME"
+    - git config user.email "$GITLAB_USER_EMAIL"
+    - remote="$(echo "$CI_SERVER_URL" | sed "s#://#://release:${RELEASE_TOKEN}@#")/$CI_PROJECT_PATH.git"
+    - tree="$(git rev-parse "$CI_COMMIT_SHA^{tree}")"
+    # Stack the squash on the previous release (if any) so the push is a fast-forward.
+    # Whatever prod held before is ignored: the new commit has exactly main's files.
+    - |
+      parent=""
+      if git fetch --quiet --depth=1 "$remote" "$PAGES_BRANCH" 2>/dev/null; then
+        parent="$(git rev-parse FETCH_HEAD)"
+        if [ "$(git rev-parse "$parent^{tree}")" = "$tree" ]; then
+          echo "$PAGES_BRANCH already matches $CI_COMMIT_SHORT_SHA. Nothing to release."
+          exit 0
+        fi
+      fi
+    - |
+      subject="$(printf '%s' "$CI_COMMIT_TITLE" | sed -E 's/^\(RELEASE\)[[:space:]:-]*//')"
+      [ -n "$subject" ] || subject="chore(release): $CI_DEFAULT_BRANCH@$CI_COMMIT_SHORT_SHA"
+      message="$(printf '%s\n\nReleased from %s at %s.\n' "$subject" "$CI_DEFAULT_BRANCH" "$CI_COMMIT_SHA")"
+      if [ -n "$parent" ]; then
+        commit="$(printf '%s\n' "$message" | git commit-tree "$tree" -p "$parent")"
+      else
+        commit="$(printf '%s\n' "$message" | git commit-tree "$tree")"
+      fi
+      git --no-pager log -1 --format='%h %s%n%n%b' "$commit"
+      git push --quiet "$remote" "$commit:refs/heads/$PAGES_BRANCH"
+      echo "Pushed to $PAGES_BRANCH. Its pipeline deploys GitLab Pages."
 
 pages:
   stage: deploy
