@@ -252,4 +252,4 @@ from the north-west corner as `[NW, NE, SE, SW]`, and one clockwise turn moves t
 square to the north-east corner.
 
 Fonts (Fraunces and Figtree) are bundled from `@fontsource-variable`, so the built site makes no
-requests to external font hosts.
+requests to external font hosts .
