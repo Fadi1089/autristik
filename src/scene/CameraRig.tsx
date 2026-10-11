@@ -40,6 +40,7 @@ const offset = new Vector3()
 export function CameraRig() {
   const controls = useRef<ComponentRef<typeof MapControls>>(null)
   const pendingPivot = useRef(0)
+  const alignedPivot = useRef<number | null>(null)
   const pendingZoom = useRef(0)
   const following = useRef<CameraFollow | null>(null)
   const recentering = useRef<FallFraming | null>(null)
@@ -70,6 +71,9 @@ export function CameraRig() {
     const azimuth = useViewStore.getState().azimuth
     if (menuOpen) {
       headingBeforeMenu.current = azimuth
+      alignedPivot.current = null
+      pendingPivot.current = 0
+      useViewStore.setState({ pivotTarget: null, pivotRequest: 0 })
     } else {
       // Ease back the short way round to where the player left the camera.
       const diff = headingBeforeMenu.current - azimuth
@@ -97,6 +101,9 @@ export function CameraRig() {
       interacting.current = true
       following.current = null
       recentering.current = null
+      alignedPivot.current = null
+      pendingPivot.current = 0
+      useViewStore.setState({ pivotTarget: null, pivotRequest: 0 })
     }
     const end = () => {
       interacting.current = false
@@ -122,6 +129,9 @@ export function CameraRig() {
       e.stopPropagation()
       // Some browsers already map Shift + wheel to deltaX; others keep it on deltaY.
       const pixels = (sideways ? e.deltaX : e.deltaY) * (e.deltaMode === 1 ? 16 : 1)
+      if (alignedPivot.current !== null) pendingPivot.current = 0
+      alignedPivot.current = null
+      useViewStore.setState({ pivotTarget: null, pivotRequest: 0 })
       pendingPivot.current += pixels * PIVOT_PER_PIXEL
     }
     host.addEventListener('wheel', onWheel, { capture: true, passive: false })
@@ -134,20 +144,37 @@ export function CameraRig() {
     const { target } = c
 
     const view = useViewStore.getState()
-    if (view.pivotRequest !== 0 || view.zoomRequest !== 0) {
+    const hasSideRequest = view.pivotTarget !== null && alignedPivot.current === null
+    if (view.pivotRequest !== 0 || hasSideRequest || view.zoomRequest !== 0) {
       following.current = null
       recentering.current = null
-      pendingPivot.current += view.pivotRequest
+      if (view.pivotRequest !== 0 || hasSideRequest) {
+        if (view.pivotTarget !== null && alignedPivot.current === null)
+          pendingPivot.current = view.pivotRequest
+        else pendingPivot.current += view.pivotRequest
+        alignedPivot.current = view.pivotTarget
+      }
       pendingZoom.current += view.zoomRequest
       useViewStore.setState({ pivotRequest: 0, zoomRequest: 0 })
     }
 
     if (menuOpen) pendingPivot.current += delta * MENU_ORBIT_SPEED
-    const step = pendingPivot.current * (1 - Math.exp(-delta * PIVOT_EASING))
-    if (Math.abs(step) > 1e-5) {
+    const finishPivot = alignedPivot.current !== null && Math.abs(pendingPivot.current) < 1e-4
+    offset.copy(camera.position).sub(target)
+    const heading = Math.atan2(offset.x, offset.z)
+    const difference = (alignedPivot.current ?? heading) - heading
+    const step = finishPivot
+      ? Math.atan2(Math.sin(difference), Math.cos(difference))
+      : pendingPivot.current * (1 - Math.exp(-delta * PIVOT_EASING))
+    if (finishPivot || Math.abs(step) > 1e-5) {
       pendingPivot.current -= step
       offset.copy(camera.position).sub(target).applyAxisAngle(UP, step)
       camera.position.copy(target).add(offset)
+    }
+    if (finishPivot) {
+      pendingPivot.current = 0
+      alignedPivot.current = null
+      useViewStore.setState({ pivotTarget: null })
     }
 
     const zoomStep = pendingZoom.current * (1 - Math.exp(-delta * ZOOM_EASING))
@@ -194,8 +221,9 @@ export function CameraRig() {
         following.current = null
         if (requested) {
           pendingPivot.current = 0
+          alignedPivot.current = null
           pendingZoom.current = 0
-          useViewStore.setState({ recenterRequest: 0 })
+          useViewStore.setState({ recenterRequest: 0, pivotTarget: null, pivotRequest: 0 })
         }
       }
       const framing = recentering.current

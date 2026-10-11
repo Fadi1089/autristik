@@ -3,6 +3,7 @@ import {
   actionForCode,
   DEFAULT_BINDINGS,
   normalizeBindings,
+  upgradeCameraBindings,
   upgradeLegacyBindings,
   withBinding,
   withoutBinding,
@@ -19,6 +20,8 @@ describe('key bindings', () => {
     expect(actionForCode(DEFAULT_BINDINGS, 'PageUp')).toBe('rotateCcw')
     expect(actionForCode(DEFAULT_BINDINGS, 'KeyR')).toBeNull()
     expect(actionForCode(DEFAULT_BINDINGS, 'KeyP')).toBeNull()
+    expect(actionForCode(DEFAULT_BINDINGS, 'Comma')).toBe('pivotLeft')
+    expect(actionForCode(DEFAULT_BINDINGS, 'Period')).toBe('pivotRight')
   })
 
   it('moves a key away from its old action when it is rebound', () => {
@@ -57,6 +60,15 @@ describe('key bindings', () => {
     expect(upgraded.rotateCw).toEqual(['KeyE', null])
     expect(upgraded.rotateCcw).toEqual(['KeyQ', null])
   })
+
+  it('adds secondary camera defaults without replacing custom controls or stealing keys', () => {
+    const previous = { ...DEFAULT_BINDINGS, pivotLeft: ['KeyZ', null], pivotRight: ['KeyX', null] }
+    expect(upgradeCameraBindings(previous)).toEqual(DEFAULT_BINDINGS)
+    const customized = { ...previous, pivotLeft: ['KeyP', null], pivotRight: ['KeyX', 'KeyT'] }
+    expect(upgradeCameraBindings(customized)).toEqual(customized)
+    const occupied = { ...previous, rotateCw: ['Comma', 'Period'] }
+    expect(upgradeCameraBindings(occupied)).toEqual(occupied)
+  })
 })
 
 describe('key labels', () => {
@@ -89,5 +101,10 @@ describe('key labels', () => {
     expect(keyLabel('KeyQ', KEYBOARD_LAYOUT_MAPS.azerty)).toBe('A')
     expect(keyLabel('PageDown', KEYBOARD_LAYOUT_MAPS.azerty)).toBe('Page Down')
     expect(keyLabel('PageUp', KEYBOARD_LAYOUT_MAPS.qwerty)).toBe('Page Up')
+    expect(keyLabel('Comma', KEYBOARD_LAYOUT_MAPS.azerty)).toBe(';')
+    expect(keyLabel('Period', KEYBOARD_LAYOUT_MAPS.azerty)).toBe(':')
+    expect(keyLabel('Slash', KEYBOARD_LAYOUT_MAPS.azerty)).toBe('!')
+    expect(keyLabel('Comma', KEYBOARD_LAYOUT_MAPS.qwerty)).toBe(',')
+    expect(keyLabel('Period', KEYBOARD_LAYOUT_MAPS.qwerty)).toBe('.')
   })
 })

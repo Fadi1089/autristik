@@ -107,8 +107,8 @@ export function KeySettings() {
         </div>
         <p className="mb-3 text-xs text-ink/55">
           Pick a slot, then press a key. <kbd>Esc</kbd> cancels, <kbd>Backspace</kbd> clears.
-          <kbd>Shift</kbd> + <kbd>R</kbd> or <kbd>Shift</kbd> + <kbd>!</kbd> recenters the camera on
-          the falling tile and its destination.
+          <kbd>C</kbd> or <kbd>!</kbd> recenters the camera on the falling tile and its destination.
+          Camera pivot keys move to the next aligned side, one press per side.
         </p>
         <table className="w-full text-sm">
           <tbody>

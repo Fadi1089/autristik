@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import {
   DEFAULT_BINDINGS,
   normalizeBindings,
+  upgradeCameraBindings,
   upgradeLegacyBindings,
   withBinding,
   withoutBinding,
@@ -45,15 +46,16 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'autristik:settings',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({ bindings: s.bindings, keyboardLayout: s.keyboardLayout }),
-      migrate: (persisted) => ({
-        ...(persisted as object),
-        bindings: upgradeLegacyBindings(
-          (persisted as { bindings?: unknown } | undefined)?.bindings,
-        ),
-      }),
+      migrate: (persisted, version) => {
+        const stored = (persisted as { bindings?: unknown } | undefined)?.bindings
+        return {
+          ...(persisted as object),
+          bindings: upgradeCameraBindings(version < 2 ? upgradeLegacyBindings(stored) : stored),
+        }
+      },
       merge: (persisted, current) => {
         const saved = persisted as { bindings?: unknown; keyboardLayout?: unknown } | undefined
         const keyboardLayout = saved?.keyboardLayout === 'azerty' ? 'azerty' : 'qwerty'

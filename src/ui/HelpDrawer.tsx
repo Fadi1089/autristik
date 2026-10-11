@@ -23,15 +23,16 @@ const KEYS: [keys: ReactNode, action: string][] = [
   ],
   [
     <>
-      <KeyCaps action="pivotLeft" max={1} />
-      <KeyCaps action="pivotRight" max={1} />
+      <KeyCaps action="pivotLeft" />
+      <span>/</span>
+      <KeyCaps action="pivotRight" />
     </>,
-    'Pivot camera',
+    'Camera: next side (90°)',
   ],
   [<kbd key="esc">Esc</kbd>, 'Menu'],
   [
     <>
-      <kbd>Shift</kbd> + <kbd>R</kbd> / <kbd>!</kbd>
+      <kbd>C</kbd> / <kbd>!</kbd>
     </>,
     'Recenter on falling tile',
   ],

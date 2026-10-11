@@ -9,8 +9,6 @@ import { useGameStore } from '../store/gameStore'
 import { useSettingsStore } from '../store/settingsStore'
 import { useViewStore } from '../store/viewStore'
 
-/** Radians of camera pivot per key press (or key repeat). */
-const PIVOT_STEP = Math.PI / 16
 const ZOOM_STEP = 0.14
 const MOVES: Partial<Record<Action, ScreenDirection>> = {
   moveUp: 'up',
@@ -39,8 +37,8 @@ export function useKeyboardShortcuts() {
       // Leave Enter, Space and friends to the menu and game-over buttons.
       if (game.menuOpen || isGameOver(game)) return
 
-      // AZERTY's ! key produces § with Shift; QWERTY's Shift + 1 produces !.
-      if (e.shiftKey && (e.code === 'KeyR' || e.key === '!' || e.key === '§')) {
+      // Match ! by its character: unshifted on AZERTY, Shift + 1 on QWERTY.
+      if (e.code === 'KeyC' || e.key === '!') {
         e.preventDefault()
         if (!e.repeat) useViewStore.getState().requestRecenter()
         return
@@ -74,10 +72,10 @@ export function useKeyboardShortcuts() {
           game.rotate(-1)
           break
         case 'pivotLeft':
-          view.requestPivot(-PIVOT_STEP)
+          view.requestSidePivot(-1)
           break
         case 'pivotRight':
-          view.requestPivot(PIVOT_STEP)
+          view.requestSidePivot(1)
           break
         case 'zoomIn':
           view.requestZoom(ZOOM_STEP)

@@ -30,8 +30,8 @@ export const DEFAULT_BINDINGS: Bindings = {
   place: ['Enter', 'Space'],
   rotateCw: ['KeyE', 'PageDown'],
   rotateCcw: ['KeyQ', 'PageUp'],
-  pivotLeft: ['KeyZ', null],
-  pivotRight: ['KeyX', null],
+  pivotLeft: ['KeyZ', 'Comma'],
+  pivotRight: ['KeyX', 'Period'],
   zoomIn: ['Equal', 'NumpadAdd'],
   zoomOut: ['Minus', 'NumpadSubtract'],
 }
@@ -56,8 +56,6 @@ export const REPEATABLE: ReadonlySet<Action> = new Set<Action>([
   'moveDown',
   'moveLeft',
   'moveRight',
-  'pivotLeft',
-  'pivotRight',
   'zoomIn',
   'zoomOut',
 ])
@@ -128,4 +126,22 @@ export function upgradeLegacyBindings(stored: unknown): Bindings {
         ? ['KeyQ', actionForCode(bindings, 'PageUp') ? null : 'PageUp']
         : ccw,
   }
+}
+
+/** Add right-hand camera keys to untouched defaults without taking custom keys away. */
+export function upgradeCameraBindings(stored: unknown): Bindings {
+  const bindings = normalizeBindings(stored)
+  const next = { ...bindings }
+  for (const action of ['pivotLeft', 'pivotRight'] as const) {
+    const [primary, secondary] = bindings[action]
+    const [defaultPrimary, defaultSecondary] = DEFAULT_BINDINGS[action]
+    if (
+      primary === defaultPrimary &&
+      secondary === null &&
+      defaultSecondary &&
+      !actionForCode(bindings, defaultSecondary)
+    )
+      next[action] = [primary, defaultSecondary]
+  }
+  return next
 }

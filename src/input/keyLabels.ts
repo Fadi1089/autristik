@@ -55,6 +55,9 @@ export const KEYBOARD_LAYOUT_MAPS: Readonly<Record<KeyboardLayout, LayoutMap>> =
     KeyQ: 'A',
     KeyZ: 'W',
     KeyM: ',',
+    Comma: ';',
+    Period: ':',
+    Slash: '!',
     Semicolon: 'M',
   },
 }
@@ -65,7 +68,11 @@ export const KEYBOARD_LAYOUT_MAPS: Readonly<Record<KeyboardLayout, LayoutMap>> =
  */
 export function keyLabel(code: string, layout: LayoutMap | null = null): string {
   const printed = layout?.[code]
-  if (printed && printed.trim() && (/^(Key|Digit)/.test(code) || code === 'Semicolon'))
+  if (
+    printed &&
+    printed.trim() &&
+    (/^(Key|Digit)/.test(code) || ['Semicolon', 'Comma', 'Period', 'Slash'].includes(code))
+  )
     return printed.toUpperCase()
   const named = NAMED[code]
   if (named) return named

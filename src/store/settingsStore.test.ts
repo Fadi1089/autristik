@@ -54,7 +54,7 @@ describe('keyboard layout settings', () => {
     expect(state.bindings).toBe(bindings)
     expect(state.capturing).toBeNull()
     expect(JSON.parse(saved.get('autristik:settings')!)).toMatchObject({
-      version: 2,
+      version: 3,
       state: { keyboardLayout: 'azerty', bindings: { place: ['KeyT', 'Space'] } },
     })
     await useSettingsStore.persist.rehydrate()
@@ -72,5 +72,30 @@ describe('keyboard layout settings', () => {
     store.resetBindings()
     expect(useSettingsStore.getState().bindings).toEqual(DEFAULT_BINDINGS)
     expect(useSettingsStore.getState().keyboardLayout).toBe('azerty')
+  })
+
+  it('adds camera shortcuts to saved version 2 settings without changing custom controls', async () => {
+    saved.set(
+      'autristik:settings',
+      JSON.stringify({
+        version: 2,
+        state: {
+          keyboardLayout: 'azerty',
+          bindings: {
+            ...DEFAULT_BINDINGS,
+            pivotLeft: ['KeyZ', null],
+            pivotRight: ['KeyX', null],
+            rotateCw: ['KeyR', 'KeyE'],
+          },
+        },
+      }),
+    )
+    await useSettingsStore.persist.rehydrate()
+    const state = useSettingsStore.getState()
+    expect(state.bindings.pivotLeft).toEqual(['KeyZ', 'Comma'])
+    expect(state.bindings.pivotRight).toEqual(['KeyX', 'Period'])
+    expect(state.bindings.rotateCw).toEqual(['KeyR', 'KeyE'])
+    expect(state.keyboardLayout).toBe('azerty')
+    expect(JSON.parse(saved.get('autristik:settings')!).version).toBe(3)
   })
 })

@@ -53,7 +53,7 @@ flush, so where two tiles meet, each square on one side faces one square on the 
   locking and spawning leave it in place while the falling tile stays on screen.
   If the tile leaves the frame, the camera smoothly recenters on the tile, its landing
   projection and the neighbouring island edge, keeping its orientation and zooming out
-  only if needed. `Shift` + `R` or `Shift` + `!` requests the same framing on demand.
+  only if needed. `C` or `!` requests the same framing on demand.
   You can still pan, pivot and zoom; automatic reframing waits until a mouse gesture ends.
 - Seam dots on the landing projection show matching terrain (green) and mismatches (red).
   The combo multiplier is displayed in the score card in the top-left corner.
@@ -66,17 +66,17 @@ flush, so where two tiles meet, each square on one side faces one square on the 
 
 The game is fully playable with the keyboard alone. Default keys:
 
-| Key                           | Action                                                        |
-| ----------------------------- | ------------------------------------------------------------- |
-| Arrows or `W` `A` `S` `D`     | Move sideways / advance towards stack, relative to the camera |
-| `Shift` + movement key        | Choose arrival side, relative to the camera                   |
-| `Space` / `Enter`             | Place immediately against the first obstacle                  |
-| `E` / `Page Down`             | Rotate clockwise                                              |
-| `Q` / `Page Up`               | Rotate anticlockwise (QWERTY; `A` on AZERTY)                  |
-| `Z` / `X`                     | Pivot the camera                                              |
-| `=` / `-`                     | Zoom                                                          |
-| `Shift` + `R` / `Shift` + `!` | Recenter on the falling tile and the island edge              |
-| `Esc`                         | Menu (always, can't be rebound)                               |
+| Key                       | Action                                                        |
+| ------------------------- | ------------------------------------------------------------- |
+| Arrows or `W` `A` `S` `D` | Move sideways / advance towards stack, relative to the camera |
+| `Shift` + movement key    | Choose arrival side, relative to the camera                   |
+| `Space` / `Enter`         | Place immediately against the first obstacle                  |
+| `E` / `Page Down`         | Rotate clockwise                                              |
+| `Q` / `Page Up`           | Rotate anticlockwise (QWERTY; `A` on AZERTY)                  |
+| `Z` or `,` / `X` or `.`   | Next aligned camera side, left / right (90°; QWERTY)          |
+| `=` / `-`                 | Zoom                                                          |
+| `C` / `!`                 | Recenter on the falling tile and the island edge              |
+| `Esc`                     | Menu (always, can't be rebound)                               |
 
 Choose AZERTY or QWERTY under Menu > Settings > Keyboard layout. The selection is saved and
 updates key labels throughout the interface. Keys are matched by physical position, so movement
@@ -85,6 +85,13 @@ uses `Z` `Q` `S` `D` on AZERTY and `W` `A` `S` `D` on QWERTY; switching layouts 
 All four movement actions and immediate placement are configurable under Settings.
 The movement mapping adapts when the camera has pivoted; arrival sides change through movement
 or `Shift` + a movement key (including custom bindings and AZERTY / QWERTY).
+Camera pivot uses `W` or `;` to turn left and `X` or `:` to turn right on AZERTY
+(`Z` or `,` / `X` or `.` on QWERTY). These secondary defaults are added to existing
+settings without replacing custom camera bindings or keys assigned to other actions. Each press moves to
+the next of the four grid-aligned views, left or right, with a smooth transition.
+From a freely rotated camera, it selects the next aligned view in that direction.
+Holding a pivot key does not skip sides; successive presses queue correctly during a turn.
+Mouse and touchpad rotation remains free.
 
 Mouse and touchpad:
 

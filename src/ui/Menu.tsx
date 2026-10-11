@@ -113,8 +113,8 @@ function HowToPlay() {
           preserved; the new lane follows the projected placement whenever it has an obstacle. Space
           or Enter places immediately. The next tile keeps the last placement's lane. Rotate to
           match the terrain; pan, pivot and zoom the camera throughout play. If the falling tile
-          leaves the screen, the camera reframes it and the island edge. Shift + R or Shift + ! does
-          the same on demand.
+          leaves the screen, the camera reframes it and the island edge. C or ! does the same on
+          demand. Camera pivot keys turn to the next aligned side of the board (90°).
         </Rule>
         <Rule n="2">
           Every matching square along a seam scores 5 points. A placement with at least one fully

@@ -59,7 +59,13 @@ beforeEach(() => {
   useGameStore.getState().tick(FALL_INTERVAL * 5 + 0.3)
   useSettingsStore.getState().resetBindings()
   useSettingsStore.getState().setKeyboardLayout('qwerty')
-  useViewStore.setState({ azimuth: 0, recenterRequest: 0 })
+  useViewStore.setState({
+    azimuth: 0,
+    recenterRequest: 0,
+    pivotRequest: 0,
+    pivotTarget: null,
+    zoomRequest: 0,
+  })
 })
 
 const moves: [ScreenDirection, string, string, ScreenDirection][] = [
@@ -70,38 +76,97 @@ const moves: [ScreenDirection, string, string, ScreenDirection][] = [
 ]
 
 describe('Shift + movement controls', () => {
-  it.each([
-    { code: 'KeyR', key: 'R' },
-    { code: 'Digit1', key: '!' },
-    { code: 'Slash', key: '§' },
-    { code: 'Slash', key: '!' },
-  ])('requests camera framing with Shift + $key without changing the game', ({ code, key }) => {
+  it.each(['azerty', 'qwerty'] as const)(
+    'pivots one aligned side per press on %s, without changing the tile',
+    (layout) => {
+      useSettingsStore.getState().setKeyboardLayout(layout)
+      const before = useGameStore.getState()
+      press('KeyZ', { shiftKey: false }) // W on AZERTY, Z on QWERTY
+      expect(useViewStore.getState()).toMatchObject({
+        pivotTarget: -Math.PI / 2,
+        pivotRequest: -Math.PI / 2,
+      })
+      press('KeyZ', { shiftKey: false, repeat: true })
+      expect(useViewStore.getState().pivotTarget).toBe(-Math.PI / 2)
+      press('KeyZ', { shiftKey: false })
+      expect(useViewStore.getState().pivotTarget).toBe(-Math.PI)
+      press('KeyX', { shiftKey: false })
+      expect(useViewStore.getState().pivotTarget).toBe(-Math.PI / 2)
+      expect(useGameStore.getState()).toBe(before)
+    },
+  )
+
+  it('uses rebound pivot controls and ignores them while paused or capturing a key', () => {
+    useSettingsStore.getState().bind('pivotRight', 0, 'KeyP')
+    useGameStore.getState().openMenu()
+    press('KeyP', { shiftKey: false })
+    expect(useViewStore.getState().pivotTarget).toBeNull()
+    useGameStore.getState().closeMenu()
+    useSettingsStore.getState().setCapturing({ action: 'pivotRight', slot: 0 })
+    press('KeyP', { shiftKey: false })
+    expect(useViewStore.getState().pivotTarget).toBeNull()
+    useSettingsStore.getState().setCapturing(null)
+    press('KeyP', { shiftKey: false })
+    expect(useViewStore.getState().pivotTarget).toBe(Math.PI / 2)
+  })
+
+  it('uses either hand for camera turns without rotating or moving the tile', () => {
+    useSettingsStore.getState().setKeyboardLayout('azerty')
     const before = useGameStore.getState()
-    expect(press(code, { key }).preventDefault).toHaveBeenCalled()
+    press('Comma', { key: ';', shiftKey: false })
+    expect(useViewStore.getState().pivotTarget).toBe(-Math.PI / 2)
+    press('Comma', { key: ';', shiftKey: false, repeat: true })
+    expect(useViewStore.getState().pivotTarget).toBe(-Math.PI / 2)
+    press('KeyZ', { key: 'w', shiftKey: false })
+    expect(useViewStore.getState().pivotTarget).toBe(-Math.PI)
+    press('Period', { key: ':', shiftKey: false })
+    expect(useViewStore.getState().pivotTarget).toBe(-Math.PI / 2)
+    press('KeyX', { key: 'x', shiftKey: false })
+    expect(useViewStore.getState().pivotTarget).toBe(0)
+    expect(useGameStore.getState()).toBe(before)
+  })
+  it.each([
+    { code: 'KeyC', key: 'c', shiftKey: false },
+    { code: 'KeyC', key: 'C', shiftKey: true },
+    { code: 'Digit1', key: '!', shiftKey: true },
+    { code: 'Slash', key: '!', shiftKey: false },
+  ])('requests camera framing with $key without changing the game', ({ code, key, shiftKey }) => {
+    const before = useGameStore.getState()
+    expect(press(code, { key, shiftKey }).preventDefault).toHaveBeenCalled()
     expect(useViewStore.getState().recenterRequest).toBe(1)
     expect(useGameStore.getState()).toBe(before)
-    press(code, { key, repeat: true })
+    press(code, { key, shiftKey, repeat: true })
     expect(useViewStore.getState().recenterRequest).toBe(1)
   })
 
-  it('keeps unmodified custom R bindings and disables reframing in menus or during capture', () => {
+  it('removes the old Shift shortcuts and keeps custom R bindings', () => {
     useSettingsStore.getState().bind('rotateCw', 0, 'KeyR')
     press('KeyR', { key: 'r', shiftKey: false })
     expect(useGameStore.getState().rotation).toBe(1)
     expect(useViewStore.getState().recenterRequest).toBe(0)
     press('KeyR', { key: 'R' })
-    expect(useGameStore.getState().rotation).toBe(1)
+    expect(useGameStore.getState().rotation).toBe(2)
+    press('KeyZ', { key: 'Z' })
+    press('Slash', { key: '§' })
+    expect(useViewStore.getState().recenterRequest).toBe(0)
+  })
+
+  it('disables reframing in menus, during capture and after game over', () => {
+    press('KeyC', { key: 'c', shiftKey: false })
     expect(useViewStore.getState().recenterRequest).toBe(1)
     useGameStore.getState().openMenu()
-    press('KeyR')
+    press('KeyC', { key: 'c', shiftKey: false })
+    press('Slash', { key: '!', shiftKey: false })
     expect(useViewStore.getState().recenterRequest).toBe(1)
     useGameStore.getState().closeMenu()
     useSettingsStore.getState().setCapturing({ action: 'moveUp', slot: 1 })
-    press('KeyR')
+    press('KeyC', { key: 'c', shiftKey: false })
+    press('Slash', { key: '!', shiftKey: false })
     expect(useViewStore.getState().recenterRequest).toBe(1)
     useSettingsStore.getState().setCapturing(null)
     useGameStore.setState({ current: null, remaining: 0, falling: null })
-    press('KeyR')
+    press('KeyC', { key: 'c', shiftKey: false })
+    press('Slash', { key: '!', shiftKey: false })
     expect(useViewStore.getState().recenterRequest).toBe(1)
   })
   it.each(moves)(
