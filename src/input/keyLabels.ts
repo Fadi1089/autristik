@@ -38,16 +38,35 @@ const NAMED: Readonly<Record<string, string>> = {
   Insert: 'Insert',
 }
 
-/** Physical-key code → printed key, from the browser's Keyboard API when it has one. */
+/** Physical-key code → printed key for the selected keyboard layout. */
 export type LayoutMap = Readonly<Record<string, string>>
+export type KeyboardLayout = 'azerty' | 'qwerty'
+
+const QWERTY_LABELS: LayoutMap = Object.fromEntries(
+  Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ', (letter) => [`Key${letter}`, letter]),
+)
+
+export const KEYBOARD_LAYOUT_MAPS: Readonly<Record<KeyboardLayout, LayoutMap>> = {
+  qwerty: QWERTY_LABELS,
+  azerty: {
+    ...QWERTY_LABELS,
+    KeyW: 'Z',
+    KeyA: 'Q',
+    KeyQ: 'A',
+    KeyZ: 'W',
+    KeyM: ',',
+    Semicolon: 'M',
+  },
+}
 
 /**
- * Human label for a KeyboardEvent.code. With a layout map (Chromium) letter keys show
+ * Human label for a KeyboardEvent.code. With a layout map letter keys show
  * what is printed on the player's keyboard, e.g. "Z" for KeyW on AZERTY.
  */
 export function keyLabel(code: string, layout: LayoutMap | null = null): string {
   const printed = layout?.[code]
-  if (printed && printed.trim() && /^(Key|Digit)/.test(code)) return printed.toUpperCase()
+  if (printed && printed.trim() && (/^(Key|Digit)/.test(code) || code === 'Semicolon'))
+    return printed.toUpperCase()
   const named = NAMED[code]
   if (named) return named
   const letter = /^Key([A-Z])$/.exec(code)
@@ -57,17 +76,4 @@ export function keyLabel(code: string, layout: LayoutMap | null = null): string 
   const fn = /^F(\d{1,2})$/.exec(code)
   if (fn) return code
   return code
-}
-
-/** Loads the keyboard layout map where the Keyboard API exists; resolves null elsewhere. */
-export async function loadLayoutMap(): Promise<LayoutMap | null> {
-  const keyboard = (
-    navigator as Navigator & { keyboard?: { getLayoutMap?: () => Promise<Map<string, string>> } }
-  ).keyboard
-  if (!keyboard?.getLayoutMap) return null
-  try {
-    return Object.fromEntries(await keyboard.getLayoutMap())
-  } catch {
-    return null
-  }
 }

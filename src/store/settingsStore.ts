@@ -1,20 +1,28 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import { DEFAULT_BINDINGS, normalizeBindings, withBinding, withoutBinding } from '../input/bindings'
+import {
+  DEFAULT_BINDINGS,
+  normalizeBindings,
+  upgradeLegacyBindings,
+  withBinding,
+  withoutBinding,
+} from '../input/bindings'
 import type { Action, Bindings, KeySlot } from '../input/bindings'
-import { loadLayoutMap } from '../input/keyLabels'
-import type { LayoutMap } from '../input/keyLabels'
+import { KEYBOARD_LAYOUT_MAPS } from '../input/keyLabels'
+import type { KeyboardLayout, LayoutMap } from '../input/keyLabels'
 
 interface SettingsStore {
   readonly bindings: Bindings
-  /** Printed key labels for the player's keyboard layout, when the browser exposes them. */
-  readonly layout: LayoutMap | null
+  readonly keyboardLayout: KeyboardLayout
+  /** Printed key labels shared by settings, hints and rotation buttons. */
+  readonly layout: LayoutMap
   /** The key slot waiting for a key press in the settings panel. Game keys are off meanwhile. */
   readonly capturing: { action: Action; slot: KeySlot } | null
 
   bind(action: Action, slot: KeySlot, code: string): void
   unbind(action: Action, slot: KeySlot): void
   resetBindings(): void
+  setKeyboardLayout(layout: KeyboardLayout): void
   setCapturing(capturing: SettingsStore['capturing']): void
 }
 
@@ -22,7 +30,8 @@ export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
       bindings: DEFAULT_BINDINGS,
-      layout: null,
+      keyboardLayout: 'qwerty',
+      layout: KEYBOARD_LAYOUT_MAPS.qwerty,
       capturing: null,
 
       bind: (action, slot, code) =>
@@ -30,21 +39,31 @@ export const useSettingsStore = create<SettingsStore>()(
       unbind: (action, slot) =>
         set((s) => ({ bindings: withoutBinding(s.bindings, action, slot), capturing: null })),
       resetBindings: () => set({ bindings: DEFAULT_BINDINGS, capturing: null }),
+      setKeyboardLayout: (keyboardLayout) =>
+        set({ keyboardLayout, layout: KEYBOARD_LAYOUT_MAPS[keyboardLayout], capturing: null }),
       setCapturing: (capturing) => set({ capturing }),
     }),
     {
       name: 'autristik:settings',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ bindings: s.bindings }),
-      merge: (persisted, current) => ({
-        ...current,
-        bindings: normalizeBindings((persisted as { bindings?: unknown } | undefined)?.bindings),
+      partialize: (s) => ({ bindings: s.bindings, keyboardLayout: s.keyboardLayout }),
+      migrate: (persisted) => ({
+        ...(persisted as object),
+        bindings: upgradeLegacyBindings(
+          (persisted as { bindings?: unknown } | undefined)?.bindings,
+        ),
       }),
+      merge: (persisted, current) => {
+        const saved = persisted as { bindings?: unknown; keyboardLayout?: unknown } | undefined
+        const keyboardLayout = saved?.keyboardLayout === 'azerty' ? 'azerty' : 'qwerty'
+        return {
+          ...current,
+          bindings: normalizeBindings(saved?.bindings),
+          keyboardLayout,
+          layout: KEYBOARD_LAYOUT_MAPS[keyboardLayout],
+        }
+      },
     },
   ),
 )
-
-void loadLayoutMap().then((layout) => {
-  if (layout) useSettingsStore.setState({ layout })
-})

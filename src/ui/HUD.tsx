@@ -125,7 +125,7 @@ export function HUD() {
 
       <LevelBanner />
 
-      <footer className="flex justify-center">
+      <footer className="flex flex-col items-center justify-center">
         <TileTray />
       </footer>
 

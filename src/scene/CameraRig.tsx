@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { ComponentRef } from 'react'
 import { Vector3 } from 'three'
 import { boardTiles } from '../game/board'
+import { FALL_DISTANCE } from '../game/falling'
 import { useGameStore } from '../store/gameStore'
+import type { CameraFollow } from '../store/gameStore'
 import { useViewStore } from '../store/viewStore'
 import { coordToWorld } from './layout'
 
@@ -15,12 +17,12 @@ const PIVOT_PER_PIXEL = 0.0025
 /** How quickly queued pivot and zoom are applied; higher is snappier. */
 const PIVOT_EASING = 14
 const ZOOM_EASING = 10
-/** How quickly the camera glides after the keyboard cursor. */
+/** How quickly the camera glides after a manual lateral movement. */
 const FOLLOW_EASING = 5
 /** Slow drift around the board while the menu is open (radians per second). */
 const MENU_ORBIT_SPEED = 0.12
 const MIN_DISTANCE = 4
-const MAX_DISTANCE = 28
+const MAX_DISTANCE = 65
 
 const UP = new Vector3(0, 1, 0)
 const shift = new Vector3()
@@ -30,14 +32,14 @@ const offset = new Vector3()
  * Map-style camera: left-drag (or one finger) pans, wheel/pinch zooms, right-drag
  * rotates with a limited tilt range. Horizontal scrolling on a touchpad, or Shift +
  * mouse wheel, pivots the view around the board. Keyboard pivot and zoom arrive as
- * requests on the view store, and the camera glides after the keyboard cursor until
- * the player drags the view. The target is kept near the board so you cannot lose it.
+ * requests on the view store. Only manual lateral tile movements request following;
+ * automatic falling and spawning leave the camera target unchanged.
  */
 export function CameraRig() {
   const controls = useRef<ComponentRef<typeof MapControls>>(null)
   const pendingPivot = useRef(0)
   const pendingZoom = useRef(0)
-  const following = useRef(false)
+  const following = useRef<CameraFollow | null>(null)
   /** Heading to return to when the menu closes, since the menu slowly orbits the board. */
   const headingBeforeMenu = useRef(0)
   const board = useGameStore((s) => s.board)
@@ -53,10 +55,10 @@ export function CameraRig() {
       zs.push(z)
     }
     return {
-      minX: Math.min(...xs) - PAN_MARGIN,
-      maxX: Math.max(...xs) + PAN_MARGIN,
-      minZ: Math.min(...zs) - PAN_MARGIN,
-      maxZ: Math.max(...zs) + PAN_MARGIN,
+      minX: Math.min(...xs) - FALL_DISTANCE - PAN_MARGIN,
+      maxX: Math.max(...xs) + FALL_DISTANCE + PAN_MARGIN,
+      minZ: Math.min(...zs) - FALL_DISTANCE - PAN_MARGIN,
+      maxZ: Math.max(...zs) + FALL_DISTANCE + PAN_MARGIN,
     }
   }, [board])
 
@@ -71,19 +73,19 @@ export function CameraRig() {
     }
   }, [menuOpen])
 
-  // Follow the keyboard cursor whenever it moves; stop as soon as the player drags.
+  // Capture only manual lateral requests. Gravity never updates this target.
   useEffect(
     () =>
       useGameStore.subscribe((s, prev) => {
-        if (s.cursor && s.cursor !== prev.cursor) following.current = true
-        if (!s.cursor) following.current = false
+        if (s.cameraMove !== prev.cameraMove || s.cameraFollow !== prev.cameraFollow)
+          following.current = s.cameraFollow
       }),
     [],
   )
   useEffect(() => {
     const c = controls.current
     if (!c) return
-    const stop = () => (following.current = false)
+    const stop = () => (following.current = null)
     c.addEventListener('start', stop)
     return () => c.removeEventListener('start', stop)
   }, [])
@@ -114,6 +116,7 @@ export function CameraRig() {
 
     const view = useViewStore.getState()
     if (view.pivotRequest !== 0 || view.zoomRequest !== 0) {
+      following.current = null
       pendingPivot.current += view.pivotRequest
       pendingZoom.current += view.zoomRequest
       useViewStore.setState({ pivotRequest: 0, zoomRequest: 0 })
@@ -138,11 +141,14 @@ export function CameraRig() {
       camera.position.copy(target).add(offset.setLength(distance))
     }
 
-    const cursor = following.current ? useGameStore.getState().cursor : null
-    if (cursor) {
-      const [x, z] = coordToWorld(cursor)
+    const follow = following.current
+    if (follow !== null) {
       const k = 1 - Math.exp(-delta * FOLLOW_EASING)
-      shift.set((x - target.x) * k, 0, (z - target.z) * k)
+      shift.set(
+        follow.axis === 'q' ? (follow.value - target.x) * k : 0,
+        0,
+        follow.axis === 'r' ? (follow.value - target.z) * k : 0,
+      )
       target.add(shift)
       camera.position.add(shift)
     }
@@ -182,6 +188,7 @@ export function CameraRig() {
       maxDistance={MAX_DISTANCE}
       minPolarAngle={0.25}
       maxPolarAngle={1.1}
+      target={[0, 0, 0]}
     />
   )
 }

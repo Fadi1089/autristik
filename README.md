@@ -8,9 +8,9 @@
   <strong><a href="https://autristic.pages.unistra.fr/autristik/">Try it out in your browser!</a></strong>, no install needed.
 </p>
 
-A cozy tile-placement game in the spirit of Dorfromantik. You place square tiles next to the
-board one at a time. Each tile is split into four terrain squares, and squares that match the
-neighbouring tile across a seam score points.
+A falling tile game combining Tetris-style automatic movement with Dorfromantik terrain
+matching. Guide square tiles sideways and rotate them as they fall towards the board.
+Each tile is split into four terrain squares; matching squares across a seam score points.
 
 Built with Vite, React, TypeScript, Three.js (via @react-three/fiber and drei), Zustand and
 Tailwind CSS v4. It deploys to GitLab Pages.
@@ -22,40 +22,58 @@ flush, so where two tiles meet, each square on one side faces one square on the 
 
 - The game opens on the menu. Press Play (or `Enter`, or `Esc`) to start. `Esc` or the button in the top
   left brings the menu back and pauses the game and the timer.
-- Hover a highlighted square next to the board, or move the keyboard cursor onto one, to see the
-  tile in hand floating over it. Dots on
-  the seams show which squares match (green) and which don't (red), and the label shows what the
-  placement is worth.
-- Click, or press `Enter` / `Space`, to place it. Dragging the camera doesn't count as a click.
-  On touch screens there is no hover, so the first tap on a square shows the preview and a
-  second tap on the same square places the tile; tapping another square moves the preview.
+- Move sideways around the stack to change the arrival side automatically. If the next lane
+  has no tile ahead in the current fall direction, the falling tile rounds the edge and heads
+  towards the stack from that side: moving off the right edge makes it fall right-to-left,
+  off the left edge left-to-right, and similarly for the top and bottom. The remaining
+  distance and fall cadence are preserved. Lateral movement follows the outer surface of
+  each lane: taller stacks raise the tile and shorter stacks lower it without adding fall time.
+- A transparent tile moves towards the stack automatically, one square every 0.75 seconds.
+  It locks when the next square is occupied, scores normally, and the next tile starts another
+  fall. Side contacts do not stop the fall. A fainter landing projection shows its destination.
+- The next tile starts ten squares from the outermost occupied tile in its lane, on the same column for
+  vertical gravity or the same row for horizontal gravity. It keeps the current arrival side.
+- Arrows / WASD follow the camera orientation. The key pointing
+  towards the stack advances exactly one square immediately and resets the fall cadence;
+  holding it repeats. Perpendicular keys move sideways; the key away from the stack does
+  nothing. Click or tap the ground to select a perpendicular lane. Crossing an unsupported
+  lane turns around the edge once; the tile stays outside the stack's surface.
+- `Space` or `Enter` immediately places the tile against the first obstacle in the selected
+  lane, scores it and draws the next tile. It never passes through an occupied square.
+- The camera follows successful manual lateral movements smoothly. Automatic falling,
+  locking and spawning never request camera movement. You can still pan, pivot and zoom.
+- Seam dots on the landing projection show matching terrain (green) and mismatches (red).
+  There is no text bubble or direction panel.
 - The `?` tab on the right edge of the screen slides out the terrain legend and key list when
   you hover it (tap it on touch screens).
-- `R` or `E` rotates the tile clockwise, `Q` anticlockwise. The buttons beside the floating tile
+- `E` or `Page Down` rotates the tile clockwise, `Q` (QWERTY) / `A` (AZERTY) or `Page Up` anticlockwise. The buttons beside the floating tile
   preview do the same, and so does clicking the preview. It is drawn from the same angle as the
   main camera, so it always matches the board on screen.
 
 The game is fully playable with the keyboard alone. Default keys:
 
-| Key                       | Action                                 |
-| ------------------------- | -------------------------------------- |
-| Arrows or `W` `A` `S` `D` | Move the cursor (relative to the view) |
-| `Enter` or `Space`        | Place the tile                         |
-| `R` or `E` / `Q`          | Rotate clockwise / anticlockwise       |
-| `Z` / `X`                 | Pivot the camera                       |
-| `=` / `-`                 | Zoom                                   |
-| `Esc`                     | Menu (always, can't be rebound)        |
+| Key                       | Action                                                        |
+| ------------------------- | ------------------------------------------------------------- |
+| Arrows or `W` `A` `S` `D` | Move sideways / advance towards stack, relative to the camera |
+| `Space` / `Enter`         | Place immediately against the first obstacle                  |
+| `E` / `Page Down`         | Rotate clockwise                                              |
+| `Q` / `Page Up`           | Rotate anticlockwise (QWERTY; `A` on AZERTY)                  |
+| `Z` / `X`                 | Pivot the camera                                              |
+| `=` / `-`                 | Zoom                                                          |
+| `Esc`                     | Menu (always, can't be rebound)                               |
 
-The first movement key drops the cursor on the open square nearest the middle of the view, and
-the camera follows it. Keys are matched by physical position, so on AZERTY the movement keys are
-`Z` `Q` `S` `D`; in Chromium browsers the labels show what is printed on your keyboard. Every key
-except `Esc` can be changed under Menu > Settings (two keys per action, saved in the browser).
+Choose AZERTY or QWERTY under Menu > Settings > Keyboard layout. The selection is saved and
+updates key labels throughout the interface. Keys are matched by physical position, so movement
+uses `Z` `Q` `S` `D` on AZERTY and `W` `A` `S` `D` on QWERTY; switching layouts preserves custom bindings. Active controls except
+`Esc` can be changed under Menu > Settings (two keys per action, saved in the browser).
+All four movement actions and immediate placement are configurable under Settings.
+The movement mapping adapts when the camera has pivoted; arrival sides change through movement.
 
 Mouse and touchpad:
 
 | Input                                   | Action                  |
 | --------------------------------------- | ----------------------- |
-| Click                                   | Place the tile          |
+| Click / tap                             | Choose a landing lane   |
 | Left-drag, one finger                   | Pan                     |
 | Scroll wheel, pinch                     | Zoom                    |
 | Sideways touchpad scroll, Shift + wheel | Pivot around the board  |
@@ -122,9 +140,11 @@ npm test            # single run
 npm run test:watch  # watch mode
 ```
 
-Tests live next to the code (`src/**/*.test.ts`). They cover square neighbours, rotation, which
-squares face each other across a seam, matching and scoring, placement rules, the game flow and
-the timer format.
+Tests live next to the code (`src/**/*.test.ts`). They cover square neighbours, rotation, seam
+matching and scoring, placement rules, timed levels, falling cadence, collision and automatic
+locking from all four sides, automatic edge turns, keeping the last placement's lane,
+manual advance and immediate placement, lateral movement, pause/resume, camera-relative
+controls, camera requests, and the timer format.
 
 ## Build
 
@@ -207,17 +227,18 @@ src/
     matching.ts  Seam matching and placement rules
     scoring.ts   Points and bonus tiles
     game.ts      Game state transitions (place, rotate, draw, countdown, level up)
+    falling.ts   Four-sided gravity, landing projection, lateral movement, manual/hard drop
     levels.ts    Goal and time limit for each level
     random.ts    Seedable PRNG so games are reproducible
   input/     Pure keyboard logic: bindings and defaults, key labels, screen-relative movement
   store/
-    gameStore.ts      Game state plus hover, keyboard cursor, menu and timer
+    gameStore.ts      Falling game state, lateral camera requests, menu and timer
     viewStore.ts      Camera angles and focus, plus keyboard pivot/zoom requests
     settingsStore.ts  Key bindings, saved to localStorage
   scene/     React Three Fiber components
     Board.tsx       Placed tiles as two InstancedMeshes (soil, terrain squares), plus open-square markers
     SquareTile.tsx  A single non-instanced tile (used for the ghost)
-    Ghost.tsx       Hover preview with seam feedback
+    Ghost.tsx       Moving transparent tile and landing projection with seam feedback
     Ground.tsx      Ground plane; also the pointer target for picking squares
     Lights.tsx      Hemisphere fill and a shadow-casting sun that follows the camera
     CameraRig.tsx   MapControls with zoom and tilt limits, scroll pivot, clamped to the board

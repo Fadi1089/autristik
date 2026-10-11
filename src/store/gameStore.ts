@@ -1,37 +1,39 @@
 import { create } from 'zustand'
-import { boardTiles } from '../game/board'
-import type { Board } from '../game/board'
-import { coordsEqual, neighbour } from '../game/coords'
 import type { Coord, Direction } from '../game/coords'
-import { canPlace } from '../game/matching'
-import { createGame, isGameOver, placeCurrent, rotateCurrent, tickGame } from '../game/game'
-import type { GameState } from '../game/game'
+import {
+  advanceFalling,
+  createFallingGame,
+  hardDrop,
+  laneAxis,
+  moveFalling,
+  moveInDirection,
+  tickFallingGame,
+} from '../game/falling'
+import type { FallingGameState } from '../game/falling'
+import { isGameOver, rotateCurrent } from '../game/game'
 
-export interface GameStore extends GameState {
-  /** Square the ghost tile is shown over: under the pointer or the keyboard cursor, if it can take the tile. */
-  readonly hover: Coord | null
-  /** Keyboard cursor. It can rest on any square near the board; null while the mouse is in use. */
-  readonly cursor: Coord | null
-  /** The menu pauses the game and blurs the scene behind it. */
+export interface CameraFollow {
+  readonly axis: 'q' | 'r'
+  readonly value: number
+}
+
+export interface GameStore extends FallingGameState {
   readonly menuOpen: boolean
-  /** False until the player first leaves the menu, so it can say "Play" instead of "Resume". */
   readonly started: boolean
-  /** Seconds of unpaused play in the current game, across all levels. */
-  readonly elapsed: number
-
-  /** Pointer hover; switches off the keyboard cursor. */
-  setHover(hover: Coord | null): void
-  setCursor(cursor: Coord): void
-  moveCursor(direction: Direction): void
-  /** Places the tile in hand on the hovered square, if there is one. */
-  placeAtHover(): void
+  /** Only successful manual lateral inputs create a camera request. */
+  readonly cameraFollow: CameraFollow | null
+  readonly cameraMove: number
+  moveSideways(turns: -1 | 1): void
+  selectLane(lane: number): void
+  selectPosition(position: Coord): void
+  move(direction: Direction): void
+  advance(): void
+  drop(): void
   rotate(turns: number): void
-  place(c: Coord): void
   restart(seed?: number): void
   openMenu(): void
   closeMenu(): void
   toggleMenu(): void
-  /** Runs the level countdown and play clock; ignored while paused or after the game ends. */
   tick(seconds: number): void
 }
 
@@ -39,93 +41,64 @@ function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 32)
 }
 
-/** `?seed=123` in the URL gives a reproducible game. */
 function initialSeed(): number {
   const param = new URLSearchParams(window.location.search).get('seed')
   const seed = param === null ? NaN : Number(param)
   return Number.isFinite(seed) ? seed : randomSeed()
 }
 
-/** The keyboard cursor may wander one square past the outermost tiles, no further. */
-function clampToBoard(board: Board, c: Coord): Coord {
-  const tiles = boardTiles(board)
-  const qs = tiles.map((t) => t.coord.q)
-  const rs = tiles.map((t) => t.coord.r)
+function withCameraRequest(state: GameStore, next: FallingGameState): Partial<GameStore> {
+  const axis = laneAxis(next.fallDirection)
+  // Forward steps, locks and new pieces must never be mistaken for a lateral input.
+  if (
+    next === state ||
+    next.board !== state.board ||
+    (next.fallDirection === state.fallDirection && next.falling?.[axis] === state.falling?.[axis])
+  )
+    return next
   return {
-    q: Math.min(Math.max(...qs) + 1, Math.max(Math.min(...qs) - 1, c.q)),
-    r: Math.min(Math.max(...rs) + 1, Math.max(Math.min(...rs) - 1, c.r)),
+    ...next,
+    cameraFollow: { axis, value: next.falling![axis] },
+    cameraMove: state.cameraMove + 1,
   }
 }
 
-function hoverFor(board: Board, c: Coord | null): Coord | null {
-  return c && canPlace(board, c) ? c : null
-}
-
-export const useGameStore = create<GameStore>()((set) => ({
-  ...createGame(initialSeed()),
-  hover: null,
-  cursor: null,
+export const useGameStore = create<GameStore>()((set, get) => ({
+  ...createFallingGame(initialSeed()),
   menuOpen: true,
   started: false,
-  elapsed: 0,
+  cameraFollow: null,
+  cameraMove: 0,
 
-  setHover: (hover) =>
-    set((s) => {
-      const same = s.hover === hover || (s.hover && hover && coordsEqual(s.hover, hover))
-      if (s.menuOpen || (same && !s.cursor)) return s
-      return { hover, cursor: null }
-    }),
-
-  setCursor: (c) =>
-    set((s) => {
-      if (s.menuOpen) return s
-      const cursor = clampToBoard(s.board, c)
-      return { cursor, hover: hoverFor(s.board, cursor) }
-    }),
-
-  moveCursor: (direction) => {
-    const { cursor, setCursor } = useGameStore.getState()
-    if (cursor) setCursor(neighbour(cursor, direction))
+  selectLane: (lane) => set((s) => (s.menuOpen ? s : withCameraRequest(s, moveFalling(s, lane)))),
+  selectPosition: (position) => {
+    const s = get()
+    s.selectLane(position[laneAxis(s.fallDirection)])
   },
-
-  placeAtHover: () => {
-    const { hover, place } = useGameStore.getState()
-    if (hover) place(hover)
+  moveSideways: (turns) => {
+    const s = get()
+    if (s.falling) s.selectLane(s.falling[laneAxis(s.fallDirection)] + turns)
   },
-
-  rotate: (turns) => set((s) => (s.menuOpen ? s : { rotation: rotateCurrent(s, turns).rotation })),
-
-  place: (c) =>
-    set((s) => {
-      if (s.menuOpen) return s
-      const next = placeCurrent(s, c)
-      if (next === s) return s
-      // The keyboard cursor stays put; its square is now taken, so the ghost hides.
-      return { ...next, hover: hoverFor(next.board, s.cursor) }
-    }),
-
+  move: (direction) =>
+    set((s) => (s.menuOpen ? s : withCameraRequest(s, moveInDirection(s, direction)))),
+  advance: () => set((s) => (s.menuOpen ? s : advanceFalling(s))),
+  drop: () => set((s) => (s.menuOpen ? s : hardDrop(s))),
+  rotate: (turns) =>
+    set((s) => (s.menuOpen || isGameOver(s) ? s : { rotation: rotateCurrent(s, turns).rotation })),
   restart: (seed = randomSeed()) =>
     set({
-      ...createGame(seed),
-      hover: null,
-      cursor: null,
+      ...createFallingGame(seed),
+      cameraFollow: null,
+      cameraMove: 0,
       menuOpen: false,
       started: true,
-      elapsed: 0,
     }),
-
-  openMenu: () => set({ menuOpen: true, hover: null }),
+  openMenu: () => set({ menuOpen: true }),
   closeMenu: () => set({ menuOpen: false, started: true }),
-  toggleMenu: () =>
-    set((s) => (s.menuOpen ? { menuOpen: false, started: true } : { menuOpen: true, hover: null })),
-
-  tick: (seconds) =>
-    set((s) =>
-      s.menuOpen || isGameOver(s) ? s : { ...tickGame(s, seconds), elapsed: s.elapsed + seconds },
-    ),
+  toggleMenu: () => set((s) => ({ menuOpen: !s.menuOpen, started: true })),
+  tick: (seconds) => set((s) => (s.menuOpen || isGameOver(s) ? s : tickFallingGame(s, seconds))),
 }))
 
 if (import.meta.env.DEV) {
-  // Handy for poking at the game from the browser console.
   ;(window as unknown as { gameStore: typeof useGameStore }).gameStore = useGameStore
 }

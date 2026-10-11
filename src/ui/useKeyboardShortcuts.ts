@@ -1,25 +1,22 @@
 import { useEffect } from 'react'
 import { isGameOver } from '../game/game'
-import { nearestCandidate } from '../game/matching'
 import { actionForCode, REPEATABLE } from '../input/bindings'
 import type { Action } from '../input/bindings'
 import { screenToWorldDirection } from '../input/movement'
 import type { ScreenDirection } from '../input/movement'
-import { worldToCoord } from '../scene/layout'
 import { useGameStore } from '../store/gameStore'
 import { useSettingsStore } from '../store/settingsStore'
 import { useViewStore } from '../store/viewStore'
 
-const MOVES: Partial<Record<Action, ScreenDirection>> = {
-  moveUp: 'up',
-  moveDown: 'down',
-  moveLeft: 'left',
-  moveRight: 'right',
-}
-
 /** Radians of camera pivot per key press (or key repeat). */
 const PIVOT_STEP = Math.PI / 16
 const ZOOM_STEP = 0.14
+const MOVES: Partial<Record<Action, ScreenDirection>> = {
+  moveUp: 'up',
+  moveRight: 'right',
+  moveDown: 'down',
+  moveLeft: 'left',
+}
 
 /**
  * Global keyboard controls. Esc always toggles the menu; everything else goes
@@ -48,21 +45,14 @@ export function useKeyboardShortcuts() {
 
       const move = MOVES[action]
       if (move) {
-        const view = useViewStore.getState()
-        if (!game.cursor) {
-          // First press drops the cursor on the open square nearest the view's centre.
-          const start = nearestCandidate(game.board, worldToCoord(view.focusX, view.focusZ))
-          if (start) game.setCursor(start)
-          return
-        }
-        game.moveCursor(screenToWorldDirection(move, view.azimuth))
+        game.move(screenToWorldDirection(move, useViewStore.getState().azimuth))
         return
       }
 
       const view = useViewStore.getState()
       switch (action) {
         case 'place':
-          game.placeAtHover()
+          game.drop()
           break
         case 'rotateCw':
           game.rotate(1)

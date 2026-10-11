@@ -6,8 +6,8 @@ import { useGameStore } from '../store/gameStore'
 import { KeyCaps, MoveKeyCaps } from './KeyCaps'
 
 const KEYS: [keys: ReactNode, action: string][] = [
-  [<MoveKeyCaps key="move" slot={1} />, 'Move (arrows too)'],
-  [<KeyCaps key="place" action="place" />, 'Place tile'],
+  [<MoveKeyCaps key="move" slot={0} />, 'Move / advance towards stack'],
+  [<KeyCaps key="drop" action="place" />, 'Place immediately'],
   [
     <>
       <KeyCaps action="rotateCw" max={1} />
@@ -83,7 +83,9 @@ export function HelpDrawer() {
           ))}
         </dl>
         <p className="mt-3 text-xs text-ink/55">
-          Or point and click. <kbd>Shift</kbd> + scroll pivots.
+          Towards the stack advances one square; sideways past an edge changes the fall direction.
+          Click or tap selects a lane.
+          <kbd>Shift</kbd> + scroll pivots.
         </p>
 
         <button

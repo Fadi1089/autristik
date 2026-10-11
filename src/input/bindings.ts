@@ -28,8 +28,8 @@ export const DEFAULT_BINDINGS: Bindings = {
   moveLeft: ['ArrowLeft', 'KeyA'],
   moveRight: ['ArrowRight', 'KeyD'],
   place: ['Enter', 'Space'],
-  rotateCw: ['KeyR', 'KeyE'],
-  rotateCcw: ['KeyQ', null],
+  rotateCw: ['KeyE', 'PageDown'],
+  rotateCcw: ['KeyQ', 'PageUp'],
   pivotLeft: ['KeyZ', null],
   pivotRight: ['KeyX', null],
   zoomIn: ['Equal', 'NumpadAdd'],
@@ -41,7 +41,7 @@ export const ACTION_LABELS: Readonly<Record<Action, string>> = {
   moveDown: 'Move down',
   moveLeft: 'Move left',
   moveRight: 'Move right',
-  place: 'Place tile',
+  place: 'Place immediately',
   rotateCw: 'Rotate clockwise',
   rotateCcw: 'Rotate anticlockwise',
   pivotLeft: 'Pivot left',
@@ -110,4 +110,22 @@ export function normalizeBindings(stored: unknown): Bindings {
     if (valid(a) && valid(b)) next[action] = [a as string | null, b as string | null]
   }
   return next
+}
+
+/** Upgrade untouched rotation defaults while retaining custom shortcuts, including page keys. */
+export function upgradeLegacyBindings(stored: unknown): Bindings {
+  const bindings = normalizeBindings(stored)
+  const cw = bindings.rotateCw
+  const ccw = bindings.rotateCcw
+  return {
+    ...bindings,
+    rotateCw:
+      cw[0] === 'KeyR' && cw[1] === 'KeyE'
+        ? ['KeyE', actionForCode(bindings, 'PageDown') ? null : 'PageDown']
+        : cw,
+    rotateCcw:
+      ccw[0] === 'KeyQ' && ccw[1] === null
+        ? ['KeyQ', actionForCode(bindings, 'PageUp') ? null : 'PageUp']
+        : ccw,
+  }
 }

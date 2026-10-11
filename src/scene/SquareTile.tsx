@@ -9,6 +9,7 @@ type SquareTileProps = ThreeElements['group'] & {
   quadrants: Quadrants
   /** Brightens the tile slightly, e.g. for the placement ghost. */
   glow?: number
+  opacity?: number
 }
 
 const GLOW_COLOR = '#fff3d6'
@@ -17,7 +18,7 @@ const GLOW_COLOR = '#fff3d6'
  * A single, non-instanced tile: a soil block topped by a 2×2 grid of terrain squares.
  * The board renders placed tiles with instancing instead; this is for one-offs.
  */
-export function SquareTile({ quadrants, glow = 0, ...group }: SquareTileProps) {
+export function SquareTile({ quadrants, glow = 0, opacity = 1, ...group }: SquareTileProps) {
   return (
     <group {...group}>
       <mesh geometry={baseGeometry} castShadow receiveShadow>
@@ -26,6 +27,9 @@ export function SquareTile({ quadrants, glow = 0, ...group }: SquareTileProps) {
           flatShading
           emissive={GLOW_COLOR}
           emissiveIntensity={glow}
+          transparent={opacity < 1}
+          opacity={opacity}
+          depthWrite={opacity === 1}
         />
       </mesh>
       {QUADRANTS.map((quadrant) => {
@@ -46,6 +50,9 @@ export function SquareTile({ quadrants, glow = 0, ...group }: SquareTileProps) {
               roughness={0.85}
               emissive={GLOW_COLOR}
               emissiveIntensity={glow}
+              transparent={opacity < 1}
+              opacity={opacity}
+              depthWrite={opacity === 1}
             />
           </mesh>
         )

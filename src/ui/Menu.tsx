@@ -101,8 +101,11 @@ function HowToPlay() {
       </div>
       <ol className="space-y-2.5 text-sm text-ink/80">
         <Rule n="1">
-          Place each tile next to the board: click a square, tap it twice on a touch screen, or use
-          the keyboard alone (move, then Enter or Space). Rotate it to line up the squares.
+          Tiles start ten squares away and advance every 0.75 seconds. Arrows or WASD move relative
+          to the camera: towards the stack advances one square; perpendicular keys move sideways.
+          Moving past an edge turns the fall towards the stack from that side. Space or Enter places
+          immediately. The next tile keeps the last placement's lane. Rotate to match the terrain;
+          pan, pivot and zoom the camera throughout play.
         </Rule>
         <Rule n="2">
           Every matching square along a seam scores 5 points. Reach each level&rsquo;s goal before
@@ -185,8 +188,8 @@ export function Menu() {
             className="mt-5 max-w-md animate-rise font-display text-lg leading-snug text-ink/70 italic"
             style={{ animationDelay: '160ms' }}
           >
-            Lay down meadow, forest and water one tile at a time. Line up the squares where tiles
-            meet and the stack keeps growing.
+            Guide falling meadow, forest and water tiles. Move sideways, rotate, and line up the
+            terrain as each tile joins the stack.
           </p>
 
           <ul className="mt-9 space-y-1">
