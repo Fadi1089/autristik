@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { changeFallDirection, FALL_INTERVAL } from '../game/falling'
+import { changeFallDirection, FALL_INTERVAL, spawnFalling } from '../game/falling'
 import { Direction } from '../game/coords'
 import { screenToWorldDirection } from '../input/movement'
 import type { useGameStore as Store } from './gameStore'
@@ -14,6 +14,17 @@ afterAll(() => vi.unstubAllGlobals())
 beforeEach(() => useGameStore.getState().restart(42))
 
 describe('falling controls and camera requests', () => {
+  it('retains the combo during movement, rotation and pauses, then clears it on restart', () => {
+    useGameStore.setState({ combo: 6 })
+    useGameStore.getState().moveSideways(1)
+    useGameStore.getState().rotate(1)
+    useGameStore.getState().tick(0.3)
+    useGameStore.getState().openMenu()
+    useGameStore.getState().tick(10)
+    expect(useGameStore.getState().combo).toBe(6)
+    useGameStore.getState().restart(42)
+    expect(useGameStore.getState().combo).toBe(0)
+  })
   it('leaves the camera request unchanged during gravity, locking and spawning', () => {
     useGameStore.getState().moveSideways(1)
     const { cameraMove, cameraFollow } = useGameStore.getState()
@@ -40,7 +51,7 @@ describe('falling controls and camera requests', () => {
     })
   })
 
-  it('pauses gravity, the cadence remainder, clock and controls with the menu', () => {
+  it('pauses gravity, the cadence remainder and controls with the menu', () => {
     useGameStore.getState().tick(0.3)
     useGameStore.getState().openMenu()
     const paused = useGameStore.getState()
@@ -61,8 +72,32 @@ describe('falling controls and camera requests', () => {
     expect(useGameStore.getState()).toMatchObject({ cameraMove: 0, cameraFollow: null })
   })
 
+  it('changes gravity without moving the camera or restarting the cadence, and respects pause', () => {
+    useGameStore.getState().moveSideways(1)
+    useGameStore.getState().tick(FALL_INTERVAL * 5 + 0.3)
+    const before = useGameStore.getState()
+    before.setFallDirection(Direction.North)
+    const changed = useGameStore.getState()
+    expect(changed).toMatchObject({
+      fallDirection: Direction.North,
+      falling: { q: 1, r: 5 },
+      fallElapsed: before.fallElapsed,
+      combo: before.combo,
+      cameraMove: before.cameraMove,
+      cameraFollow: before.cameraFollow,
+    })
+    expect(changed.board).toBe(before.board)
+    changed.openMenu()
+    const paused = useGameStore.getState()
+    paused.setFallDirection(Direction.East)
+    expect(useGameStore.getState()).toBe(paused)
+  })
+
   it('follows the row for horizontal gravity, only on lateral movement', () => {
-    useGameStore.setState(changeFallDirection(useGameStore.getState(), Direction.West))
+    useGameStore.setState({
+      fallDirection: Direction.West,
+      falling: spawnFalling(useGameStore.getState().board, Direction.West),
+    })
     useGameStore.getState().move(Direction.North)
     expect(useGameStore.getState()).toMatchObject({
       cameraMove: 1,

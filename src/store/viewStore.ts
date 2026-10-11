@@ -14,12 +14,14 @@ interface ViewStore {
   /** Camera moves requested from the keyboard, consumed by the camera rig each frame. */
   readonly pivotRequest: number
   readonly zoomRequest: number
+  readonly recenterRequest: number
 
   setView(view: { azimuth: number; polar: number; focusX: number; focusZ: number }): void
   /** Positive pivots the camera to the right around the board. */
   requestPivot(radians: number): void
   /** Positive zooms in; each unit is a factor of e in distance. */
   requestZoom(amount: number): void
+  requestRecenter(): void
 }
 
 /** Main camera state shared with the HUD and keyboard controls. */
@@ -30,8 +32,10 @@ export const useViewStore = create<ViewStore>()((set) => ({
   focusZ: 0,
   pivotRequest: 0,
   zoomRequest: 0,
+  recenterRequest: 0,
 
   setView: (view) => set(view),
   requestPivot: (radians) => set((s) => ({ pivotRequest: s.pivotRequest + radians })),
   requestZoom: (amount) => set((s) => ({ zoomRequest: s.zoomRequest + amount })),
+  requestRecenter: () => set((s) => ({ recenterRequest: s.recenterRequest + 1 })),
 }))

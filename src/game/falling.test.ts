@@ -16,11 +16,33 @@ import {
   spawnFalling,
   tickFallingGame,
 } from './falling'
-import { currentQuadrants, previewPlacement, rotateCurrent } from './game'
-import { levelTimeLimit } from './levels'
+import { currentQuadrants, isGameOver, previewPlacement, rotateCurrent } from './game'
+import { levelGoal } from './levels'
 import type { FallingGameState } from './falling'
 
+function gameFromSide(direction: Direction): FallingGameState {
+  const game = createFallingGame(42)
+  return { ...game, fallDirection: direction, falling: spawnFalling(game.board, direction) }
+}
+
 describe('falling tiles', () => {
+  it('awards the same combo for automatic locking and immediate placement', () => {
+    const grass = ['grass', 'grass', 'grass', 'grass'] as const
+    const game = {
+      ...createFallingGame(42),
+      combo: 3,
+      current: grass,
+      board: withTile({}, { coord: { q: 0, r: 0 }, quadrants: grass }),
+      falling: { q: 0, r: -10 },
+    }
+    const preview = previewPlacement(game, landingPosition(game)!)!
+    expect(preview).toMatchObject({ combo: 4, multiplier: 2, points: 20 })
+    const automatic = tickFallingGame(game, FALL_INTERVAL * 10)
+    const immediate = hardDrop(game)
+    expect(automatic.lastPlacement).toEqual(immediate.lastPlacement)
+    expect(automatic).toMatchObject({ combo: 4, score: 20, remaining: 29 })
+    expect(moveInDirection(game, Direction.East).combo).toBe(3)
+  })
   it('spawns ten squares beyond the leading edge, including after the stack grows', () => {
     const game = createFallingGame(42)
     expect(game.falling).toEqual({ q: 0, r: -11 })
@@ -85,21 +107,21 @@ describe('falling tiles', () => {
     repeated = tickFallingGame(repeated, 0.1)
     expect(once.falling).toEqual(repeated.falling)
     expect(once.board).toEqual(repeated.board)
-    expect(once.timeLeft).toBeCloseTo(repeated.timeLeft)
     expect(once.fallElapsed).toBeCloseTo(0.1)
   })
 
-  it('stops at timeout, gives it priority over landing, and does not advance afterwards', () => {
-    const game = { ...createFallingGame(42), falling: { q: 0, r: -2 }, timeLeft: FALL_INTERVAL }
-    const after = tickFallingGame(game, FALL_INTERVAL * 2)
-    expect(after.timeLeft).toBe(0)
-    expect(after.falling).toBeNull()
-    expect(after.board).toBe(game.board)
-    expect(after.elapsed).toBe(FALL_INTERVAL)
-    expect(tickFallingGame(after, 10)).toBe(after)
+  it('keeps falling beyond the former time limits while tiles remain', () => {
+    const game = createFallingGame(42, 1000)
+    const after = tickFallingGame(game, 15 * 60)
+    expect(isGameOver(after)).toBe(false)
+    expect(after.falling).not.toBeNull()
+    expect(tileCount(after.board)).toBeGreaterThan(50)
+    expect(after.remaining).toBeGreaterThan(0)
+    expect(after).not.toHaveProperty('timeLeft')
+    expect(after).not.toHaveProperty('elapsed')
   })
 
-  it('resets the level timer on a scoring landing and then counts the rest of the tick', () => {
+  it('continues the gravity cadence after a scoring landing advances the level', () => {
     let game = createFallingGame(42)
     const target = { q: 0, r: -2 }
     const neighbour = boardTiles(game.board).find((t) => coordsEqual(t.coord, { q: 0, r: -1 }))!
@@ -107,7 +129,7 @@ describe('falling tiles', () => {
       ...game,
       current: [...neighbour.quadrants],
       falling: target,
-      levelScore: 49,
+      levelScore: levelGoal(1) - 1,
     }
     // Choose a rotation that matches at least one square.
     for (let rotation = 0; rotation < 4; rotation++) {
@@ -119,7 +141,8 @@ describe('falling tiles', () => {
     }
     const after = tickFallingGame(game, FALL_INTERVAL + 0.2)
     expect(after.level).toBe(2)
-    expect(after.timeLeft).toBeCloseTo(levelTimeLimit(2) - 0.2)
+    expect(after.fallElapsed).toBeCloseTo(0.2)
+    expect(after.falling).not.toBeNull()
   })
 
   it('does not spawn or advance after the final tile is used', () => {
@@ -146,7 +169,7 @@ describe('automatic corner turns and continuing the last lane', () => {
   it.each(turns)(
     'turns $fall towards $next when moving outwards in $outward',
     ({ fall, outward, next }) => {
-      const game = changeFallDirection(createFallingGame(42), fall)
+      const game = gameFromSide(fall)
       const nearEdge = moveInDirection(game, outward)
       expect(nearEdge.fallDirection).toBe(fall)
       const before = { ...nearEdge, fallElapsed: 0.4 }
@@ -167,7 +190,6 @@ describe('automatic corner turns and continuing the last lane', () => {
         fallElapsed: 0.4,
         score: before.score,
         remaining: before.remaining,
-        timeLeft: before.timeLeft,
       })
       const after = hardDrop(turned)
       expect(after.lastPlacement?.coord).toEqual(target)
@@ -178,7 +200,7 @@ describe('automatic corner turns and continuing the last lane', () => {
   it.each([Direction.North, Direction.East, Direction.South, Direction.West])(
     'respawns on the last lane with ten-square distance for direction %s',
     (direction) => {
-      const game = moveFalling(changeFallDirection(createFallingGame(42), direction), -1)
+      const game = moveFalling(gameFromSide(direction), -1)
       const target = landingPosition(game)!
       const after = hardDrop(game)
       const axis = laneAxis(direction)
@@ -192,7 +214,7 @@ describe('automatic corner turns and continuing the last lane', () => {
     },
   )
 
-  it('retains the last lane for timed locking too, even when other lanes extend farther', () => {
+  it('retains the last lane for automatic locking too, even when other lanes extend farther', () => {
     const game = createFallingGame(42)
     const board = withTile(game.board, {
       coord: { q: 0, r: -8 },
@@ -236,7 +258,7 @@ describe('four-sided gravity and manual drops', () => {
   it.each(approaches)(
     'spawns and projects the first obstacle for direction $direction',
     ({ direction, spawn, landing }) => {
-      const game = changeFallDirection(createFallingGame(42), direction)
+      const game = gameFromSide(direction)
       expect(game.falling).toEqual(spawn)
       expect(landingPosition(game)).toEqual(landing)
       const automatic = tickFallingGame(game, FALL_INTERVAL * 10)
@@ -248,7 +270,7 @@ describe('four-sided gravity and manual drops', () => {
   it.each(approaches)(
     'hard drops on the projection and keeps the side for direction $direction',
     ({ direction, landing }) => {
-      const game = changeFallDirection(createFallingGame(42), direction)
+      const game = gameFromSide(direction)
       const rotated = { ...game, ...rotateCurrent(game, 1) }
       const preview = previewPlacement(rotated, landing)!
       const after = hardDrop(rotated)
@@ -257,21 +279,18 @@ describe('four-sided gravity and manual drops', () => {
       expect(after.board[`${landing.q},${landing.r}`]?.quadrants).toEqual(currentQuadrants(rotated))
       expect(after.fallDirection).toBe(direction)
       expect(after.falling).toEqual(spawnFalling(after.board, direction))
-      expect(after.timeLeft).toBe(game.timeLeft)
-      expect(after.elapsed).toBe(0)
     },
   )
 
   it.each(approaches)(
     'advances one step, rejects retreat, and follows the lateral surface for $direction',
     ({ direction, spawn }) => {
-      const game = changeFallDirection(createFallingGame(42), direction)
+      const game = gameFromSide(direction)
       const advanced = moveInDirection(game, direction)
       expect(
         Math.abs(advanced.falling!.q - spawn.q) + Math.abs(advanced.falling!.r - spawn.r),
       ).toBe(1)
       expect(advanced.board).toBe(game.board)
-      expect(advanced.timeLeft).toBe(game.timeLeft)
       expect(moveInDirection(game, oppositeDirection(direction))).toBe(game)
       const horizontalFall = direction === Direction.East || direction === Direction.West
       const lateral = moveInDirection(game, horizontalFall ? Direction.North : Direction.East)
@@ -308,7 +327,7 @@ describe('four-sided gravity and manual drops', () => {
     expect(advanceFalling(near).lastPlacement?.coord).toEqual(near.falling)
   })
 
-  it('preserves the clock, score, board and rotated tile when changing arrival sides', () => {
+  it('preserves the cadence, score, board and rotated tile when changing arrival sides', () => {
     const initial = createFallingGame(42)
     const game = { ...initial, ...rotateCurrent(initial, 1), fallElapsed: 0.4 }
     const changed = changeFallDirection(game, Direction.East)
@@ -318,10 +337,52 @@ describe('four-sided gravity and manual drops', () => {
       rotation: 1,
       remaining: game.remaining,
       score: game.score,
-      timeLeft: game.timeLeft,
       fallElapsed: 0.4,
     })
     expect(changeFallDirection(changed, Direction.East)).toBe(changed)
+  })
+
+  it('keeps manual direction changes aligned with the projected square instead of the obstacle', () => {
+    const game = tickFallingGame(moveFalling(createFallingGame(42), 1), FALL_INTERVAL * 5 + 0.4)
+    const east = changeFallDirection(game, Direction.East)
+    expect(east.falling).toEqual({ q: -5, r: -1 })
+    const north = changeFallDirection(game, Direction.North)
+    expect(north.falling).toEqual({ q: 1, r: 5 })
+    expect(north.fallElapsed).toBeCloseTo(0.4)
+  })
+
+  it.each([Direction.North, Direction.East, Direction.South, Direction.West])(
+    'preserves the projected row/column when turning from direction %s',
+    (from) => {
+      for (const lane of [-1, 1]) {
+        const game = tickFallingGame(moveFalling(gameFromSide(from), lane), FALL_INTERVAL * 5 + 0.4)
+        const oldTarget = landingPosition(game)!
+        const perpendicular =
+          laneAxis(from) === 'q'
+            ? [Direction.East, Direction.West]
+            : [Direction.North, Direction.South]
+        for (const direction of perpendicular) {
+          const changed = changeFallDirection(game, direction)
+          const target = landingPosition(changed)!
+          expect(changed.falling![laneAxis(direction)]).toBe(oldTarget[laneAxis(direction)])
+          expect(target[laneAxis(direction)]).toBe(oldTarget[laneAxis(direction)])
+          expect(
+            Math.abs(target.q - changed.falling!.q) + Math.abs(target.r - changed.falling!.r),
+          ).toBe(4)
+          expect(changed.fallElapsed).toBeCloseTo(0.4)
+          expect(isOccupied(changed.board, changed.falling!)).toBe(false)
+        }
+      }
+    },
+  )
+
+  it('uses the adjacent supported lane if the projected row has no obstacle', () => {
+    const game = tickFallingGame(createFallingGame(42), FALL_INTERVAL * 5 + 0.4)
+    expect(landingPosition(game)).toEqual({ q: 0, r: -2 })
+    const changed = changeFallDirection(game, Direction.West)
+    expect(changed.falling).toEqual({ q: 5, r: -1 })
+    expect(landingPosition(changed)).toEqual({ q: 1, r: -1 })
+    expect(changed.fallElapsed).toBeCloseTo(0.4)
   })
 })
 
@@ -416,5 +477,25 @@ describe('constant remaining distance over uneven stacks', () => {
       q: 0,
       r: -2,
     })
+  })
+
+  it('cannot gain fall time by choosing directions repeatedly over uneven stacks', () => {
+    const board = surface(Direction.South, [1, 20, 2])
+    let game = tickFallingGame(
+      { ...createFallingGame(42), board, falling: spawnFalling(board, Direction.South, 1) },
+      FALL_INTERVAL * 8 + 0.3,
+    )
+    for (let i = 0; i < 50; i++) {
+      for (const direction of directions) {
+        game = changeFallDirection(game, direction)
+        const target = landingPosition(game)!
+        expect(Math.abs(target.q - game.falling!.q) + Math.abs(target.r - game.falling!.r)).toBe(1)
+        expect(isOccupied(board, game.falling!)).toBe(false)
+        expect(game.fallElapsed).toBeCloseTo(0.3)
+      }
+    }
+    expect(tickFallingGame(game, FALL_INTERVAL * 2 - 0.3).lastPlacement?.coord).toEqual(
+      landingPosition(game),
+    )
   })
 })

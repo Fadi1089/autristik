@@ -2,13 +2,15 @@ import { MapControls } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import type { ComponentRef } from 'react'
-import { Vector3 } from 'three'
+import { PerspectiveCamera, Vector3 } from 'three'
 import { boardTiles } from '../game/board'
 import { FALL_DISTANCE } from '../game/falling'
 import { useGameStore } from '../store/gameStore'
 import type { CameraFollow } from '../store/gameStore'
 import { useViewStore } from '../store/viewStore'
 import { coordToWorld } from './layout'
+import { isTileInFrame, planFallFraming } from './cameraFraming'
+import type { FallFraming } from './cameraFraming'
 
 /** How far past the outermost tile the camera target may wander. */
 const PAN_MARGIN = 6
@@ -32,14 +34,16 @@ const offset = new Vector3()
  * Map-style camera: left-drag (or one finger) pans, wheel/pinch zooms, right-drag
  * rotates with a limited tilt range. Horizontal scrolling on a touchpad, or Shift +
  * mouse wheel, pivots the view around the board. Keyboard pivot and zoom arrive as
- * requests on the view store. Only manual lateral tile movements request following;
- * automatic falling and spawning leave the camera target unchanged.
+ * requests on the view store. Manual lateral inputs request following. An off-screen
+ * falling tile or an explicit shortcut reframes the tile and its destination together.
  */
 export function CameraRig() {
   const controls = useRef<ComponentRef<typeof MapControls>>(null)
   const pendingPivot = useRef(0)
   const pendingZoom = useRef(0)
   const following = useRef<CameraFollow | null>(null)
+  const recentering = useRef<FallFraming | null>(null)
+  const interacting = useRef(false)
   /** Heading to return to when the menu closes, since the menu slowly orbits the board. */
   const headingBeforeMenu = useRef(0)
   const board = useGameStore((s) => s.board)
@@ -77,17 +81,32 @@ export function CameraRig() {
   useEffect(
     () =>
       useGameStore.subscribe((s, prev) => {
-        if (s.cameraMove !== prev.cameraMove || s.cameraFollow !== prev.cameraFollow)
+        if (s.cameraMove !== prev.cameraMove || s.cameraFollow !== prev.cameraFollow) {
           following.current = s.cameraFollow
+          recentering.current = null
+        }
+        if (s.fallDirection !== prev.fallDirection || s.board !== prev.board)
+          recentering.current = null
       }),
     [],
   )
   useEffect(() => {
     const c = controls.current
     if (!c) return
-    const stop = () => (following.current = null)
-    c.addEventListener('start', stop)
-    return () => c.removeEventListener('start', stop)
+    const start = () => {
+      interacting.current = true
+      following.current = null
+      recentering.current = null
+    }
+    const end = () => {
+      interacting.current = false
+    }
+    c.addEventListener('start', start)
+    c.addEventListener('end', end)
+    return () => {
+      c.removeEventListener('start', start)
+      c.removeEventListener('end', end)
+    }
   }, [])
 
   // Turn sideways scrolling into pivot before MapControls sees it as zoom. Listening on
@@ -117,6 +136,7 @@ export function CameraRig() {
     const view = useViewStore.getState()
     if (view.pivotRequest !== 0 || view.zoomRequest !== 0) {
       following.current = null
+      recentering.current = null
       pendingPivot.current += view.pivotRequest
       pendingZoom.current += view.zoomRequest
       useViewStore.setState({ pivotRequest: 0, zoomRequest: 0 })
@@ -163,6 +183,36 @@ export function CameraRig() {
       camera.position.add(shift)
     }
     camera.lookAt(target)
+
+    const game = useGameStore.getState()
+    if (!menuOpen && game.falling && camera instanceof PerspectiveCamera) {
+      const requested = view.recenterRequest !== 0
+      const outside = !isTileInFrame(camera, game.falling)
+      const settled = Math.abs(pendingPivot.current) < 0.01 && Math.abs(pendingZoom.current) < 0.01
+      if (requested || (outside && settled && !interacting.current && !recentering.current)) {
+        recentering.current = planFallFraming(camera, game, target, MIN_DISTANCE, MAX_DISTANCE)
+        following.current = null
+        if (requested) {
+          pendingPivot.current = 0
+          pendingZoom.current = 0
+          useViewStore.setState({ recenterRequest: 0 })
+        }
+      }
+      const framing = recentering.current
+      if (framing) {
+        const k = 1 - Math.exp(-delta * FOLLOW_EASING)
+        offset.copy(camera.position).sub(target)
+        const distance = offset.length() + (framing.distance - offset.length()) * k
+        target.lerp(framing.target, k)
+        camera.position.copy(target).add(offset.setLength(distance))
+        camera.lookAt(target)
+        if (
+          target.distanceTo(framing.target) < 0.02 &&
+          Math.abs(distance - framing.distance) < 0.02
+        )
+          recentering.current = null
+      }
+    }
 
     // Publish the view so the HUD preview and keyboard movement can match it.
     offset.copy(camera.position).sub(target)

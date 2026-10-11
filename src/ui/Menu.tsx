@@ -1,11 +1,15 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { isGameOver } from '../game/game'
+import { FALL_INTERVAL } from '../game/falling'
 import { tileCount } from '../game/board'
 import { SCENE_COLORS, TERRAIN_COLORS } from '../palette'
+import { actionForCode } from '../input/bindings'
 import { useGameStore } from '../store/gameStore'
+import { useSettingsStore } from '../store/settingsStore'
 import villageArt from '../assets/menu-village.webp'
 import { KeySettings } from './KeySettings'
+import { formatPoints } from './format'
 
 type Panel = 'how' | 'settings'
 
@@ -101,15 +105,23 @@ function HowToPlay() {
       </div>
       <ol className="space-y-2.5 text-sm text-ink/80">
         <Rule n="1">
-          Tiles start ten squares away and advance every 0.75 seconds. Arrows or WASD move relative
-          to the camera: towards the stack advances one square; perpendicular keys move sideways.
-          Moving past an edge turns the fall towards the stack from that side. Space or Enter places
-          immediately. The next tile keeps the last placement's lane. Rotate to match the terrain;
-          pan, pivot and zoom the camera throughout play.
+          Tiles start ten squares away and advance every {FALL_INTERVAL} seconds. Arrows or WASD
+          move relative to the camera: towards the stack advances one square; perpendicular keys
+          move sideways. Moving past an edge turns the fall towards the stack from that side. Hold
+          Shift with any movement key to choose the arrival side: Shift + right brings the tile from
+          right to left, and similarly for the other sides. The remaining distance and cadence are
+          preserved; the new lane follows the projected placement whenever it has an obstacle. Space
+          or Enter places immediately. The next tile keeps the last placement's lane. Rotate to
+          match the terrain; pan, pivot and zoom the camera throughout play. If the falling tile
+          leaves the screen, the camera reframes it and the island edge. Shift + R or Shift + ! does
+          the same on demand.
         </Rule>
         <Rule n="2">
-          Every matching square along a seam scores 5 points. Reach each level&rsquo;s goal before
-          the clock runs out to move on; the next goal is higher and the clock a little shorter.
+          Every matching square along a seam scores 5 points. A placement with at least one fully
+          matching side and no red contacts raises the combo by 0.25, up to ×3. A red contact resets
+          it to ×1. The multiplier applies only to that tile's points; extra tiles stay the same.
+          Reach each level&rsquo;s goal to move on and earn extra tiles; the next goal is higher.
+          There is no time limit.
         </Rule>
         <Rule n="3">
           Match every side you touch (two or more) and a tile returns to your stack.
@@ -117,7 +129,7 @@ function HowToPlay() {
         <Rule n="4">Fill a gap and match all four sides for 30 bonus points and two tiles.</Rule>
       </ol>
       <p className="font-display text-sm text-ink/60 italic">
-        Mismatches never cost points. The game ends when time runs out or the stack is empty.
+        Mismatches never cost points. The game ends when the stack is empty.
       </p>
     </div>
   )
@@ -146,11 +158,43 @@ export function Menu() {
   const canResume = started && !over
   const toggle = (next: Panel) => setPanel((p) => (p === next ? null : next))
 
+  const navigate = (e: KeyboardEvent<HTMLDivElement>) => {
+    const settings = useSettingsStore.getState()
+    if (settings.capturing || e.metaKey || e.ctrlKey || e.altKey) return
+    // Enter/Space activate the focused button, even if rebound for movement in game.
+    if (e.code === 'Enter' || e.code === 'Space') return
+    const action = actionForCode(settings.bindings, e.code)
+    const previous =
+      e.code === 'ArrowUp' || e.code === 'ArrowLeft' || action === 'moveUp' || action === 'moveLeft'
+    const next =
+      e.code === 'ArrowDown' ||
+      e.code === 'ArrowRight' ||
+      action === 'moveDown' ||
+      action === 'moveRight'
+    if (!previous && !next) return
+    const buttons = Array.from(
+      e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
+    )
+    if (buttons.length === 0) return
+    const current = buttons.indexOf(document.activeElement as HTMLButtonElement)
+    const step = previous ? -1 : 1
+    const index =
+      current < 0
+        ? previous
+          ? buttons.length - 1
+          : 0
+        : (current + step + buttons.length) % buttons.length
+    buttons[index]?.focus()
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Main menu"
+      onKeyDown={navigate}
       className="absolute inset-0 z-20 animate-fade overflow-y-auto"
     >
       {/* Blurred, warm-tinted view of the board behind the menu. */}
@@ -220,12 +264,16 @@ export function Menu() {
             </MenuItem>
           </ul>
 
+          <p className="mt-4 text-xs text-ink/55">
+            Arrows or movement keys to navigate · Enter / Space to select · Esc to return
+          </p>
+
           {started && (
             <p
               className="mt-10 animate-rise font-display text-sm text-ink/70"
               style={{ animationDelay: '440ms' }}
             >
-              Level {level} · {score} points · {tiles} tiles
+              Level {level} · {formatPoints(score)} points · {tiles} tiles
             </p>
           )}
         </section>

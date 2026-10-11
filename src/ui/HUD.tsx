@@ -1,20 +1,16 @@
-import { LEVEL_UP_TILES, levelGoal, levelTimeLimit } from '../game/levels'
+import { LEVEL_UP_TILES, levelGoal } from '../game/levels'
+import { comboMultiplier } from '../game/scoring'
 import { useGameStore } from '../store/gameStore'
-import { formatTime } from './format'
+import { formatPoints } from './format'
 import { HelpDrawer } from './HelpDrawer'
 import { MenuIcon } from './icons'
 import { TileTray } from './TileTray'
 
-/** Seconds left at which the countdown turns urgent. */
-const URGENT_SECONDS = 10
-
-function Meter({ value, tone }: { value: number; tone: 'moss' | 'clay' }) {
+function Meter({ value }: { value: number }) {
   return (
     <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink/8">
       <div
-        className={`h-full rounded-full transition-[width] duration-1000 ease-linear ${
-          tone === 'moss' ? 'bg-moss' : 'bg-clay'
-        }`}
+        className="h-full rounded-full bg-moss transition-[width] duration-1000 ease-linear"
         style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }}
       />
     </div>
@@ -26,6 +22,7 @@ function LevelCard() {
   const level = useGameStore((s) => s.level)
   const levelScore = useGameStore((s) => s.levelScore)
   const score = useGameStore((s) => s.score)
+  const combo = useGameStore((s) => s.combo)
   const last = useGameStore((s) => s.lastPlacement)
   const goal = levelGoal(level)
 
@@ -35,47 +32,35 @@ function LevelCard() {
         <div className="flex items-baseline justify-between gap-3">
           <span className="eyebrow">Level {level}</span>
           <span className="text-[0.65rem] font-semibold text-ink/45 tabular-nums">
-            {score} total
+            {formatPoints(score)} total
           </span>
         </div>
         <div className="font-display text-[2rem] leading-tight font-semibold tabular-nums">
-          {levelScore}
+          {formatPoints(levelScore)}
           <span className="text-lg font-normal text-ink/45"> / {goal}</span>
         </div>
-        <Meter value={levelScore / goal} tone="moss" />
+        <Meter value={levelScore / goal} />
+        <div className="mt-2 flex items-center justify-between gap-2 text-xs">
+          <span className="font-semibold text-ink/55">Combo</span>
+          <span
+            aria-label={`Current combo multiplier: ${formatPoints(comboMultiplier(combo))}`}
+            className={`rounded-full px-2 py-0.5 font-semibold tabular-nums ${
+              combo > 0 ? 'bg-moss text-paper' : 'bg-ink/6 text-ink/55'
+            }`}
+          >
+            ×{formatPoints(comboMultiplier(combo))}
+          </span>
+        </div>
       </div>
       {last && last.points > 0 && (
         <div
           key={`${last.coord.q},${last.coord.r}`}
           className="absolute top-full left-3 mt-2 animate-float-up sm:top-3 sm:left-full sm:mt-0 sm:ml-2 rounded-full bg-moss px-2.5 py-0.5 font-display text-sm font-semibold whitespace-nowrap text-paper shadow"
         >
-          +{last.points}
+          +{formatPoints(last.points)}
           {last.perfect ? ' perfect' : ''}
         </div>
       )}
-    </div>
-  )
-}
-
-function Countdown() {
-  // Whole seconds, rounded up, so the clock reads 0:00 only once time is really up.
-  const seconds = useGameStore((s) => Math.ceil(s.timeLeft))
-  const level = useGameStore((s) => s.level)
-  const urgent = seconds <= URGENT_SECONDS
-
-  return (
-    <div className="card w-28 px-4 pt-2.5 pb-3 text-right sm:w-36 sm:px-5">
-      <div className="eyebrow">
-        Time<span className="hidden sm:inline"> left</span>
-      </div>
-      <div
-        className={`font-display text-[2rem] leading-tight font-semibold tabular-nums transition-colors ${
-          urgent ? 'text-clay' : ''
-        }`}
-      >
-        <time dateTime={`PT${seconds}S`}>{formatTime(seconds)}</time>
-      </div>
-      <Meter value={seconds / levelTimeLimit(level)} tone={urgent ? 'clay' : 'moss'} />
     </div>
   )
 }
@@ -95,7 +80,7 @@ function LevelBanner() {
         <div className="eyebrow">Goal reached</div>
         <div className="font-display text-3xl font-semibold">Level {level}</div>
         <div className="mt-0.5 text-sm text-ink/65">
-          {levelGoal(level)} points in {formatTime(levelTimeLimit(level))} · +{LEVEL_UP_TILES} tiles
+          {levelGoal(level)} points · +{LEVEL_UP_TILES} tiles
         </div>
       </div>
     </div>
@@ -120,7 +105,6 @@ export function HUD() {
           </button>
           <LevelCard />
         </div>
-        <Countdown />
       </header>
 
       <LevelBanner />

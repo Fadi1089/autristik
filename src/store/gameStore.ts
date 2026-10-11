@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Coord, Direction } from '../game/coords'
 import {
   advanceFalling,
+  changeFallDirection,
   createFallingGame,
   hardDrop,
   laneAxis,
@@ -27,6 +28,7 @@ export interface GameStore extends FallingGameState {
   selectLane(lane: number): void
   selectPosition(position: Coord): void
   move(direction: Direction): void
+  setFallDirection(direction: Direction): void
   advance(): void
   drop(): void
   rotate(turns: number): void
@@ -81,6 +83,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
   move: (direction) =>
     set((s) => (s.menuOpen ? s : withCameraRequest(s, moveInDirection(s, direction)))),
+  setFallDirection: (direction) => set((s) => (s.menuOpen ? s : changeFallDirection(s, direction))),
   advance: () => set((s) => (s.menuOpen ? s : advanceFalling(s))),
   drop: () => set((s) => (s.menuOpen ? s : hardDrop(s))),
   rotate: (turns) =>

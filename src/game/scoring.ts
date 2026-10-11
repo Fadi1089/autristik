@@ -5,11 +5,36 @@ export const POINTS_PER_CONTACT = 5
 export const PERFECT_BONUS_POINTS = 30
 export const HARMONY_BONUS_TILES = 1
 export const PERFECT_BONUS_TILES = 2
+export const COMBO_STEP = 0.25
+export const MAX_COMBO_MULTIPLIER = 3
+
+export function comboMultiplier(combo: number): number {
+  return Math.min(MAX_COMBO_MULTIPLIER, 1 + combo * COMBO_STEP)
+}
 
 export interface PlacementScore {
   readonly points: number
   /** Extra tiles added to the stack as a reward. */
   readonly bonusTiles: number
+}
+
+export interface ComboPlacementScore extends PlacementScore {
+  readonly basePoints: number
+  readonly multiplier: number
+  /** Consecutive placements with at least one matching side and no mismatched sides. */
+  readonly combo: number
+}
+
+/** Apply the resulting combo to this tile's points only, including its perfect-placement bonus. */
+export function scoreWithCombo(
+  evaluation: PlacementEvaluation,
+  previousCombo: number,
+): ComboPlacementScore {
+  const base = scorePlacement(evaluation)
+  const successful = evaluation.matched.length > 0 && evaluation.mismatched.length === 0
+  const combo = successful ? previousCombo + 1 : 0
+  const multiplier = comboMultiplier(combo)
+  return { ...base, basePoints: base.points, points: base.points * multiplier, multiplier, combo }
 }
 
 /**

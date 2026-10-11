@@ -3,7 +3,8 @@ import { useMemo, useRef } from 'react'
 import type { Group } from 'three'
 import { coordsEqual, directionOffset } from '../game/coords'
 import { landingPosition } from '../game/falling'
-import { currentQuadrants, previewPlacement } from '../game/game'
+import { currentQuadrants } from '../game/game'
+import { evaluatePlacement } from '../game/matching'
 import type { Contact } from '../game/matching'
 import { SCENE_COLORS } from '../palette'
 import { useGameStore } from '../store/gameStore'
@@ -30,16 +31,16 @@ export function Ghost() {
   const current = useGameStore((s) => s.current)
   const rotation = useGameStore((s) => s.rotation)
   const fallDirection = useGameStore((s) => s.fallDirection)
-  const timeLeft = useGameStore((s) => s.timeLeft)
   const { quadrants, target, preview } = useMemo(() => {
     const hand = { board, current, rotation }
-    const target = landingPosition({ ...hand, falling, fallDirection, timeLeft })
+    const quadrants = currentQuadrants(hand)
+    const target = landingPosition({ ...hand, falling, fallDirection })
     return {
-      quadrants: currentQuadrants(hand),
+      quadrants,
       target,
-      preview: target ? previewPlacement(hand, target) : null,
+      preview: target && quadrants ? evaluatePlacement(board, target, quadrants) : null,
     }
-  }, [board, current, rotation, falling, fallDirection, timeLeft])
+  }, [board, current, rotation, falling, fallDirection])
   const ref = useRef<Group>(null)
   useFrame(({ clock }) => {
     if (ref.current) ref.current.position.y = 0.16 + Math.sin(clock.elapsedTime * 3) * 0.03

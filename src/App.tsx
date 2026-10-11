@@ -4,12 +4,12 @@ import { useGameStore } from './store/gameStore'
 import { GameOver } from './ui/GameOver'
 import { HUD } from './ui/HUD'
 import { Menu } from './ui/Menu'
-import { useGameClock } from './ui/useGameClock'
+import { useGravity } from './ui/useGravity'
 import { useKeyboardShortcuts } from './ui/useKeyboardShortcuts'
 
 export function App() {
   useKeyboardShortcuts()
-  useGameClock()
+  useGravity()
   const menuOpen = useGameStore((s) => s.menuOpen)
 
   return (
@@ -17,7 +17,7 @@ export function App() {
       <Canvas
         shadows="percentage"
         dpr={[1, 2]}
-        camera={{ position: [0, 28, 28], fov: 50, near: 0.1, far: 200 }}
+        camera={{ position: [0, 16, 16], fov: 50, near: 0.1, far: 200 }}
       >
         <Scene />
       </Canvas>

@@ -21,14 +21,16 @@ Each tile is a 2×2 grid of terrain squares (meadow, forest, field, water or vil
 flush, so where two tiles meet, each square on one side faces one square on the other.
 
 - The game opens on the menu. Press Play (or `Enter`, or `Esc`) to start. `Esc` or the button in the top
-  left brings the menu back and pauses the game and the timer.
+  left brings the menu back and pauses the game.
+  Navigate its buttons with arrows or the bound movement keys (WASD / ZQSD by default),
+  including the Settings panel; `Enter` or `Space` activates the focused button.
 - Move sideways around the stack to change the arrival side automatically. If the next lane
   has no tile ahead in the current fall direction, the falling tile rounds the edge and heads
   towards the stack from that side: moving off the right edge makes it fall right-to-left,
   off the left edge left-to-right, and similarly for the top and bottom. The remaining
   distance and fall cadence are preserved. Lateral movement follows the outer surface of
   each lane: taller stacks raise the tile and shorter stacks lower it without adding fall time.
-- A transparent tile moves towards the stack automatically, one square every 0.75 seconds.
+- A transparent tile moves towards the stack automatically, one square every 1.5 seconds.
   It locks when the next square is occupied, scores normally, and the next tile starts another
   fall. Side contacts do not stop the fall. A fainter landing projection shows its destination.
 - The next tile starts ten squares from the outermost occupied tile in its lane, on the same column for
@@ -40,10 +42,22 @@ flush, so where two tiles meet, each square on one side faces one square on the 
   lane turns around the edge once; the tile stays outside the stack's surface.
 - `Space` or `Enter` immediately places the tile against the first obstacle in the selected
   lane, scores it and draws the next tile. It never passes through an occupied square.
+- Hold `Shift` with any bound movement key to choose the arrival side, relative to the
+  camera: `Shift` + right makes the tile fall right-to-left, left makes it fall left-to-right,
+  up makes it fall top-to-bottom, and down makes it fall bottom-to-top.
+  This preserves the remaining distance and cadence and uses the projected placement's
+  row/column for the new lane. If that lane has no obstacle, the adjacent lane containing
+  the previously targeted stack tile is used. The camera stays in place while the tile is visible.
+  Repeated key events do not advance the tile.
 - The camera follows successful manual lateral movements smoothly. Automatic falling,
-  locking and spawning never request camera movement. You can still pan, pivot and zoom.
+  locking and spawning leave it in place while the falling tile stays on screen.
+  If the tile leaves the frame, the camera smoothly recenters on the tile, its landing
+  projection and the neighbouring island edge, keeping its orientation and zooming out
+  only if needed. `Shift` + `R` or `Shift` + `!` requests the same framing on demand.
+  You can still pan, pivot and zoom; automatic reframing waits until a mouse gesture ends.
 - Seam dots on the landing projection show matching terrain (green) and mismatches (red).
-  There is no text bubble or direction panel.
+  The combo multiplier is displayed in the score card in the top-left corner.
+  There is no direction panel.
 - The `?` tab on the right edge of the screen slides out the terrain legend and key list when
   you hover it (tap it on touch screens).
 - `E` or `Page Down` rotates the tile clockwise, `Q` (QWERTY) / `A` (AZERTY) or `Page Up` anticlockwise. The buttons beside the floating tile
@@ -52,22 +66,25 @@ flush, so where two tiles meet, each square on one side faces one square on the 
 
 The game is fully playable with the keyboard alone. Default keys:
 
-| Key                       | Action                                                        |
-| ------------------------- | ------------------------------------------------------------- |
-| Arrows or `W` `A` `S` `D` | Move sideways / advance towards stack, relative to the camera |
-| `Space` / `Enter`         | Place immediately against the first obstacle                  |
-| `E` / `Page Down`         | Rotate clockwise                                              |
-| `Q` / `Page Up`           | Rotate anticlockwise (QWERTY; `A` on AZERTY)                  |
-| `Z` / `X`                 | Pivot the camera                                              |
-| `=` / `-`                 | Zoom                                                          |
-| `Esc`                     | Menu (always, can't be rebound)                               |
+| Key                           | Action                                                        |
+| ----------------------------- | ------------------------------------------------------------- |
+| Arrows or `W` `A` `S` `D`     | Move sideways / advance towards stack, relative to the camera |
+| `Shift` + movement key        | Choose arrival side, relative to the camera                   |
+| `Space` / `Enter`             | Place immediately against the first obstacle                  |
+| `E` / `Page Down`             | Rotate clockwise                                              |
+| `Q` / `Page Up`               | Rotate anticlockwise (QWERTY; `A` on AZERTY)                  |
+| `Z` / `X`                     | Pivot the camera                                              |
+| `=` / `-`                     | Zoom                                                          |
+| `Shift` + `R` / `Shift` + `!` | Recenter on the falling tile and the island edge              |
+| `Esc`                         | Menu (always, can't be rebound)                               |
 
 Choose AZERTY or QWERTY under Menu > Settings > Keyboard layout. The selection is saved and
 updates key labels throughout the interface. Keys are matched by physical position, so movement
 uses `Z` `Q` `S` `D` on AZERTY and `W` `A` `S` `D` on QWERTY; switching layouts preserves custom bindings. Active controls except
-`Esc` can be changed under Menu > Settings (two keys per action, saved in the browser).
+`Esc` and the two recenter shortcuts can be changed under Menu > Settings (two keys per action, saved in the browser).
 All four movement actions and immediate placement are configurable under Settings.
-The movement mapping adapts when the camera has pivoted; arrival sides change through movement.
+The movement mapping adapts when the camera has pivoted; arrival sides change through movement
+or `Shift` + a movement key (including custom bindings and AZERTY / QWERTY).
 
 Mouse and touchpad:
 
@@ -89,21 +106,28 @@ Scoring:
 
 A side counts as matching only when both of its squares match. Mismatches cost nothing.
 
-Levels: each level has a points goal and a countdown (top right). Earn the goal's points within
-the level before the clock hits zero and the next level starts at once, on the same board, with a
-fresh clock and 6 extra tiles. Points toward the goal start from zero each level; the total score
-keeps adding up.
+Combos: a placement with at least one fully green side and no red contacts increases the
+multiplier by 0.25. It starts at ×1, so the first success earns ×1.25, followed by ×1.5,
+×1.75, ×2, ×2.25, ×2.5, ×2.75 and ×3 (the cap). Any mismatched touching side resets
+it to ×1 for that placement, even if another side is fully green. Empty sides do not break
+the combo. Only the new tile's points, including its perfect-placement point bonus, are
+multiplied; existing score and bonus tiles are unchanged. Fractional points are retained.
+The combo survives level changes and pauses, and resets on a new game.
 
-| Level | Goal              | Time                                 |
-| ----- | ----------------- | ------------------------------------ |
-| 1     | 50                | 1:15                                 |
-| 2     | 75                | 1:10                                 |
-| 3     | 100               | 1:05                                 |
-| n     | 50 + 25 × (n − 1) | 75 − 5 × (n − 1) s, never under 40 s |
+Levels: each level has a points goal with no time limit. Reaching it starts the next level
+at once, on the same board, with 6 extra tiles. Points toward the goal start from zero
+each level; the total score keeps adding up.
 
-The game ends when the countdown runs out or the stack (30 tiles to start) is empty. The menu
-pauses the clock. The numbers live in `src/game/levels.ts`. Add `?seed=123` to the URL to replay
-the same sequence of tiles.
+| Level | Goal              |
+| ----- | ----------------- |
+| 1     | 75                |
+| 2     | 125               |
+| 3     | 175               |
+| n     | 75 + 50 × (n − 1) |
+
+The game ends only when the stack (30 tiles to start) is empty. There is no countdown or
+duration-based game over. The menu pauses automatic falling. The level goals live in
+`src/game/levels.ts`. Add `?seed=123` to the URL to replay the same sequence of tiles.
 
 ## Requirements
 
@@ -141,10 +165,10 @@ npm run test:watch  # watch mode
 ```
 
 Tests live next to the code (`src/**/*.test.ts`). They cover square neighbours, rotation, seam
-matching and scoring, placement rules, timed levels, falling cadence, collision and automatic
+matching and scoring, placement rules, score-based levels without a time limit, falling cadence, collision and automatic
 locking from all four sides, automatic edge turns, keeping the last placement's lane,
 manual advance and immediate placement, lateral movement, pause/resume, camera-relative
-controls, camera requests, and the timer format.
+controls, camera requests, and fractional score formatting.
 
 ## Build
 
@@ -180,14 +204,14 @@ reserved for the Pages artifact.
 To release, start the commit message with `(RELEASE)` and push to `main`:
 
 ```sh
-git commit -m "(RELEASE) feat: timed levels"
+git commit -m "(RELEASE) feat: score-based levels"
 git push origin main
 ```
 
 On `main`, a commit flagged like this runs one more job after `test` passes: `release`. It adds
 one squash commit to `prod` whose files are exactly those of the flagged commit. Whatever was on
 `prod` before is ignored, so there are no merges, merge requests or conflicts. The flag is
-stripped from the message (`feat: timed levels` above; a bare `(RELEASE)` becomes
+stripped from the message (`feat: score-based levels` above; a bare `(RELEASE)` becomes
 `chore(release): main@<sha>`), the commit is authored by whoever pushed, and the body records the
 `main` commit it came from. The squash sits on top of the previous release, so the push is a
 plain fast-forward and never needs force. That push starts a pipeline on `prod`, which runs
@@ -226,13 +250,13 @@ src/
     board.ts     Board map and the starting layout
     matching.ts  Seam matching and placement rules
     scoring.ts   Points and bonus tiles
-    game.ts      Game state transitions (place, rotate, draw, countdown, level up)
+    game.ts      Game state transitions (place, rotate, draw, level up)
     falling.ts   Four-sided gravity, landing projection, lateral movement, manual/hard drop
     levels.ts    Goal and time limit for each level
     random.ts    Seedable PRNG so games are reproducible
   input/     Pure keyboard logic: bindings and defaults, key labels, screen-relative movement
   store/
-    gameStore.ts      Falling game state, lateral camera requests, menu and timer
+    gameStore.ts      Falling game state, lateral camera requests and menu
     viewStore.ts      Camera angles and focus, plus keyboard pivot/zoom requests
     settingsStore.ts  Key bindings, saved to localStorage
   scene/     React Three Fiber components
@@ -242,8 +266,8 @@ src/
     Ground.tsx      Ground plane; also the pointer target for picking squares
     Lights.tsx      Hemisphere fill and a shadow-casting sun that follows the camera
     CameraRig.tsx   MapControls with zoom and tilt limits, scroll pivot, clamped to the board
-  ui/        Tailwind overlay: HUD (score, timer, tile tray), main menu, game-over screen,
-             keyboard shortcuts and the game clock
+  ui/        Tailwind overlay: HUD (score, tile tray), main menu, game-over screen,
+             keyboard shortcuts and automatic falling cadence
   palette.ts Colours shared by the scene and the HUD
 ```
 

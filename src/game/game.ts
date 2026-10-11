@@ -1,18 +1,18 @@
 import { createStartingBoard, withTile } from './board'
 import type { Board } from './board'
 import type { Coord } from './coords'
-import { LEVEL_UP_TILES, levelGoal, levelTimeLimit } from './levels'
+import { LEVEL_UP_TILES, levelGoal } from './levels'
 import { canPlace, evaluatePlacement } from './matching'
 import type { PlacementEvaluation } from './matching'
 import { createRng } from './random'
-import { scorePlacement } from './scoring'
-import type { PlacementScore } from './scoring'
+import { scoreWithCombo } from './scoring'
+import type { ComboPlacementScore } from './scoring'
 import { normalizeRotation, randomQuadrants, rotateQuadrants } from './tiles'
 import type { Quadrants, Rotation } from './tiles'
 
 export const STARTING_TILES = 30
 
-export type PlacementPreview = PlacementEvaluation & PlacementScore
+export type PlacementPreview = PlacementEvaluation & ComboPlacementScore
 
 export interface PlacementResult extends PlacementPreview {
   readonly coord: Coord
@@ -20,8 +20,8 @@ export interface PlacementResult extends PlacementPreview {
   readonly leveledUp: boolean
 }
 
-/** Why a game ended: the countdown ran out, or the stack did. */
-export type EndReason = 'time' | 'tiles'
+/** A game ends only when the tile supply is empty. */
+export type EndReason = 'tiles'
 
 export interface GameState {
   readonly board: Board
@@ -32,12 +32,12 @@ export interface GameState {
   readonly remaining: number
   /** Total points across all levels. */
   readonly score: number
+  /** Consecutive successful placements; the score multiplier caps at ×3. */
+  readonly combo: number
   /** Current level, starting at 1. */
   readonly level: number
   /** Points earned since the current level began, counted towards its goal. */
   readonly levelScore: number
-  /** Seconds left on the current level's countdown. */
-  readonly timeLeft: number
   /** PRNG state used for the next draw. */
   readonly seed: number
   readonly lastPlacement: PlacementResult | null
@@ -53,9 +53,9 @@ export function createGame(seed: number, tiles: number = STARTING_TILES): GameSt
     rotation: 0,
     remaining: Math.max(0, tiles),
     score: 0,
+    combo: 0,
     level: 1,
     levelScore: 0,
-    timeLeft: levelTimeLimit(1),
     seed: rng.state,
     lastPlacement: null,
   }
@@ -73,11 +73,14 @@ export function rotateCurrent(state: GameState, turns: number): GameState {
   return { ...state, rotation: normalizeRotation(state.rotation + turns) }
 }
 
-export function previewPlacement(state: HandState, c: Coord): PlacementPreview | null {
+export function previewPlacement(
+  state: HandState & Pick<GameState, 'combo'>,
+  c: Coord,
+): PlacementPreview | null {
   const quadrants = currentQuadrants(state)
   if (!quadrants || !canPlace(state.board, c)) return null
   const evaluation = evaluatePlacement(state.board, c, quadrants)
-  return { ...evaluation, ...scorePlacement(evaluation) }
+  return { ...evaluation, ...scoreWithCombo(evaluation, state.combo) }
 }
 
 /** True when placing a tile worth `points` would clear the current level. */
@@ -87,7 +90,7 @@ export function wouldLevelUp(state: Pick<GameState, 'level' | 'levelScore'>, poi
 
 /**
  * Places the tile in hand at `c`. Reaching the level's goal starts the next level
- * straight away: a fresh countdown, a higher goal and a few extra tiles.
+ * straight away: a higher goal and a few extra tiles.
  * Returns `state` unchanged if the move is not allowed.
  */
 export function placeCurrent(state: GameState, c: Coord): GameState {
@@ -107,26 +110,19 @@ export function placeCurrent(state: GameState, c: Coord): GameState {
     rotation: 0,
     remaining,
     score: state.score + preview.points,
+    combo: preview.combo,
     level,
     levelScore: leveledUp ? 0 : state.levelScore + preview.points,
-    timeLeft: leveledUp ? levelTimeLimit(level) : state.timeLeft,
     seed: rng.state,
     lastPlacement: { ...preview, coord: c, leveledUp },
   }
 }
 
-/** Runs the countdown. Once it reaches zero the game is over. */
-export function tickGame(state: GameState, seconds: number): GameState {
-  if (isGameOver(state) || seconds <= 0) return state
-  return { ...state, timeLeft: Math.max(0, state.timeLeft - seconds) }
-}
-
-export function endReason(state: Pick<GameState, 'current' | 'timeLeft'>): EndReason | null {
-  if (state.timeLeft <= 0) return 'time'
+export function endReason(state: Pick<GameState, 'current'>): EndReason | null {
   if (state.current === null) return 'tiles'
   return null
 }
 
-export function isGameOver(state: Pick<GameState, 'current' | 'timeLeft'>): boolean {
+export function isGameOver(state: Pick<GameState, 'current'>): boolean {
   return endReason(state) !== null
 }

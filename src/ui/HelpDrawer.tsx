@@ -7,6 +7,12 @@ import { KeyCaps, MoveKeyCaps } from './KeyCaps'
 
 const KEYS: [keys: ReactNode, action: string][] = [
   [<MoveKeyCaps key="move" slot={0} />, 'Move / advance towards stack'],
+  [
+    <>
+      <kbd>Shift</kbd> + <MoveKeyCaps slot={0} />
+    </>,
+    'Choose arrival side',
+  ],
   [<KeyCaps key="drop" action="place" />, 'Place immediately'],
   [
     <>
@@ -23,6 +29,12 @@ const KEYS: [keys: ReactNode, action: string][] = [
     'Pivot camera',
   ],
   [<kbd key="esc">Esc</kbd>, 'Menu'],
+  [
+    <>
+      <kbd>Shift</kbd> + <kbd>R</kbd> / <kbd>!</kbd>
+    </>,
+    'Recenter on falling tile',
+  ],
 ]
 
 /**
@@ -84,7 +96,8 @@ export function HelpDrawer() {
         </dl>
         <p className="mt-3 text-xs text-ink/55">
           Towards the stack advances one square; sideways past an edge changes the fall direction.
-          Click or tap selects a lane.
+          Click or tap selects a lane. All touching sides green raises the combo by 0.25, up to ×3;
+          any red resets it.
           <kbd>Shift</kbd> + scroll pivots.
         </p>
 

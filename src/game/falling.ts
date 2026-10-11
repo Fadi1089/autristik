@@ -2,18 +2,17 @@ import { boardTiles, isOccupied } from './board'
 import type { Board } from './board'
 import { Direction, directionOffset, neighbour, oppositeDirection } from './coords'
 import type { Coord } from './coords'
-import { createGame, isGameOver, placeCurrent, tickGame } from './game'
+import { createGame, isGameOver, placeCurrent } from './game'
 import type { GameState } from './game'
 
 export const FALL_DISTANCE = 10
-export const FALL_INTERVAL = 0.75
+export const FALL_INTERVAL = 1.5
 
 export interface FallingGameState extends GameState {
   readonly falling: Coord | null
   /** World direction towards the stack, independent of camera orientation. */
   readonly fallDirection: Direction
   readonly fallElapsed: number
-  readonly elapsed: number
 }
 
 /** The axis perpendicular to gravity is the only axis for lateral movement. */
@@ -65,13 +64,12 @@ export function createFallingGame(seed: number, tiles?: number): FallingGameStat
     falling: isGameOver(game) ? null : spawnFalling(game.board),
     fallDirection: Direction.South,
     fallElapsed: 0,
-    elapsed: 0,
   }
 }
 
 /** First reachable landing square in the chosen lane; never passes through a tile. */
 export function landingPosition(
-  state: Pick<FallingGameState, 'board' | 'falling' | 'fallDirection' | 'current' | 'timeLeft'>,
+  state: Pick<FallingGameState, 'board' | 'falling' | 'fallDirection' | 'current'>,
 ): Coord | null {
   if (!state.falling || isGameOver(state)) return null
   const axis = laneAxis(state.fallDirection)
@@ -134,11 +132,17 @@ export function changeFallDirection(
   const target = landingPosition(state)
   if (!target || !state.falling) return state
   const distance = Math.abs(target.q - state.falling.q) + Math.abs(target.r - state.falling.r) + 1
-  const lane = spawnFalling(state.board, direction)[laneAxis(direction)]
+  const anchor = neighbour(target, state.fallDirection)
+  const axis = laneAxis(direction)
+  // Turn around the projected placement, not the occupied tile it was aimed at.
+  // If that row/column has no obstacle, use the adjacent supported lane.
+  const falling =
+    positionAboveLane(state.board, direction, target[axis], distance) ??
+    positionAboveLane(state.board, direction, anchor[axis], distance)
   return {
     ...state,
     fallDirection: direction,
-    falling: positionAboveLane(state.board, direction, lane, distance),
+    falling,
   }
 }
 
@@ -178,21 +182,18 @@ export function moveInDirection(state: FallingGameState, direction: Direction): 
   return moveFalling(state, state.falling[axis] + directionOffset(direction)[axis])
 }
 
-/** Process gravity and the level clock in event order, including level-ups and long ticks. */
+/** Process gravity in event order, including level-ups and long ticks. */
 export function tickFallingGame(state: FallingGameState, seconds: number): FallingGameState {
   if (!Number.isFinite(seconds) || seconds <= 0 || isGameOver(state)) return state
   let next = state
   let remaining = seconds
   while (remaining > 0 && !isGameOver(next)) {
-    const dt = Math.min(remaining, FALL_INTERVAL - next.fallElapsed, next.timeLeft)
+    const dt = Math.min(remaining, FALL_INTERVAL - next.fallElapsed)
     next = {
       ...next,
-      ...tickGame(next, dt),
       fallElapsed: next.fallElapsed + dt,
-      elapsed: next.elapsed + dt,
     }
     remaining -= dt
-    if (isGameOver(next)) return { ...next, falling: null }
     if (next.fallElapsed >= FALL_INTERVAL - 1e-9) next = advanceFalling(next)
   }
   return next

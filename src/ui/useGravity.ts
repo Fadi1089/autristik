@@ -4,10 +4,10 @@ import { useGameStore } from '../store/gameStore'
 const TICK_MS = 200
 
 /**
- * Feeds real elapsed time into the store. The store ignores ticks while the menu
- * is open or the game is over, and hidden tabs don't count either.
+ * Advances automatic falling. This is only the movement cadence, with no game
+ * countdown. The store ignores ticks while paused or out of tiles; hidden tabs pause too.
  */
-export function useGameClock() {
+export function useGravity() {
   useEffect(() => {
     let last = performance.now()
     const id = window.setInterval(() => {

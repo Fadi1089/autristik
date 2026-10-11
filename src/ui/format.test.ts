@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatTime } from './format'
-
-describe('formatTime', () => {
-  it('shows minutes and zero-padded seconds', () => {
-    expect(formatTime(0)).toBe('0:00')
-    expect(formatTime(9.9)).toBe('0:09')
-    expect(formatTime(75)).toBe('1:15')
-  })
-
-  it('adds hours past the hour mark', () => {
-    expect(formatTime(3725)).toBe('1:02:05')
+import { formatPoints } from './format'
+describe('combo score formatting', () => {
+  it('preserves quarter steps and fractional points without trailing zeroes', () => {
+    expect(formatPoints(1)).toBe('1')
+    expect(formatPoints(1.25)).toBe('1,25')
+    expect(formatPoints(1.5)).toBe('1,5')
+    expect(formatPoints(17.5)).toBe('17,5')
+    expect(formatPoints(3)).toBe('3')
   })
 })

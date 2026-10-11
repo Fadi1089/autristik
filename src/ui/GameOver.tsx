@@ -1,14 +1,13 @@
 import { tileCount } from '../game/board'
 import { endReason } from '../game/game'
 import { useGameStore } from '../store/gameStore'
-import { formatTime } from './format'
+import { formatPoints } from './format'
 
 export function GameOver() {
   const reason = useGameStore(endReason)
   const menuOpen = useGameStore((s) => s.menuOpen)
   const score = useGameStore((s) => s.score)
   const level = useGameStore((s) => s.level)
-  const elapsed = useGameStore((s) => s.elapsed)
   const tiles = useGameStore((s) => tileCount(s.board))
   const restart = useGameStore((s) => s.restart)
   const openMenu = useGameStore((s) => s.openMenu)
@@ -21,15 +20,13 @@ export function GameOver() {
         aria-label="Game over"
         className="card flex animate-rise flex-col items-center px-10 pt-8 pb-7 text-center"
       >
-        <p className="eyebrow">{reason === 'time' ? "Time's up" : 'The stack is empty'}</p>
+        <p className="eyebrow">The stack is empty</p>
         <h2 className="mt-2 font-display text-2xl text-ink/80 italic">You reached level {level}</h2>
         <div className="mt-3 font-display text-7xl leading-none font-semibold tabular-nums">
-          {score}
+          {formatPoints(score)}
         </div>
         <p className="mt-1 text-xs font-semibold tracking-wide text-ink/45 uppercase">points</p>
-        <p className="mt-3 text-sm text-ink/60">
-          {tiles} tiles in {formatTime(elapsed)}
-        </p>
+        <p className="mt-3 text-sm text-ink/60">{tiles} tiles</p>
         <div className="mt-6 flex gap-2">
           <button
             type="button"

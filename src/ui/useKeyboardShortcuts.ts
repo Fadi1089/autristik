@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { oppositeDirection } from '../game/coords'
 import { isGameOver } from '../game/game'
 import { actionForCode, REPEATABLE } from '../input/bindings'
 import type { Action } from '../input/bindings'
@@ -38,6 +39,13 @@ export function useKeyboardShortcuts() {
       // Leave Enter, Space and friends to the menu and game-over buttons.
       if (game.menuOpen || isGameOver(game)) return
 
+      // AZERTY's ! key produces § with Shift; QWERTY's Shift + 1 produces !.
+      if (e.shiftKey && (e.code === 'KeyR' || e.key === '!' || e.key === '§')) {
+        e.preventDefault()
+        if (!e.repeat) useViewStore.getState().requestRecenter()
+        return
+      }
+
       const action = actionForCode(settings.bindings, e.code)
       if (!action) return
       e.preventDefault()
@@ -45,7 +53,12 @@ export function useKeyboardShortcuts() {
 
       const move = MOVES[action]
       if (move) {
-        game.move(screenToWorldDirection(move, useViewStore.getState().azimuth))
+        const direction = screenToWorldDirection(move, useViewStore.getState().azimuth)
+        if (e.shiftKey) {
+          if (!e.repeat) game.setFallDirection(oppositeDirection(direction))
+        } else {
+          game.move(direction)
+        }
         return
       }
 

@@ -1,10 +1,6 @@
-/** 75 → "1:15", 3725 → "1:02:05". */
-export function formatTime(totalSeconds: number): string {
-  const s = Math.floor(totalSeconds)
-  const hours = Math.floor(s / 3600)
-  const minutes = Math.floor((s % 3600) / 60)
-  const seconds = String(s % 60).padStart(2, '0')
-  return hours > 0
-    ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`
-    : `${minutes}:${seconds}`
+const scoreFormat = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
+
+/** Keep fractional combo points and quarter-step multipliers readable. */
+export function formatPoints(points: number): string {
+  return scoreFormat.format(points)
 }
