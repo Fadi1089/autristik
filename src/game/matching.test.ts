@@ -160,7 +160,7 @@ describe('nearestCandidate', () => {
     expect(nearestCandidate(board, coord(0, -4))).toEqual(coord(0, -1))
   })
 
-  it('returns null for an empty board', () => {
-    expect(nearestCandidate(EMPTY_BOARD, coord(0, 0))).toBeNull()
+  it('offers the origin to rebuild an island emptied by a void tile', () => {
+    expect(nearestCandidate(EMPTY_BOARD, coord(0, 0))).toEqual(coord(0, 0))
   })
 })

@@ -1,4 +1,4 @@
-import { createStartingBoard, withTile } from './board'
+import { createStartingBoard, destructionTargets, tileCount, withTile, withoutTiles } from './board'
 import type { Board } from './board'
 import type { Coord } from './coords'
 import { LEVEL_UP_TILES, levelGoal } from './levels'
@@ -7,15 +7,20 @@ import type { PlacementEvaluation } from './matching'
 import { createRng } from './random'
 import { scoreWithCombo } from './scoring'
 import type { ComboPlacementScore } from './scoring'
-import { normalizeRotation, randomQuadrants, rotateQuadrants } from './tiles'
-import type { Quadrants, Rotation } from './tiles'
+import { normalizeRotation, randomQuadrants, randomTile, rotateQuadrants, tileKind } from './tiles'
+import type { Quadrants, Rotation, TileDraw, TileMultiplier } from './tiles'
 
 export const STARTING_TILES = 30
 
-export type PlacementPreview = PlacementEvaluation & ComboPlacementScore
+export type PlacementPreview = PlacementEvaluation &
+  ComboPlacementScore & {
+    readonly tileMultiplier: TileMultiplier
+    readonly destroyed: readonly Coord[]
+  }
 
 export interface PlacementResult extends PlacementPreview {
   readonly coord: Coord
+  readonly quadrants: Quadrants
   /** This placement cleared the level's goal. */
   readonly leveledUp: boolean
 }
@@ -27,6 +32,9 @@ export interface GameState {
   readonly board: Board
   /** Tile in hand, unrotated. Null once the stack is empty. */
   readonly current: Quadrants | null
+  readonly currentMultiplier: TileMultiplier
+  /** Successful player placements, including special tiles; deletion never reduces this count. */
+  readonly placements: number
   readonly rotation: Rotation
   /** Tiles left to place, including the one in hand. */
   readonly remaining: number
@@ -46,10 +54,12 @@ export interface GameState {
 export function createGame(seed: number, tiles: number = STARTING_TILES): GameState {
   const rng = createRng(seed)
   const board = createStartingBoard(rng)
-  const current = tiles > 0 ? randomQuadrants(rng) : null
+  const draw = tiles > 0 ? randomTile(rng) : null
   return {
     board,
-    current,
+    current: draw?.quadrants ?? null,
+    currentMultiplier: draw?.multiplier ?? 1,
+    placements: 0,
     rotation: 0,
     remaining: Math.max(0, tiles),
     score: 0,
@@ -69,18 +79,55 @@ export function currentQuadrants(state: HandState): Quadrants | null {
   return state.current ? rotateQuadrants(state.current, state.rotation) : null
 }
 
+/** Peek at the queued draw without consuming the saved RNG state. */
+export function nextTileQuadrants(
+  state: Pick<GameState, 'seed' | 'remaining' | 'current'> & Partial<Pick<GameState, 'placements'>>,
+): Quadrants | null {
+  return nextTilePreview(state)?.quadrants ?? null
+}
+
+/** Preview the bonus as well as the terrain, without consuming the queued draw. */
+export function nextTilePreview(
+  state: Pick<GameState, 'seed' | 'remaining' | 'current'> & Partial<Pick<GameState, 'placements'>>,
+): TileDraw | null {
+  return state.current && state.remaining > 1
+    ? randomTile(createRng(state.seed), (state.placements ?? 0) + 1)
+    : null
+}
+
 export function rotateCurrent(state: GameState, turns: number): GameState {
   return { ...state, rotation: normalizeRotation(state.rotation + turns) }
 }
 
 export function previewPlacement(
-  state: HandState & Pick<GameState, 'combo'>,
+  state: HandState & Pick<GameState, 'combo'> & Partial<Pick<GameState, 'currentMultiplier'>>,
   c: Coord,
 ): PlacementPreview | null {
   const quadrants = currentQuadrants(state)
   if (!quadrants || !canPlace(state.board, c)) return null
   const evaluation = evaluatePlacement(state.board, c, quadrants)
-  return { ...evaluation, ...scoreWithCombo(evaluation, state.combo) }
+  const kind = tileKind(quadrants)
+  if (kind === 'void') {
+    return {
+      ...evaluation,
+      basePoints: 0,
+      points: 0,
+      bonusTiles: 0,
+      combo: 0,
+      multiplier: 1,
+      tileMultiplier: 1,
+      destroyed: destructionTargets(state.board, c),
+    }
+  }
+  const score = scoreWithCombo(evaluation, state.combo)
+  const tileMultiplier = kind === 'normal' ? (state.currentMultiplier ?? 1) : 1
+  return {
+    ...evaluation,
+    ...score,
+    points: score.points * tileMultiplier,
+    tileMultiplier,
+    destroyed: [],
+  }
 }
 
 /** True when placing a tile worth `points` would clear the current level. */
@@ -102,11 +149,22 @@ export function placeCurrent(state: GameState, c: Coord): GameState {
   const level = leveledUp ? state.level + 1 : state.level
   const remaining = state.remaining - 1 + preview.bonusTiles + (leveledUp ? LEVEL_UP_TILES : 0)
   const rng = createRng(state.seed)
-  const current = remaining > 0 ? randomQuadrants(rng) : null
+  const placements = state.placements + 1
+  const draw = remaining > 0 ? randomTile(rng, placements) : null
+  let board =
+    tileKind(quadrants) === 'void'
+      ? withoutTiles(state.board, preview.destroyed)
+      : withTile(state.board, { coord: c, quadrants, multiplier: preview.tileMultiplier })
+  // Keep an anchor at the blast's own cell if the last occupied tiles were consumed.
+  // Generate it after the queued draw so the next-tile preview stays exact.
+  if (tileKind(quadrants) === 'void' && tileCount(board) === 0)
+    board = withTile(board, { coord: c, quadrants: randomQuadrants(rng), multiplier: 1 })
 
   return {
-    board: withTile(state.board, { coord: c, quadrants }),
-    current,
+    board,
+    current: draw?.quadrants ?? null,
+    currentMultiplier: draw?.multiplier ?? 1,
+    placements,
     rotation: 0,
     remaining,
     score: state.score + preview.points,
@@ -114,7 +172,7 @@ export function placeCurrent(state: GameState, c: Coord): GameState {
     level,
     levelScore: leveledUp ? 0 : state.levelScore + preview.points,
     seed: rng.state,
-    lastPlacement: { ...preview, coord: c, leveledUp },
+    lastPlacement: { ...preview, coord: c, quadrants, leveledUp },
   }
 }
 

@@ -80,6 +80,25 @@
   }
 }
 
+/* Theme variables also colour the HUD, menus and keyboard hints. Light stays unchanged. */
+:root {
+  --scene-background: #f3eadb;
+  --menu-shade: rgb(59 46 34 / 0.18);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --color-paper: #26363e;
+  --color-paper-deep: #1d2b32;
+  --color-ink: #eee6d7;
+  --color-moss: #80aa68;
+  --color-moss-deep: #b6d59b;
+  --color-clay: #e5a37f;
+  --scene-background: #19252b;
+  --menu-shade: rgb(3 10 15 / 0.5);
+  color-scheme: dark;
+}
+
 /* Fraunces with its soft, rounded terminals switched on. */
 @utility font-display {
   font-family: var(--font-display);
@@ -124,7 +143,7 @@
     height: 100%;
     margin: 0;
     overflow: hidden;
-    background: #f3eadb;
+    background: var(--scene-background);
     overscroll-behavior: none;
     color: var(--color-ink);
     font-family: var(--font-sans);

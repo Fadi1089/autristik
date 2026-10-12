@@ -1,0 +1,45 @@
+/// <reference types="node" />
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+import { PLACEMENT_SOUNDS } from '../customization'
+
+describe('bundled placement clips', () => {
+  it.each([
+    ...PLACEMENT_SOUNDS.filter((sound) => sound.id !== 'none'),
+    { id: 'menu-nav', label: 'Menu navigation' },
+  ])('ships a short complete Vorbis clip for $label', ({ id }) => {
+    const data = readFileSync(`static/audio/${id}.ogg`)
+    const rate = data.readUInt32LE(data.indexOf(Buffer.from('vorbis')) + 11)
+    let cursor = 0
+    let samples = 0n
+    while (cursor < data.length) {
+      expect(data.toString('ascii', cursor, cursor + 4)).toBe('OggS')
+      const segments = data[cursor + 26]!
+      samples = data.readBigUInt64LE(cursor + 6)
+      let body = 0
+      for (let i = 0; i < segments; i++) body += data[cursor + 27 + i]!
+      cursor += 27 + segments + body
+    }
+    expect(cursor).toBe(data.length)
+    expect(rate).toBeGreaterThan(0)
+    expect(Number(samples) / rate).toBeGreaterThan(0)
+    expect(Number(samples) / rate).toBeLessThan(1)
+  })
+  it('ships a complete ambient music loop between 30 seconds and three minutes', () => {
+    const data = readFileSync('static/audio/sunset-walk.ogg')
+    const rate = data.readUInt32LE(data.indexOf(Buffer.from('vorbis')) + 11)
+    let cursor = 0
+    let samples = 0n
+    while (cursor < data.length) {
+      expect(data.toString('ascii', cursor, cursor + 4)).toBe('OggS')
+      const segments = data[cursor + 26]!
+      samples = data.readBigUInt64LE(cursor + 6)
+      let body = 0
+      for (let i = 0; i < segments; i++) body += data[cursor + 27 + i]!
+      cursor += 27 + segments + body
+    }
+    expect(cursor).toBe(data.length)
+    expect(Number(samples) / rate).toBeGreaterThan(30)
+    expect(Number(samples) / rate).toBeLessThan(180)
+  })
+})

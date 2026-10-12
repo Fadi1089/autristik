@@ -11,9 +11,79 @@ beforeAll(async () => {
   useGameStore = (await import('./gameStore')).useGameStore
 })
 afterAll(() => vi.unstubAllGlobals())
-beforeEach(() => useGameStore.getState().restart(42))
+beforeEach(() => useGameStore.getState().restart(42, 'easy'))
+
+describe('elapsed time and new-game difficulty', () => {
+  it('counts only active play and resets on restarting', () => {
+    useGameStore.getState().tick(2.3)
+    useGameStore.getState().openMenu()
+    useGameStore.getState().tick(60)
+    expect(useGameStore.getState().playedSeconds).toBeCloseTo(2.3)
+    useGameStore.getState().closeMenu()
+    useGameStore.getState().tick(0.7)
+    expect(useGameStore.getState().playedSeconds).toBeCloseTo(3)
+    useGameStore.getState().restart(42)
+    expect(useGameStore.getState().playedSeconds).toBe(0)
+  })
+
+  it('keeps a paused game difficulty and applies the pending choice on a new game', () => {
+    useGameStore.getState().tick(0.3)
+    useGameStore.getState().openMenu()
+    useGameStore.getState().setNextDifficulty('insane')
+    useGameStore.getState().closeMenu()
+    expect(useGameStore.getState().difficulty).toBe('easy')
+    useGameStore.getState().tick(0.2)
+    expect(useGameStore.getState().falling).toEqual({ q: 0, r: -11 })
+    useGameStore.getState().restart(42)
+    expect(useGameStore.getState()).toMatchObject({
+      difficulty: 'insane',
+      nextDifficulty: 'insane',
+      level: 1,
+      remaining: 30,
+      playedSeconds: 0,
+    })
+    useGameStore.getState().tick(0.45)
+    expect(useGameStore.getState().falling).toEqual({ q: 0, r: -10 })
+  })
+
+  it.each(['closeMenu', 'toggleMenu'] as const)(
+    'applies the first Play choice with %s without regenerating the board',
+    (action) => {
+      useGameStore.setState({ started: false, menuOpen: true })
+      const board = useGameStore.getState().board
+      const current = useGameStore.getState().current
+      useGameStore.getState().setNextDifficulty('hard')
+      useGameStore.getState().tick(30)
+      expect(useGameStore.getState().playedSeconds).toBe(0)
+      useGameStore.getState()[action]()
+      expect(useGameStore.getState()).toMatchObject({
+        started: true,
+        menuOpen: false,
+        difficulty: 'hard',
+        level: 1,
+      })
+      expect(useGameStore.getState().board).toBe(board)
+      expect(useGameStore.getState().current).toBe(current)
+    },
+  )
+
+  it('freezes the clock after the game ends', () => {
+    useGameStore.setState({ remaining: 1 })
+    useGameStore.getState().tick(100)
+    expect(useGameStore.getState().playedSeconds).toBeCloseTo(15)
+    useGameStore.getState().tick(100)
+    expect(useGameStore.getState().playedSeconds).toBeCloseTo(15)
+  })
+})
 
 describe('falling controls and camera requests', () => {
+  it('clears the selected island when restarting', () => {
+    useGameStore.getState().setFallDirection(Direction.North)
+    expect(useGameStore.getState().fallAnchor).toBeDefined()
+    useGameStore.getState().restart(42)
+    expect(useGameStore.getState().fallAnchor).toBeUndefined()
+    expect(useGameStore.getState().falling).toEqual({ q: 0, r: -11 })
+  })
   it('retains the combo during movement, rotation and pauses, then clears it on restart', () => {
     useGameStore.setState({ combo: 6 })
     useGameStore.getState().moveSideways(1)

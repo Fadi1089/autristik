@@ -44,6 +44,9 @@ const KEYS: [keys: ReactNode, action: string][] = [
  */
 export function HelpDrawer() {
   const [pinned, setPinned] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const [keyboardFocus, setKeyboardFocus] = useState(false)
+  const open = pinned || hovered || keyboardFocus
   const root = useRef<HTMLDivElement>(null)
   const openMenu = useGameStore((s) => s.openMenu)
 
@@ -60,27 +63,49 @@ export function HelpDrawer() {
   return (
     <div
       ref={root}
-      data-open={pinned || undefined}
-      className="group/help pointer-events-auto absolute right-0 bottom-36 flex translate-x-[calc(100%_-_2.5rem)] items-end transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] focus-within:translate-x-0 hover:translate-x-0 data-open:translate-x-0 sm:bottom-6"
+      data-open={open || undefined}
+      onPointerLeave={() => setHovered(false)}
+      onFocusCapture={(event) => {
+        if (event.target.matches(':focus-visible')) setKeyboardFocus(true)
+      }}
+      onBlurCapture={(event) => {
+        if (!root.current?.contains(event.relatedTarget as Node | null)) setKeyboardFocus(false)
+      }}
+      className="group/help pointer-events-none absolute right-0 bottom-36 flex translate-x-[calc(100%_-_2.5rem)] items-end transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] data-open:translate-x-0 sm:bottom-6"
     >
       <button
         type="button"
         onClick={() => setPinned((p) => !p)}
-        aria-expanded={pinned}
+        onPointerEnter={(event) => {
+          if (event.pointerType !== 'touch') setHovered(true)
+        }}
+        aria-expanded={open}
         aria-label="How to play"
         title="How to play"
-        className="relative z-10 mb-5 -mr-px grid h-20 w-10 place-items-center rounded-l-full bg-paper pl-1.5 shadow-[-6px_4px_18px_-8px_rgb(59_46_34/0.45),inset_1px_0_0_rgb(59_46_34/0.09),inset_0_1px_0_rgb(59_46_34/0.09),inset_0_-1px_0_rgb(59_46_34/0.09)]"
+        className="pointer-events-auto relative z-10 mb-5 -mr-px grid h-20 w-10 place-items-center rounded-l-full bg-paper pl-1.5 shadow-[-6px_4px_18px_-8px_rgb(59_46_34/0.45),inset_1px_0_0_rgb(59_46_34/0.09),inset_0_1px_0_rgb(59_46_34/0.09),inset_0_-1px_0_rgb(59_46_34/0.09)]"
       >
         <span className="font-display text-2xl leading-none font-semibold text-clay">?</span>
       </button>
 
       {/* Hidden once it has slid away, so its shadow doesn't show at the screen edge. */}
-      <div className="invisible card w-72 rounded-r-none py-5 pr-6 pl-5 transition-[visibility] duration-500 group-focus-within/help:visible group-hover/help:visible group-data-open/help:visible">
+      <div
+        inert={!open}
+        aria-hidden={!open}
+        className="invisible card pointer-events-none w-72 rounded-r-none py-5 pr-6 pl-5 transition-[visibility] duration-500 group-data-open/help:visible group-data-open/help:pointer-events-auto"
+      >
         <h2 className="eyebrow">Terrain</h2>
         <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-ink/80">
           {TERRAINS.map((t) => (
             <li key={t} className="flex items-center gap-2">
-              <span className="size-3.5 rounded-[4px]" style={{ background: TERRAIN_COLORS[t] }} />
+              <span
+                className="size-3.5 rounded-[4px]"
+                style={{
+                  background:
+                    t === 'rainbow'
+                      ? 'linear-gradient(135deg, #a87516, #ffe9a0 40%, #e5b535 60%, #fff0ba)'
+                      : TERRAIN_COLORS[t],
+                }}
+              />
               {TERRAIN_LABELS[t]}
             </li>
           ))}
@@ -97,8 +122,13 @@ export function HelpDrawer() {
         </dl>
         <p className="mt-3 text-xs text-ink/55">
           Towards the stack advances one square; sideways past an edge changes the fall direction.
-          Click or tap selects a lane. All touching sides green raises the combo by 0.25, up to ×3;
-          any red resets it.
+          Click or tap selects a lane. Fully matching touching sides raise the combo by 0.25, up to
+          ×3; any mismatch resets it. Golden jokers match ordinary terrain, even after being placed.
+          Bedrock blocks all matches and is indestructible. Void appears after 20 placements (1%),
+          clears its 3×3 area and disappears. If no tiles remain on the board, a standard tile
+          replaces it. Bronze ×2, silver ×3 and diamond-blue ×5 frames boost that tile's score.
+          Repeat Shift + a direction to visit the next island. Cyan outlines the moving tile; pale
+          gold marks its destination.
           <kbd>Shift</kbd> + scroll pivots.
         </p>
 

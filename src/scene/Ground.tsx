@@ -1,9 +1,11 @@
-import { SCENE_COLORS } from '../palette'
+import { SCENE_THEMES } from '../palette'
+import { useSettingsStore } from '../store/settingsStore'
 import { useGameStore } from '../store/gameStore'
 import { worldToCoord } from './layout'
 
 /** Click/tap selects the lane perpendicular to the chosen gravity direction. */
 export function Ground() {
+  const theme = useSettingsStore((s) => s.theme)
   const selectPosition = useGameStore((s) => s.selectPosition)
   return (
     <mesh
@@ -16,7 +18,7 @@ export function Ground() {
       }}
     >
       <planeGeometry args={[400, 400]} />
-      <meshStandardMaterial color={SCENE_COLORS.ground} roughness={1} />
+      <meshStandardMaterial color={SCENE_THEMES[theme].ground} roughness={1} />
     </mesh>
   )
 }

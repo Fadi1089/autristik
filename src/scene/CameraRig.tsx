@@ -59,6 +59,10 @@ export function CameraRig() {
       xs.push(x)
       zs.push(z)
     }
+    if (!xs.length) {
+      xs.push(0)
+      zs.push(0)
+    }
     return {
       minX: Math.min(...xs) - FALL_DISTANCE - PAN_MARGIN,
       maxX: Math.max(...xs) + FALL_DISTANCE + PAN_MARGIN,

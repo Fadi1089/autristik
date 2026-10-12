@@ -2,8 +2,14 @@ import { oppositeDirection } from './coords'
 import type { Direction } from './coords'
 import type { Rng } from './random'
 
-export const TERRAINS = ['grass', 'forest', 'field', 'water', 'village'] as const
+export const REGULAR_TERRAINS = ['grass', 'forest', 'field', 'water', 'village'] as const
+export const TERRAINS = [...REGULAR_TERRAINS, 'rainbow', 'void', 'bedrock'] as const
 export type Terrain = (typeof TERRAINS)[number]
+export type TileMultiplier = 1 | 2 | 3 | 5
+export interface TileDraw {
+  readonly quadrants: Quadrants
+  readonly multiplier: TileMultiplier
+}
 
 /**
  * A tile is a 2×2 grid of terrain squares. Quadrants are numbered clockwise from
@@ -80,7 +86,7 @@ export function rotateQuadrants(quadrants: Quadrants, turns: number): Quadrants 
   ]
 }
 
-const TERRAIN_WEIGHTS: Readonly<Record<Terrain, number>> = {
+const TERRAIN_WEIGHTS: Readonly<Record<(typeof REGULAR_TERRAINS)[number], number>> = {
   grass: 4,
   forest: 3,
   field: 3,
@@ -96,4 +102,39 @@ export function randomQuadrants(rng: Rng): Quadrants {
   const pick = () =>
     rng.next() < DOMINANT_QUADRANT_CHANCE ? dominant : rng.weighted(TERRAIN_WEIGHTS)
   return [pick(), pick(), pick(), pick()]
+}
+
+/** A whole joker tile (rendered gold); keep its original terrain id in the game model. */
+export const RAINBOW_TILE: Quadrants = ['rainbow', 'rainbow', 'rainbow', 'rainbow']
+export const RAINBOW_TILE_CHANCE = 0.05
+export const VOID_TILE: Quadrants = ['void', 'void', 'void', 'void']
+export const VOID_UNLOCK_PLACEMENTS = 20
+export const VOID_TILE_CHANCE = 0.01
+export const BEDROCK_TILE: Quadrants = ['bedrock', 'bedrock', 'bedrock', 'bedrock']
+
+/** Special terrains are whole tiles, never individual patches on a normal draw. */
+export function tileKind(quadrants: Quadrants): 'normal' | 'gold' | 'void' | 'bedrock' {
+  if (quadrants.every((terrain) => terrain === 'rainbow')) return 'gold'
+  if (quadrants.every((terrain) => terrain === 'void')) return 'void'
+  if (quadrants.every((terrain) => terrain === 'bedrock')) return 'bedrock'
+  return 'normal'
+}
+
+/** Gold 5%, void 1% after 20 placements, bedrock 4%, bronze 6%, silver 3%, diamond 1%. */
+export function randomTile(rng: Rng, placements = 0): TileDraw {
+  const roll = rng.next()
+  if (roll < RAINBOW_TILE_CHANCE) return { quadrants: RAINBOW_TILE, multiplier: 1 }
+  if (roll < 0.08) {
+    if (placements >= VOID_UNLOCK_PLACEMENTS && roll < RAINBOW_TILE_CHANCE + VOID_TILE_CHANCE)
+      return { quadrants: VOID_TILE, multiplier: 1 }
+    return { quadrants: randomQuadrants(rng), multiplier: 1 }
+  }
+  if (roll < 0.12) return { quadrants: BEDROCK_TILE, multiplier: 1 }
+  const multiplier = roll < 0.18 ? 2 : roll < 0.21 ? 3 : roll < 0.22 ? 5 : 1
+  return { quadrants: randomQuadrants(rng), multiplier }
+}
+
+/** Draw from the playable supply; the starting island uses regular terrain only. */
+export function randomTileQuadrants(rng: Rng, placements = 0): Quadrants {
+  return randomTile(rng, placements).quadrants
 }

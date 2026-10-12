@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
 
-const TICK_MS = 200
+const TICK_MS = 50
 
 /**
  * Advances automatic falling. This is only the movement cadence, with no game

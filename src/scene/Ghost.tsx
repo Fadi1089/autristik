@@ -1,46 +1,39 @@
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import type { Group } from 'three'
-import { coordsEqual, directionOffset } from '../game/coords'
+import { coordsEqual } from '../game/coords'
+import { destructionTargets } from '../game/board'
 import { landingPosition } from '../game/falling'
 import { currentQuadrants } from '../game/game'
-import { evaluatePlacement } from '../game/matching'
-import type { Contact } from '../game/matching'
-import { SCENE_COLORS } from '../palette'
+import { tileKind } from '../game/tiles'
 import { useGameStore } from '../store/gameStore'
-import { BASE_HEIGHT, coordToWorld, QUADRANT_SIZE, quadrantToLocal } from './layout'
+import { BASE_HEIGHT, coordToWorld } from './layout'
 import { SquareTile } from './SquareTile'
+import { GhostOutline } from './GhostOutline'
 
-function ContactDot({ contact }: { contact: Contact }) {
-  const [x, z] = quadrantToLocal(contact.quadrant)
-  const { q, r } = directionOffset(contact.direction)
-  const reach = QUADRANT_SIZE / 2
-  return (
-    <mesh position={[x + q * reach, BASE_HEIGHT + 0.26, z + r * reach]}>
-      <sphereGeometry args={[0.055, 12, 8]} />
-      <meshBasicMaterial color={contact.matches ? SCENE_COLORS.match : SCENE_COLORS.mismatch} />
-    </mesh>
-  )
-}
-
-/** Moving tile and its faint landing projection with matching-terrain feedback. */
+/** Moving tile, readable landing projection and the void's destruction area. */
 export function Ghost() {
   const falling = useGameStore((s) => s.falling)
   const menuOpen = useGameStore((s) => s.menuOpen)
   const board = useGameStore((s) => s.board)
   const current = useGameStore((s) => s.current)
   const rotation = useGameStore((s) => s.rotation)
+  const currentMultiplier = useGameStore((s) => s.currentMultiplier)
   const fallDirection = useGameStore((s) => s.fallDirection)
-  const { quadrants, target, preview } = useMemo(() => {
+  const fallAnchor = useGameStore((s) => s.fallAnchor)
+  const { quadrants, target, destroyed } = useMemo(() => {
     const hand = { board, current, rotation }
     const quadrants = currentQuadrants(hand)
-    const target = landingPosition({ ...hand, falling, fallDirection })
+    const target = landingPosition({ ...hand, falling, fallDirection, fallAnchor })
     return {
       quadrants,
       target,
-      preview: target && quadrants ? evaluatePlacement(board, target, quadrants) : null,
+      destroyed:
+        target && quadrants && tileKind(quadrants) === 'void'
+          ? destructionTargets(board, target)
+          : [],
     }
-  }, [board, current, rotation, falling, fallDirection])
+  }, [board, current, rotation, falling, fallDirection, fallAnchor])
   const ref = useRef<Group>(null)
   useFrame(({ clock }) => {
     if (ref.current) ref.current.position.y = 0.16 + Math.sin(clock.elapsedTime * 3) * 0.03
@@ -51,18 +44,38 @@ export function Ghost() {
   return (
     <>
       <group position={[x, 0, z]}>
-        <group ref={ref}>
-          <SquareTile quadrants={quadrants} glow={0.12} opacity={0.6} />
+        <group ref={ref} renderOrder={40}>
+          <SquareTile
+            quadrants={quadrants}
+            multiplier={currentMultiplier}
+            glow={0.12}
+            opacity={0.6}
+            overlay
+          />
+          <GhostOutline moving />
         </group>
       </group>
-      <group position={[targetX, 0.02, targetZ]}>
+      <group position={[targetX, 0.02, targetZ]} renderOrder={50}>
         {target && !coordsEqual(falling, target) && (
-          <SquareTile quadrants={quadrants} glow={0.12} opacity={0.25} />
+          <SquareTile
+            quadrants={quadrants}
+            multiplier={currentMultiplier}
+            glow={0.12}
+            opacity={0.25}
+            overlay
+          />
         )}
-        {preview?.contacts.map((c) => (
-          <ContactDot key={`${c.direction}-${c.quadrant}`} contact={c} />
-        ))}
+        {target && <GhostOutline moving={false} />}
       </group>
+      {destroyed.map((coord) => {
+        const [blastX, blastZ] = coordToWorld(coord)
+        return (
+          <mesh key={`${coord.q},${coord.r}`} position={[blastX, BASE_HEIGHT + 0.23, blastZ]}>
+            <boxGeometry args={[0.92, 0.02, 0.92]} />
+            <meshBasicMaterial color="#b977f0" transparent opacity={0.38} depthWrite={false} />
+          </mesh>
+        )
+      })}
     </>
   )
 }

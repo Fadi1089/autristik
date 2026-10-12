@@ -1,7 +1,7 @@
 import { LEVEL_UP_TILES, levelGoal } from '../game/levels'
 import { comboMultiplier } from '../game/scoring'
 import { useGameStore } from '../store/gameStore'
-import { formatPoints } from './format'
+import { formatDuration, formatPoints } from './format'
 import { HelpDrawer } from './HelpDrawer'
 import { MenuIcon } from './icons'
 import { TileTray } from './TileTray'
@@ -87,12 +87,27 @@ function LevelBanner() {
   )
 }
 
+function PlayTimer() {
+  const seconds = useGameStore((s) => Math.floor(s.playedSeconds))
+  return (
+    <div
+      className="card ml-auto min-w-24 px-3 py-2.5 text-right sm:min-w-32 sm:px-5"
+      aria-label="Time played"
+    >
+      <div className="eyebrow">Time played</div>
+      <div className="mt-1 font-display text-2xl font-semibold tabular-nums sm:text-3xl">
+        {formatDuration(seconds)}
+      </div>
+    </div>
+  )
+}
+
 export function HUD() {
   const openMenu = useGameStore((s) => s.openMenu)
 
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-4 select-none sm:p-6">
-      <header className="flex items-start justify-between gap-2 sm:gap-3">
+      <header className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
         <div className="flex items-start gap-2 sm:gap-3">
           <button
             type="button"
@@ -105,6 +120,7 @@ export function HUD() {
           </button>
           <LevelCard />
         </div>
+        <PlayTimer />
       </header>
 
       <LevelBanner />

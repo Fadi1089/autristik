@@ -3,6 +3,7 @@ import { ACTION_LABELS, ACTIONS, RESERVED_CODES } from '../input/bindings'
 import type { Action, KeySlot } from '../input/bindings'
 import { keyLabel } from '../input/keyLabels'
 import { useSettingsStore } from '../store/settingsStore'
+import { AudioSettings } from './AudioSettings'
 
 /** Codes that only modify other keys; binding them alone would be confusing. */
 const MODIFIERS = new Set(['MetaLeft', 'MetaRight', 'ContextMenu', 'OSLeft', 'OSRight'])
@@ -19,6 +20,7 @@ const MOUSE: [input: string, action: string][] = [
 function SlotButton({ action, slot }: { action: Action; slot: KeySlot }) {
   const code = useSettingsStore((s) => s.bindings[action][slot])
   const layout = useSettingsStore((s) => s.layout)
+  const dark = useSettingsStore((s) => s.theme === 'dark')
   const capturing = useSettingsStore((s) => s.capturing)
   const setCapturing = useSettingsStore((s) => s.setCapturing)
   const active = capturing?.action === action && capturing.slot === slot
@@ -34,7 +36,7 @@ function SlotButton({ action, slot }: { action: Action; slot: KeySlot }) {
         active
           ? 'bg-moss text-paper shadow-[inset_0_0_0_1px_rgb(0_0_0/0.1)]'
           : code
-            ? 'bg-paper text-ink shadow-[inset_0_0_0_1px_rgb(59_46_34/0.14),0_2px_0_rgb(59_46_34/0.14)] hover:bg-white'
+            ? `bg-paper text-ink shadow-[inset_0_0_0_1px_rgb(59_46_34/0.14),0_2px_0_rgb(59_46_34/0.14)] ${dark ? 'hover:bg-ink/10' : 'hover:bg-white'}`
             : 'text-ink/35 shadow-[inset_0_0_0_1px_rgb(59_46_34/0.12)] hover:text-ink/60'
       }`}
     >
@@ -76,6 +78,7 @@ export function KeySettings() {
 
   return (
     <div className="space-y-6">
+      <AudioSettings />
       <section>
         <div className="mb-3 flex items-baseline justify-between gap-4">
           <h3 className="font-display text-lg font-semibold">Keyboard</h3>

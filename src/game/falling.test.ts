@@ -17,7 +17,7 @@ import {
   tickFallingGame,
 } from './falling'
 import { currentQuadrants, isGameOver, previewPlacement, rotateCurrent } from './game'
-import { levelGoal } from './levels'
+import { DIFFICULTIES, fallInterval, levelGoal } from './levels'
 import type { FallingGameState } from './falling'
 
 function gameFromSide(direction: Direction): FallingGameState {
@@ -26,12 +26,82 @@ function gameFromSide(direction: Direction): FallingGameState {
 }
 
 describe('falling tiles', () => {
+  it.each(DIFFICULTIES)('changes only cadence on starting a %s game', (difficulty) => {
+    const easy = createFallingGame(42)
+    const game = createFallingGame(42, undefined, difficulty)
+    expect({ ...game, difficulty: 'easy' }).toEqual(easy)
+    const moved = tickFallingGame(game, fallInterval(1, difficulty))
+    expect(moved.falling).toEqual({ q: 0, r: -10 })
+    expect(moved.playedSeconds).toBe(fallInterval(1, difficulty))
+  })
+
+  it('tracks active time independently of cadence and stops at the final placement', () => {
+    const game = createFallingGame(42, 1)
+    const partial = tickFallingGame(game, 2.3)
+    expect(partial.playedSeconds).toBeCloseTo(2.3)
+    const moved = moveFalling(partial, 1)
+    expect(hardDrop(moved).playedSeconds).toBeCloseTo(2.3)
+    const final = tickFallingGame(game, 100)
+    expect(isGameOver(final)).toBe(true)
+    expect(final.playedSeconds).toBeCloseTo(15)
+    expect(tickFallingGame(final, 10).playedSeconds).toBeCloseTo(15)
+    expect(tickFallingGame(game, NaN)).toBe(game)
+  })
+
+  it.each([2, 10, 30])('uses level %s cadence for one-square movement', (level) => {
+    const game = { ...createFallingGame(42), level }
+    const interval = fallInterval(level)
+    const before = tickFallingGame(game, interval - 0.001)
+    expect(before.falling).toEqual(game.falling)
+    const after = tickFallingGame(before, 0.001)
+    expect(after.falling).toEqual({ q: 0, r: game.falling!.r + 1 })
+    expect(after.board).toBe(game.board)
+  })
+
+  it('uses the new level speed immediately after landing, including the remainder of a long tick', () => {
+    const grass = ['grass', 'grass', 'grass', 'grass'] as const
+    const game = {
+      ...createFallingGame(42),
+      board: withTile({}, { coord: { q: 0, r: 0 }, quadrants: grass }),
+      current: grass,
+      falling: { q: 0, r: -1 },
+      levelScore: levelGoal(1) - 1,
+    }
+    const elapsed = fallInterval(1) + fallInterval(2) + 0.12
+    const once = tickFallingGame(game, elapsed)
+    expect(once.level).toBe(2)
+    expect(once.falling).toEqual({ q: 0, r: -10 })
+    expect(once.fallElapsed).toBeCloseTo(0.12)
+    let split: FallingGameState = game
+    let left = elapsed
+    while (left > 1e-10) {
+      const dt = Math.min(0.037, left)
+      split = tickFallingGame(split, dt)
+      left -= dt
+    }
+    expect(split.board).toEqual(once.board)
+    expect(split.falling).toEqual(once.falling)
+    expect(split.level).toBe(once.level)
+    expect(split.fallElapsed).toBeCloseTo(once.fallElapsed)
+  })
+
+  it('preserves the faster cadence through a manual change of side', () => {
+    const game = { ...createFallingGame(42), level: 20, fallElapsed: 0.3 }
+    const turned = changeFallDirection(game, Direction.West)
+    expect(turned.fallElapsed).toBe(game.fallElapsed)
+    const before = tickFallingGame(turned, fallInterval(20) - 0.3 - 0.001)
+    expect(before.falling).toEqual(turned.falling)
+    const after = tickFallingGame(before, 0.001)
+    expect(after.falling).toEqual({ q: turned.falling!.q - 1, r: turned.falling!.r })
+  })
+
   it('awards the same combo for automatic locking and immediate placement', () => {
     const grass = ['grass', 'grass', 'grass', 'grass'] as const
     const game = {
       ...createFallingGame(42),
       combo: 3,
       current: grass,
+      currentMultiplier: 1 as const,
       board: withTile({}, { coord: { q: 0, r: 0 }, quadrants: grass }),
       falling: { q: 0, r: -10 },
     }
@@ -117,6 +187,7 @@ describe('falling tiles', () => {
     expect(after.falling).not.toBeNull()
     expect(tileCount(after.board)).toBeGreaterThan(50)
     expect(after.remaining).toBeGreaterThan(0)
+    expect(after.playedSeconds).toBeCloseTo(15 * 60)
     expect(after).not.toHaveProperty('timeLeft')
     expect(after).not.toHaveProperty('elapsed')
   })

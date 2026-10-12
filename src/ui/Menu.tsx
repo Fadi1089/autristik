@@ -2,16 +2,26 @@ import { useState } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
 import { isGameOver } from '../game/game'
 import { FALL_INTERVAL } from '../game/falling'
+import { MIN_FALL_INTERVAL } from '../game/levels'
 import { tileCount } from '../game/board'
 import { SCENE_COLORS, TERRAIN_COLORS } from '../palette'
 import { actionForCode } from '../input/bindings'
 import { useGameStore } from '../store/gameStore'
 import { useSettingsStore } from '../store/settingsStore'
-import villageArt from '../assets/menu-village.webp'
 import { KeySettings } from './KeySettings'
+import { Customization } from './Customization'
+import { KeyCaps, MoveKeyCaps } from './KeyCaps'
 import { formatPoints } from './format'
+import { useMenuSounds } from './useMenuSounds'
+import { DifficultySelector } from './DifficultySelector'
 
-type Panel = 'how' | 'settings'
+type Panel = 'how' | 'customization' | 'settings'
+
+const PANEL_TITLES: Record<Panel, string> = {
+  how: 'How to play',
+  customization: 'Customization',
+  settings: 'Settings',
+}
 
 /** Four little squares that slide in next to the hovered menu item. */
 function Bullet() {
@@ -96,32 +106,50 @@ function SeamDiagram() {
 function HowToPlay() {
   return (
     <div className="space-y-5">
+      <section aria-label="Controls">
+        <h3 className="eyebrow mb-4">Controls</h3>
+        <ControlGuide />
+      </section>
+      <h3 className="eyebrow border-t border-ink/10 pt-5">Rules</h3>
       <div className="flex items-center gap-5">
         <SeamDiagram />
         <p className="text-sm leading-snug text-ink/75">
           Where two tiles meet, each square faces one square on the other tile. Same terrain on both
-          sides is a match.
+          sides is a match. Golden joker tiles match every terrain on all four sides, including
+          after placement, except indestructible bedrock, which never connects. Void tiles consume
+          the eight surrounding cells and themselves, without scoring. They become available after
+          20 placements, with a 1% draw chance. If a blast empties the island, a standard tile takes
+          the void's place. Bronze, silver and diamond-blue frames multiply that tile's points by
+          ×2, ×3 and ×5, on top of its combo; bonus tiles are unchanged.
         </p>
       </div>
       <ol className="space-y-2.5 text-sm text-ink/80">
         <Rule n="1">
-          Tiles start ten squares away and advance every {FALL_INTERVAL} seconds. Arrows or WASD
-          move relative to the camera: towards the stack advances one square; perpendicular keys
-          move sideways. Moving past an edge turns the fall towards the stack from that side. Hold
-          Shift with any movement key to choose the arrival side: Shift + right brings the tile from
-          right to left, and similarly for the other sides. The remaining distance and cadence are
-          preserved; the new lane follows the projected placement whenever it has an obstacle. Space
-          or Enter places immediately. The next tile keeps the last placement's lane. Rotate to
-          match the terrain; pan, pivot and zoom the camera throughout play. If the falling tile
-          leaves the screen, the camera reframes it and the island edge. C or ! does the same on
-          demand. Camera pivot keys turn to the next aligned side of the board (90°).
+          Tiles start ten squares away. At level 1 they advance every {FALL_INTERVAL} seconds; each
+          level gently speeds up towards {MIN_FALL_INTERVAL} seconds per square. Difficulty changes
+          only the starting speed: Easy starts at 15 seconds per tile, Medium at about 10, Hard at
+          7.1 and Insane at the 4.5-second minimum. The stopwatch tracks active play time and pauses
+          with the menu; it never ends a game. Arrows or WASD move relative to the camera: towards
+          the stack advances one square; perpendicular keys move sideways. Moving past an edge turns
+          the fall towards the stack from that side. Hold Shift with any movement key to choose the
+          arrival side: Shift + right brings the tile from right to left, and similarly for the
+          other sides. The remaining distance and cadence are preserved. On separate islands, the
+          first press selects that side of the current island; another press of the same Shift +
+          direction crosses to the near edge of the next island in that direction. Repeated presses
+          alternate near and far edges. Cyan outlines the moving tile; pale gold outlines its
+          landing position, even over other islands. The new lane follows the projected placement
+          whenever it has an obstacle. Space or Enter places immediately. The next tile keeps the
+          last placement's lane. Rotate to match the terrain; pan, pivot and zoom the camera
+          throughout play. If the falling tile leaves the screen, the camera reframes it and the
+          island edge. C or ! does the same on demand. Camera pivot keys turn to the next aligned
+          side of the board (90°).
         </Rule>
         <Rule n="2">
           Every matching square along a seam scores 5 points. A placement with at least one fully
-          matching side and no red contacts raises the combo by 0.25, up to ×3. A red contact resets
-          it to ×1. The multiplier applies only to that tile's points; extra tiles stay the same.
-          Reach each level&rsquo;s goal to move on and earn extra tiles; the next goal is higher.
-          There is no time limit.
+          matching side and no mismatched contacts raises the combo by 0.25, up to ×3. A mismatch
+          resets it to ×1. The multiplier applies only to that tile's points; extra tiles stay the
+          same. Reach each level&rsquo;s goal to move on and earn extra tiles; the next goal is
+          higher. There is no time limit.
         </Rule>
         <Rule n="3">
           Match every side you touch (two or more) and a tile returns to your stack.
@@ -144,8 +172,77 @@ function Rule({ n, children }: { n: string; children: ReactNode }) {
   )
 }
 
+/** A short control reference at the beginning of How to play. */
+function ControlGuide() {
+  return (
+    <dl className="space-y-3.5 text-sm">
+      <ControlHint
+        title="Move the tile"
+        note="Sideways to choose a lane; towards the island to advance."
+      >
+        <MoveKeyCaps slot={0} />
+        <span className="text-ink/40">or</span>
+        <MoveKeyCaps slot={1} />
+      </ControlHint>
+      <ControlHint
+        title="Choose the arrival side"
+        note="Shift + right brings the tile from the right; likewise for the other sides."
+      >
+        <kbd>Shift</kbd>
+        <span>+</span>
+        <MoveKeyCaps slot={0} />
+        <span className="text-ink/40">or</span>
+        <MoveKeyCaps slot={1} />
+      </ControlHint>
+      <ControlHint
+        title="Turn the camera"
+        note="Each press moves to the next aligned side of the island (90°)."
+      >
+        <span aria-label="Left">←</span>
+        <KeyCaps action="pivotLeft" />
+        <span className="ml-2" aria-label="Right">
+          →
+        </span>
+        <KeyCaps action="pivotRight" />
+      </ControlHint>
+      <ControlHint
+        title="Recenter the camera"
+        note="Frame the falling tile and its destination together."
+      >
+        <kbd>C</kbd>
+        <span className="text-ink/40">or</span>
+        <kbd>!</kbd>
+      </ControlHint>
+      <ControlHint title="Place instantly" note="Place at the final transparent projection.">
+        <KeyCaps action="place" />
+      </ControlHint>
+    </dl>
+  )
+}
+
+function ControlHint({
+  title,
+  note,
+  children,
+}: {
+  title: string
+  note: string
+  children: ReactNode
+}) {
+  return (
+    <div>
+      <dt className="font-semibold text-ink/85">{title}</dt>
+      <dd className="mt-1">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">{children}</div>
+        <p className="mt-1 text-xs leading-snug text-ink/60">{note}</p>
+      </dd>
+    </div>
+  )
+}
+
 export function Menu() {
-  // No panel shows the village art; picking a panel again goes back to it.
+  const menuSounds = useMenuSounds()
+  // No panel shows the village art; picking a panel again returns to it.
   const [panel, setPanel] = useState<Panel | null>(null)
   const started = useGameStore((s) => s.started)
   const over = useGameStore(isGameOver)
@@ -161,6 +258,8 @@ export function Menu() {
   const navigate = (e: KeyboardEvent<HTMLDivElement>) => {
     const settings = useSettingsStore.getState()
     if (settings.capturing || e.metaKey || e.ctrlKey || e.altKey) return
+    // Native controls keep their arrow keys, e.g. the customization volume slider.
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return
     // Enter/Space activate the focused button, even if rebound for movement in game.
     if (e.code === 'Enter' || e.code === 'Space') return
     const action = actionForCode(settings.bindings, e.code)
@@ -173,10 +272,10 @@ export function Menu() {
       action === 'moveRight'
     if (!previous && !next) return
     const buttons = Array.from(
-      e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
+      e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled)'),
     )
     if (buttons.length === 0) return
-    const current = buttons.indexOf(document.activeElement as HTMLButtonElement)
+    const current = buttons.indexOf(document.activeElement as HTMLElement)
     const step = previous ? -1 : 1
     const index =
       current < 0
@@ -195,11 +294,12 @@ export function Menu() {
       aria-modal="true"
       aria-label="Main menu"
       onKeyDown={navigate}
+      {...menuSounds}
       className="absolute inset-0 z-20 animate-fade overflow-y-auto"
     >
       {/* Blurred, warm-tinted view of the board behind the menu. */}
       <div className="fixed inset-0 bg-paper/40 backdrop-blur-[14px] backdrop-saturate-[1.15]" />
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_30%_40%,transparent_20%,rgb(59_46_34/0.18)_100%)]" />
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_30%_40%,transparent_20%,var(--menu-shade)_100%)]" />
       <div className="pointer-events-none fixed inset-0 grain opacity-40" />
 
       {/*
@@ -256,10 +356,20 @@ export function Menu() {
                 New game
               </MenuItem>
             )}
+            <li className="ml-7 py-2">
+              <DifficultySelector />
+            </li>
             <MenuItem pressed={panel === 'how'} onClick={() => toggle('how')} delay={320}>
               How to play
             </MenuItem>
-            <MenuItem pressed={panel === 'settings'} onClick={() => toggle('settings')} delay={370}>
+            <MenuItem
+              pressed={panel === 'customization'}
+              onClick={() => toggle('customization')}
+              delay={370}
+            >
+              Customization
+            </MenuItem>
+            <MenuItem pressed={panel === 'settings'} onClick={() => toggle('settings')} delay={420}>
               Settings
             </MenuItem>
           </ul>
@@ -271,34 +381,27 @@ export function Menu() {
           {started && (
             <p
               className="mt-10 animate-rise font-display text-sm text-ink/70"
-              style={{ animationDelay: '440ms' }}
+              style={{ animationDelay: '490ms' }}
             >
               Level {level} · {formatPoints(score)} points · {tiles} tiles
             </p>
           )}
         </section>
 
-        {panel ? (
+        {panel && (
           <aside
             key={panel}
             className="card animate-rise self-center p-6 sm:p-8 lg:max-h-full lg:overflow-y-auto"
           >
-            <h2 className="eyebrow mb-5">{panel === 'how' ? 'How to play' : 'Settings'}</h2>
-            {panel === 'how' ? <HowToPlay /> : <KeySettings />}
+            <h2 className="eyebrow mb-5">{PANEL_TITLES[panel]}</h2>
+            {panel === 'how' ? (
+              <HowToPlay />
+            ) : panel === 'customization' ? (
+              <Customization />
+            ) : (
+              <KeySettings />
+            )}
           </aside>
-        ) : (
-          <div
-            className="pointer-events-none animate-rise self-center justify-self-center lg:h-full lg:max-h-[38rem] lg:w-[30rem] lg:max-w-none"
-            style={{ animationDelay: '200ms' }}
-          >
-            <img
-              src={villageArt}
-              alt="A small village of tiles: fields, a pond with a waterfall, pine trees and a lookout tower."
-              width={1102}
-              height={1393}
-              className="mx-auto h-full max-h-[60vh] w-auto object-contain drop-shadow-[0_24px_32px_rgb(59_46_34/0.22)] lg:max-h-full"
-            />
-          </div>
         )}
       </div>
     </div>

@@ -28,7 +28,8 @@ export interface PlacementEvaluation {
 }
 
 export function terrainsMatch(a: Terrain, b: Terrain): boolean {
-  return a === b
+  if (a === 'bedrock' || b === 'bedrock' || a === 'void' || b === 'void') return false
+  return a === b || a === 'rainbow' || b === 'rainbow'
 }
 
 /** Compares each side of a tile placed at `c` with the facing side of its neighbours. */
@@ -68,11 +69,13 @@ export function evaluatePlacement(
 /** A square accepts a tile when it is empty and touches at least one placed tile. */
 export function canPlace(board: Board, c: Coord): boolean {
   if (isOccupied(board, c)) return false
+  if (boardTiles(board).length === 0) return c.q === 0 && c.r === 0
   return DIRECTIONS.some((d) => isOccupied(board, neighbour(c, d)))
 }
 
 /** Every empty square adjacent to the board, in a stable order. */
 export function placementCandidates(board: Board): Coord[] {
+  if (boardTiles(board).length === 0) return [{ q: 0, r: 0 }]
   const keys = new Set<string>()
   for (const tile of boardTiles(board)) {
     for (const d of DIRECTIONS) {

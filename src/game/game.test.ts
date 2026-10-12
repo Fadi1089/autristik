@@ -5,6 +5,7 @@ import {
   currentQuadrants,
   endReason,
   isGameOver,
+  nextTileQuadrants,
   placeCurrent,
   previewPlacement,
   rotateCurrent,
@@ -16,6 +17,30 @@ import type { Quadrants } from './tiles'
 import type { GameState } from './game'
 
 describe('game flow', () => {
+  it.each([1, 7, 42, 99, 12345])(
+    'previews the actual next draw without consuming it for seed %s',
+    (seed) => {
+      let game = createGame(seed, 10)
+      for (let i = 0; i < 4; i++) {
+        const savedSeed = game.seed
+        const next = nextTileQuadrants(game)
+        expect(next).not.toBeNull()
+        expect(nextTileQuadrants(game)).toEqual(next)
+        expect(game.seed).toBe(savedSeed)
+        const rotated = rotateCurrent(game, 1)
+        expect(nextTileQuadrants(rotated)).toEqual(next)
+        const target = placementCandidates(game.board)[0]!
+        game = placeCurrent(rotated, target)
+        expect(game.current).toEqual(next)
+      }
+    },
+  )
+
+  it('does not advertise a queued tile when the supply is on its last tile or empty', () => {
+    expect(nextTileQuadrants(createGame(42, 1))).toBeNull()
+    expect(nextTileQuadrants(createGame(42, 0))).toBeNull()
+  })
+
   it('is deterministic for a given seed', () => {
     expect(createGame(42)).toEqual(createGame(42))
   })
@@ -27,6 +52,7 @@ describe('game flow', () => {
 
     const preview = previewPlacement(game, target)
     const next = placeCurrent(game, target)
+    expect(next.current).toEqual(nextTileQuadrants(game))
 
     expect(preview).not.toBeNull()
     expect(next.board[coordKey(target)]?.quadrants).toEqual(currentQuadrants(game))
@@ -123,6 +149,7 @@ describe('combo game flow', () => {
     ...createGame(42),
     board: withTile({}, { coord: { q: 0, r: 0 }, quadrants: grass }),
     current: grass,
+    currentMultiplier: 1 as const,
   })
 
   it('multiplies only the new tile and commits exactly the previewed gain', () => {
@@ -175,16 +202,17 @@ describe('combo game flow', () => {
 
   it('keeps a successful streak through a level-up and restarts it after a mismatch', () => {
     let game: GameState = starting()
-    for (let q = 1; q <= 8; q++) game = placeCurrent({ ...game, current: grass }, { q, r: 0 })
+    for (let q = 1; q <= 8; q++)
+      game = placeCurrent({ ...game, current: grass, currentMultiplier: 1 }, { q, r: 0 })
     expect(game).toMatchObject({ score: 170, combo: 8, level: 2, levelScore: 82.5 })
     const broken = placeCurrent(
-      { ...game, current: ['water', 'water', 'water', 'water'] },
+      { ...game, current: ['water', 'water', 'water', 'water'], currentMultiplier: 1 },
       { q: 9, r: 0 },
     )
     expect(broken).toMatchObject({ combo: 0, score: 170 })
     expect(broken.lastPlacement).toMatchObject({ multiplier: 1, points: 0 })
     const resumed = placeCurrent(
-      { ...broken, current: ['water', 'water', 'water', 'water'] },
+      { ...broken, current: ['water', 'water', 'water', 'water'], currentMultiplier: 1 },
       { q: 10, r: 0 },
     )
     expect(resumed.lastPlacement).toMatchObject({ multiplier: 1.25, points: 12.5, combo: 1 })

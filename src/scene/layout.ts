@@ -16,6 +16,9 @@ export const TERRAIN_HEIGHT: Readonly<Record<Terrain, number>> = {
   field: 0.08,
   forest: 0.14,
   village: 0.18,
+  rainbow: 0.1,
+  void: 0.1,
+  bedrock: 0.12,
 }
 
 export function coordToWorld({ q, r }: Coord): [x: number, z: number] {

@@ -1,7 +1,8 @@
 import { tileCount } from '../game/board'
 import { endReason } from '../game/game'
 import { useGameStore } from '../store/gameStore'
-import { formatPoints } from './format'
+import { formatDuration, formatPoints } from './format'
+import { DifficultySelector } from './DifficultySelector'
 
 export function GameOver() {
   const reason = useGameStore(endReason)
@@ -9,6 +10,7 @@ export function GameOver() {
   const score = useGameStore((s) => s.score)
   const level = useGameStore((s) => s.level)
   const tiles = useGameStore((s) => tileCount(s.board))
+  const playedSeconds = useGameStore((s) => s.playedSeconds)
   const restart = useGameStore((s) => s.restart)
   const openMenu = useGameStore((s) => s.openMenu)
 
@@ -26,7 +28,12 @@ export function GameOver() {
           {formatPoints(score)}
         </div>
         <p className="mt-1 text-xs font-semibold tracking-wide text-ink/45 uppercase">points</p>
-        <p className="mt-3 text-sm text-ink/60">{tiles} tiles</p>
+        <p className="mt-3 text-sm text-ink/60">
+          {tiles} tiles · {formatDuration(playedSeconds)} played
+        </p>
+        <div className="mt-5">
+          <DifficultySelector />
+        </div>
         <div className="mt-6 flex gap-2">
           <button
             type="button"

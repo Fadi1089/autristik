@@ -6,10 +6,12 @@ import { HUD } from './ui/HUD'
 import { Menu } from './ui/Menu'
 import { useGravity } from './ui/useGravity'
 import { useKeyboardShortcuts } from './ui/useKeyboardShortcuts'
+import { usePresentation } from './ui/usePresentation'
 
 export function App() {
   useKeyboardShortcuts()
   useGravity()
+  usePresentation()
   const menuOpen = useGameStore((s) => s.menuOpen)
 
   return (

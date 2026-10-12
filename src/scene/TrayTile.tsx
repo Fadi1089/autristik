@@ -3,11 +3,13 @@ import { useFrame } from '@react-three/fiber'
 import { useLayoutEffect, useRef } from 'react'
 import { MathUtils } from 'three'
 import type { Group } from 'three'
-import type { Quadrants, Rotation } from '../game/tiles'
+import type { Quadrants, Rotation, TileMultiplier } from '../game/tiles'
 import { normalizeRotation } from '../game/tiles'
 import { SCENE_COLORS } from '../palette'
 import { useViewStore } from '../store/viewStore'
-import { BASE_HEIGHT, TILE_SIZE } from './layout'
+import { useSettingsStore } from '../store/settingsStore'
+import { BASE_HEIGHT } from './layout'
+import { traySheetGeometry } from './geometry'
 import { SquareTile } from './SquareTile'
 
 const CAMERA_DISTANCE = 3.5
@@ -34,12 +36,18 @@ export function TrayTile({
   quadrants,
   rotation,
   remaining,
+  animateDraw = true,
+  multiplier = 1,
 }: {
   /** Unrotated tile; rotation is applied as an animated spin. */
   quadrants: Quadrants
   rotation: Rotation
   remaining: number
+  /** The small queued preview stays stable when the draw changes. */
+  animateDraw?: boolean
+  multiplier?: TileMultiplier
 }) {
+  const dark = useSettingsStore((s) => s.theme === 'dark')
   const spin = useRef<Group>(null)
   const drop = useRef<Group>(null)
   const turns = useRef(0)
@@ -52,12 +60,12 @@ export function TrayTile({
     if (prev.quadrants !== quadrants) {
       turns.current = rotation
       if (spin.current) spin.current.rotation.y = (-rotation * Math.PI) / 2
-      if (drop.current) drop.current.position.y = DROP_FROM
+      if (drop.current && animateDraw) drop.current.position.y = DROP_FROM
       return
     }
     const step = normalizeRotation(rotation - prev.rotation)
     turns.current += step === 3 ? -1 : step
-  }, [quadrants, rotation])
+  }, [quadrants, rotation, animateDraw])
 
   useFrame(({ camera }, delta) => {
     // Clockwise seen from above is a negative turn around +Y.
@@ -86,11 +94,11 @@ export function TrayTile({
 
   return (
     <>
-      <hemisphereLight args={['#fff4e0', '#b9a684', 1.5]} />
+      <hemisphereLight args={[dark ? '#d6e6f1' : '#fff4e0', dark ? '#3e5554' : '#b9a684', 1.5]} />
       <directionalLight
         position={[-2.5, 5, 2]}
-        intensity={2.2}
-        color="#fff1d6"
+        intensity={dark ? 2 : 2.2}
+        color={dark ? '#e2ecff' : '#fff1d6'}
         castShadow
         shadow-mapSize={[512, 512]}
         shadow-camera-left={-1.5}
@@ -105,13 +113,13 @@ export function TrayTile({
         return (
           <mesh
             key={i}
+            geometry={traySheetGeometry}
             position={[x, stackTop - SHEET_HEIGHT / 2 - i * SHEET_HEIGHT, z]}
             rotation-y={turn}
             castShadow
             receiveShadow
           >
-            <boxGeometry args={[TILE_SIZE, SHEET_HEIGHT * 0.92, TILE_SIZE]} />
-            <meshStandardMaterial color={SCENE_COLORS.soil} flatShading />
+            <meshStandardMaterial color={SCENE_COLORS.soil} />
           </mesh>
         )
       })}
@@ -124,7 +132,7 @@ export function TrayTile({
       >
         <group ref={drop}>
           <group ref={spin} position-y={-BASE_HEIGHT / 2}>
-            <SquareTile quadrants={quadrants} />
+            <SquareTile quadrants={quadrants} multiplier={multiplier} />
           </group>
         </group>
       </Float>

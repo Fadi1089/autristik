@@ -4,12 +4,14 @@ import { Color, InstancedMesh, Matrix4, Quaternion, Vector3 } from 'three'
 import type { PlacedTile } from '../game/board'
 import { boardTiles } from '../game/board'
 import { coordsEqual } from '../game/coords'
-import { QUADRANTS } from '../game/tiles'
+import { QUADRANTS, tileKind } from '../game/tiles'
 import { placementCandidates } from '../game/matching'
-import { SCENE_COLORS, TERRAIN_COLORS } from '../palette'
+import { SCENE_COLORS, SCENE_THEMES, TERRAIN_COLORS } from '../palette'
+import { useSettingsStore } from '../store/settingsStore'
 import { useGameStore } from '../store/gameStore'
 import { baseGeometry, candidateGeometry, quadrantGeometry } from './geometry'
 import { BASE_HEIGHT, coordToWorld, quadrantToLocal, TERRAIN_HEIGHT } from './layout'
+import { PlacedSpecialTile } from './PlacedSpecialTile'
 
 const DROP_HEIGHT = 0.6
 const DROP_SECONDS = 0.35
@@ -51,10 +53,21 @@ function writeTile(
 
 /** Placed tiles (two InstancedMeshes) plus markers on every square that can take a tile. */
 export function Board() {
+  const theme = useSettingsStore((s) => s.theme)
   const board = useGameStore((s) => s.board)
   const lastPlacement = useGameStore((s) => s.lastPlacement)
 
-  const tiles = useMemo(() => boardTiles(board), [board])
+  const { tiles, specialTiles } = useMemo(() => {
+    const tiles: PlacedTile[] = []
+    const specialTiles: PlacedTile[] = []
+    for (const tile of boardTiles(board)) {
+      ;(tileKind(tile.quadrants) !== 'normal' || (tile.multiplier ?? 1) > 1
+        ? specialTiles
+        : tiles
+      ).push(tile)
+    }
+    return { tiles, specialTiles }
+  }, [board])
   const candidates = useMemo(() => placementCandidates(board), [board])
   const tileCapacity = capacityFor(tiles.length)
   const candidateCapacity = capacityFor(candidates.length)
@@ -101,15 +114,17 @@ export function Board() {
     const base = baseRef.current
     const squares = squareRef.current
     const tile = anim && tiles[anim.index]
-    if (!anim || !base || !squares || !tile) return
-
-    anim.elapsed = Math.min(DROP_SECONDS, anim.elapsed + delta)
-    const t = anim.elapsed / DROP_SECONDS
-    const lift = DROP_HEIGHT * (1 - t) ** 3
-    writeTile(base, squares, anim.index, tile, lift)
-    base.instanceMatrix.needsUpdate = true
-    squares.instanceMatrix.needsUpdate = true
-    if (t >= 1) drop.current = null
+    if (!squares) return
+    if (anim && base && tile) {
+      anim.elapsed = Math.min(DROP_SECONDS, anim.elapsed + delta)
+      const t = anim.elapsed / DROP_SECONDS
+      const lift = DROP_HEIGHT * (1 - t) ** 3
+      writeTile(base, squares, anim.index, tile, lift)
+      base.instanceMatrix.needsUpdate = true
+      squares.instanceMatrix.needsUpdate = true
+      if (squares.instanceColor) squares.instanceColor.needsUpdate = true
+      if (t >= 1) drop.current = null
+    }
   })
 
   return (
@@ -121,7 +136,7 @@ export function Board() {
         castShadow
         receiveShadow
       >
-        <meshStandardMaterial color={SCENE_COLORS.soil} flatShading />
+        <meshStandardMaterial color={SCENE_COLORS.soil} />
       </instancedMesh>
       <instancedMesh
         key={`squares-${tileCapacity}`}
@@ -130,7 +145,7 @@ export function Board() {
         castShadow
         receiveShadow
       >
-        <meshStandardMaterial flatShading roughness={0.85} />
+        <meshStandardMaterial roughness={0.85} />
       </instancedMesh>
       <instancedMesh
         key={`candidate-${candidateCapacity}`}
@@ -138,12 +153,19 @@ export function Board() {
         args={[candidateGeometry, undefined, candidateCapacity]}
       >
         <meshBasicMaterial
-          color={SCENE_COLORS.candidate}
+          color={SCENE_THEMES[theme].candidate}
           transparent
           opacity={0.55}
           depthWrite={false}
         />
       </instancedMesh>
+      {specialTiles.map((tile) => (
+        <PlacedSpecialTile
+          key={`${tile.coord.q},${tile.coord.r}`}
+          tile={tile}
+          animate={!!lastPlacement && coordsEqual(tile.coord, lastPlacement.coord)}
+        />
+      ))}
     </group>
   )
 }

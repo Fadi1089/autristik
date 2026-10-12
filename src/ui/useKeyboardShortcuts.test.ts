@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Direction } from '../game/coords'
+import { withTile } from '../game/board'
 import { FALL_INTERVAL, landingPosition } from '../game/falling'
 import { screenToWorldDirection } from '../input/movement'
 import type { ScreenDirection } from '../input/movement'
@@ -76,6 +77,36 @@ const moves: [ScreenDirection, string, string, ScreenDirection][] = [
 ]
 
 describe('Shift + movement controls', () => {
+  it.each(['azerty', 'qwerty'] as const)(
+    'crosses separate islands with repeated Shift + Down / S on %s without key-repeat skipping',
+    (layout) => {
+      useSettingsStore.getState().setKeyboardLayout(layout)
+      const grass = ['grass', 'grass', 'grass', 'grass'] as const
+      const board = withTile(withTile({}, { coord: { q: 0, r: 0 }, quadrants: grass }), {
+        coord: { q: 0, r: 8 },
+        quadrants: grass,
+      })
+      useGameStore.setState({
+        board,
+        fallAnchor: undefined,
+        fallDirection: Direction.South,
+        falling: { q: 0, r: -10 },
+        fallElapsed: 0.3,
+      })
+      press('ArrowDown')
+      expect(landingPosition(useGameStore.getState())).toEqual({ q: 0, r: 1 })
+      const edge = useGameStore.getState()
+      press('ArrowDown', { repeat: true })
+      expect(useGameStore.getState()).toBe(edge)
+      press('KeyS')
+      expect(landingPosition(useGameStore.getState())).toEqual({ q: 0, r: 7 })
+      expect(useGameStore.getState()).toMatchObject({
+        fallDirection: Direction.South,
+        fallElapsed: 0.3,
+        cameraMove: 0,
+      })
+    },
+  )
   it.each(['azerty', 'qwerty'] as const)(
     'pivots one aligned side per press on %s, without changing the tile',
     (layout) => {
