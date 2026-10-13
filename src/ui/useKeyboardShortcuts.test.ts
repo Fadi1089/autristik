@@ -78,6 +78,49 @@ const moves: [ScreenDirection, string, string, ScreenDirection][] = [
 
 describe('Shift + movement controls', () => {
   it.each(['azerty', 'qwerty'] as const)(
+    'exchanges the same tiles using F and the right-hand key on %s',
+    (layout) => {
+      useSettingsStore.getState().setKeyboardLayout(layout)
+      const before = useGameStore.getState()
+      press('KeyF', { key: 'f', shiftKey: false })
+      const exchanged = useGameStore.getState()
+      expect(exchanged.queued?.quadrants).toBe(before.current)
+      expect(exchanged.falling).toBe(before.falling)
+      expect(exchanged.fallElapsed).toBe(before.fallElapsed)
+      press('KeyF', { shiftKey: false, repeat: true })
+      expect(useGameStore.getState()).toBe(exchanged)
+      press('Quote', { key: layout === 'azerty' ? 'ù' : "'", shiftKey: false })
+      expect(useGameStore.getState().current).toBe(before.current)
+      expect(useGameStore.getState().queued?.quadrants).toBe(exchanged.current)
+      expect(useGameStore.getState().seed).toBe(exchanged.seed)
+      expect(useViewStore.getState().recenterRequest).toBe(0)
+    },
+  )
+
+  it('supports rebound exchange and ignores it in menus, during capture and after game over', () => {
+    useSettingsStore.getState().bind('swap', 0, 'KeyT')
+    const before = useGameStore.getState()
+    press('KeyF', { shiftKey: false })
+    expect(useGameStore.getState()).toBe(before)
+    before.openMenu()
+    const paused = useGameStore.getState()
+    press('KeyT', { shiftKey: false })
+    expect(useGameStore.getState()).toBe(paused)
+    paused.closeMenu()
+    const playing = useGameStore.getState()
+    useSettingsStore.getState().setCapturing({ action: 'swap', slot: 1 })
+    press('KeyT', { shiftKey: false })
+    expect(useGameStore.getState()).toBe(playing)
+    useSettingsStore.getState().setCapturing(null)
+    press('KeyT', { shiftKey: false })
+    expect(useGameStore.getState().queued?.quadrants).toBe(playing.current)
+    useGameStore.setState({ current: null, remaining: 0, falling: null })
+    const ended = useGameStore.getState()
+    press('KeyT', { shiftKey: false })
+    expect(useGameStore.getState()).toBe(ended)
+  })
+
+  it.each(['azerty', 'qwerty'] as const)(
     'crosses separate islands with repeated Shift + Down / S on %s without key-repeat skipping',
     (layout) => {
       useSettingsStore.getState().setKeyboardLayout(layout)

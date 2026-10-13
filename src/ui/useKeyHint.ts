@@ -6,5 +6,6 @@ import { useSettingsStore } from '../store/settingsStore'
 export function useKeyHint(action: Action): string {
   const code = useSettingsStore((s) => s.bindings[action].find((c) => c !== null) ?? null)
   const layout = useSettingsStore((s) => s.layout)
-  return code ? keyLabel(code, layout) : ''
+  const language = useSettingsStore((s) => s.language)
+  return code ? keyLabel(code, layout, language) : ''
 }

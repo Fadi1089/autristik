@@ -87,3 +87,32 @@ export function planFallFraming(
   }
   return { target, distance: Math.min(maxDistance, distance) }
 }
+
+/** Start on the island centre, zooming just enough to include the approaching tile. */
+export function planStartFraming(
+  camera: PerspectiveCamera,
+  state: FallingGameState,
+  minDistance: number,
+  maxDistance: number,
+): FallFraming | null {
+  if (!state.falling || !state.current) return null
+  const island = boardTiles(state.board).map((tile) => tile.coord)
+  const centrePoints = (island.length ? island : [{ q: 0, r: 0 }]).flatMap(tileCorners)
+  const target = new Box3().setFromPoints(centrePoints).getCenter(new Vector3())
+  target.y = 0
+  const points = [...centrePoints, ...tileCorners(state.falling)]
+  const inverseRotation = camera.quaternion.clone().invert()
+  const verticalTan = Math.tan((camera.getEffectiveFOV() * Math.PI) / 360)
+  const horizontalTan = verticalTan * camera.aspect
+  let distance = minDistance
+  for (const point of points) {
+    const local = point.clone().sub(target).applyQuaternion(inverseRotation)
+    distance = Math.max(
+      distance,
+      local.z + Math.abs(local.x) / (horizontalTan * FIT_X),
+      local.z + Math.abs(local.y) / (verticalTan * FIT_Y),
+      local.z + camera.near + 1,
+    )
+  }
+  return { target, distance: Math.min(maxDistance, distance) }
+}

@@ -11,9 +11,16 @@ vi.mock('../store/settingsStore', () => ({ useSettingsStore: { getState: () => s
 vi.mock('../audio/placementAudio', () => ({ playMenuSound: play }))
 
 class Target {
-  button: Button | null = null
-  closest() {
+  button: Target | null = null
+  closest(selector: string) {
+    if (this.button instanceof Summary && !selector.includes('summary')) return null
     return this.button
+  }
+}
+class Summary extends Target {
+  constructor() {
+    super()
+    this.button = this
   }
 }
 class Button extends Target {
@@ -50,6 +57,10 @@ describe('menu navigation cues', () => {
     events.onFocusCapture(event(first, 'focus'))
     expect(play).toHaveBeenCalledTimes(2)
     expect(play).toHaveBeenLastCalledWith(0.25)
+    const summary = new Summary()
+    events.onFocusCapture(event(summary, 'focus'))
+    events.onPointerOverCapture(event(summary, 'pointerover'))
+    expect(play).toHaveBeenCalledTimes(3)
   })
 
   it('respects disabled buttons and live mute/volume preferences', () => {

@@ -21,28 +21,29 @@ describe('void availability', () => {
     }
   })
 
-  it('blocks void draws before 20 placements and unlocks the same seeded roll at 20', () => {
+  it('blocks void draws before 10 placements and unlocks the same seeded roll at 10', () => {
+    expect(VOID_UNLOCK_PLACEMENTS).toBe(10)
     expect(voidSeed).toBeDefined()
     for (let placements = 0; placements < VOID_UNLOCK_PLACEMENTS; placements++)
       expect(tileKind(randomTile(createRng(voidSeed), placements).quadrants)).toBe('normal')
     expect(randomTile(createRng(voidSeed), VOID_UNLOCK_PLACEMENTS).quadrants).toEqual(VOID_TILE)
   })
 
-  it('previews the draw after the current placement at the unlock boundary without consuming it', () => {
+  it('unlocks the queued draw at 10 placements without allowing an early swap', () => {
     const game = {
       ...createGame(42),
       board,
       current: grass,
       currentMultiplier: 1 as const,
       seed: voidSeed,
-      placements: 19,
+      placements: 10,
     }
-    const early = { ...game, placements: 18 }
+    const early = { ...game, placements: 9 }
     expect(tileKind(nextTilePreview(early)!.quadrants)).not.toBe('void')
     expect(nextTilePreview(game)!.quadrants).toEqual(VOID_TILE)
     expect(game.seed).toBe(voidSeed)
     const after = placeCurrent(game, { q: 1, r: 0 })
-    expect(after).toMatchObject({ current: VOID_TILE, placements: 20 })
+    expect(after).toMatchObject({ current: VOID_TILE, placements: 11 })
     expect(after.seed).not.toBe(voidSeed)
   })
 
@@ -58,8 +59,9 @@ describe('void availability', () => {
     const rng = createRng(12345)
     let voids = 0
     for (let i = 0; i < 20000; i++) if (tileKind(randomTile(rng, 20).quadrants) === 'void') voids++
-    expect(voids).toBeGreaterThan(140)
-    expect(voids).toBeLessThan(260)
+    expect(VOID_TILE_CHANCE).toBe(0.03)
+    expect(voids).toBeGreaterThan(500)
+    expect(voids).toBeLessThan(700)
   })
 
   it('does not consume an extra supply tile or change the queued preview when creating the fallback anchor', () => {

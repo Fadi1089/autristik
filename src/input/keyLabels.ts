@@ -1,3 +1,8 @@
+import type { Language } from '../i18n/language'
+import { translate } from '../i18n/translate'
+import { FRENCH } from '../i18n/messages'
+import type { Message } from '../i18n/messages'
+
 const NAMED: Readonly<Record<string, string>> = {
   ArrowUp: '↑',
   ArrowDown: '↓',
@@ -59,6 +64,7 @@ export const KEYBOARD_LAYOUT_MAPS: Readonly<Record<KeyboardLayout, LayoutMap>> =
     Period: ':',
     Slash: '!',
     Semicolon: 'M',
+    Quote: 'ù',
   },
 }
 
@@ -66,16 +72,20 @@ export const KEYBOARD_LAYOUT_MAPS: Readonly<Record<KeyboardLayout, LayoutMap>> =
  * Human label for a KeyboardEvent.code. With a layout map letter keys show
  * what is printed on the player's keyboard, e.g. "Z" for KeyW on AZERTY.
  */
-export function keyLabel(code: string, layout: LayoutMap | null = null): string {
+export function keyLabel(
+  code: string,
+  layout: LayoutMap | null = null,
+  language: Language = 'en',
+): string {
   const printed = layout?.[code]
   if (
     printed &&
     printed.trim() &&
-    (/^(Key|Digit)/.test(code) || ['Semicolon', 'Comma', 'Period', 'Slash'].includes(code))
+    (/^(Key|Digit)/.test(code) || ['Semicolon', 'Comma', 'Period', 'Slash', 'Quote'].includes(code))
   )
     return printed.toUpperCase()
   const named = NAMED[code]
-  if (named) return named
+  if (named) return named in FRENCH ? translate(language, named as Message) : named
   const letter = /^Key([A-Z])$/.exec(code)
   if (letter?.[1]) return letter[1]
   const digit = /^(?:Digit|Numpad)(\d)$/.exec(code)

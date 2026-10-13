@@ -9,7 +9,7 @@ import { useGameStore } from '../store/gameStore'
 import type { CameraFollow } from '../store/gameStore'
 import { useViewStore } from '../store/viewStore'
 import { coordToWorld } from './layout'
-import { isTileInFrame, planFallFraming } from './cameraFraming'
+import { isTileInFrame, planFallFraming, planStartFraming } from './cameraFraming'
 import type { FallFraming } from './cameraFraming'
 
 /** How far past the outermost tile the camera target may wander. */
@@ -45,6 +45,7 @@ export function CameraRig() {
   const following = useRef<CameraFollow | null>(null)
   const recentering = useRef<FallFraming | null>(null)
   const interacting = useRef(false)
+  const starting = useRef(false)
   /** Heading to return to when the menu closes, since the menu slowly orbits the board. */
   const headingBeforeMenu = useRef(0)
   const board = useGameStore((s) => s.board)
@@ -89,6 +90,7 @@ export function CameraRig() {
   useEffect(
     () =>
       useGameStore.subscribe((s, prev) => {
+        if (s.runId !== prev.runId) starting.current = true
         if (s.cameraMove !== prev.cameraMove || s.cameraFollow !== prev.cameraFollow) {
           following.current = s.cameraFollow
           recentering.current = null
@@ -146,6 +148,41 @@ export function CameraRig() {
     const c = controls.current
     if (!c) return
     const { target } = c
+
+    if (
+      starting.current &&
+      !menuOpen &&
+      camera instanceof PerspectiveCamera &&
+      board === useGameStore.getState().board
+    ) {
+      const damping = c.enableDamping
+      c.enableDamping = false // Consume old pan/rotation damping before applying the starting frame.
+      c.reset()
+      c.enableDamping = damping
+      target.set(0, 0, 0)
+      camera.position.set(0, 16, 16)
+      camera.lookAt(target)
+      const framing = planStartFraming(camera, useGameStore.getState(), MIN_DISTANCE, MAX_DISTANCE)
+      if (framing) {
+        target.copy(framing.target)
+        offset.set(0, 1, 1).normalize().multiplyScalar(framing.distance)
+        camera.position.copy(target).add(offset)
+        camera.lookAt(target)
+      }
+      following.current = null
+      recentering.current = null
+      pendingPivot.current = 0
+      alignedPivot.current = null
+      pendingZoom.current = 0
+      headingBeforeMenu.current = 0
+      starting.current = false
+      useViewStore.setState({
+        pivotTarget: null,
+        pivotRequest: 0,
+        zoomRequest: 0,
+        recenterRequest: 0,
+      })
+    }
 
     const view = useViewStore.getState()
     const hasSideRequest = view.pivotTarget !== null && alignedPivot.current === null
@@ -216,7 +253,7 @@ export function CameraRig() {
     camera.lookAt(target)
 
     const game = useGameStore.getState()
-    if (!menuOpen && game.falling && camera instanceof PerspectiveCamera) {
+    if (!menuOpen && !starting.current && game.falling && camera instanceof PerspectiveCamera) {
       const requested = view.recenterRequest !== 0
       const outside = !isTileInFrame(camera, game.falling)
       const settled = Math.abs(pendingPivot.current) < 0.01 && Math.abs(pendingZoom.current) < 0.01

@@ -13,20 +13,35 @@ import { KEYBOARD_LAYOUT_MAPS } from '../input/keyLabels'
 import type { KeyboardLayout, LayoutMap } from '../input/keyLabels'
 import {
   DEFAULT_MENU_SOUND_VOLUME,
+  DEFAULT_TILE_SOUND_VOLUME,
   normalizePlacementSound,
   normalizeSoundVolume,
   normalizeTheme,
 } from '../customization'
 import type { GameTheme, PlacementSound } from '../customization'
+import { browserLanguage, normalizeLanguage } from '../i18n/language'
+import type { Language } from '../i18n/language'
 
 interface SettingsStore {
+  readonly language: Language
+  setLanguage(language: Language): void
   readonly theme: GameTheme
   readonly placementSound: PlacementSound
   readonly soundVolume: number
+  readonly placementSoundEnabled: boolean
+  setPlacementSoundEnabled(enabled: boolean): void
   readonly menuSoundEnabled: boolean
   readonly menuSoundVolume: number
   readonly musicEnabled: boolean
   readonly musicVolume: number
+  readonly clockSoundEnabled: boolean
+  readonly clockSoundVolume: number
+  readonly feedbackSoundEnabled: boolean
+  readonly feedbackSoundVolume: number
+  setFeedbackSoundEnabled(enabled: boolean): void
+  setFeedbackSoundVolume(volume: number): void
+  setClockSoundEnabled(enabled: boolean): void
+  setClockSoundVolume(volume: number): void
   setMenuSoundEnabled(enabled: boolean): void
   setMenuSoundVolume(volume: number): void
   setMusicEnabled(enabled: boolean): void
@@ -51,13 +66,27 @@ interface SettingsStore {
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
+      language: browserLanguage(),
+      setLanguage: (language) => set({ language }),
       theme: 'light',
-      placementSound: 'wood',
-      soundVolume: 0.5,
+      placementSound: 'drop',
+      soundVolume: DEFAULT_TILE_SOUND_VOLUME,
+      placementSoundEnabled: true,
+      setPlacementSoundEnabled: (placementSoundEnabled) => set({ placementSoundEnabled }),
       menuSoundEnabled: true,
       menuSoundVolume: DEFAULT_MENU_SOUND_VOLUME,
       musicEnabled: true,
       musicVolume: 0.18,
+      clockSoundEnabled: true,
+      clockSoundVolume: 0.25,
+      feedbackSoundEnabled: true,
+      feedbackSoundVolume: 0.35,
+      setFeedbackSoundEnabled: (feedbackSoundEnabled) => set({ feedbackSoundEnabled }),
+      setFeedbackSoundVolume: (volume) =>
+        set({ feedbackSoundVolume: normalizeSoundVolume(volume, 0.35) }),
+      setClockSoundEnabled: (clockSoundEnabled) => set({ clockSoundEnabled }),
+      setClockSoundVolume: (volume) =>
+        set({ clockSoundVolume: normalizeSoundVolume(volume, 0.25) }),
       setMenuSoundEnabled: (menuSoundEnabled) => set({ menuSoundEnabled }),
       setMenuSoundVolume: (volume) =>
         set({ menuSoundVolume: normalizeSoundVolume(volume, DEFAULT_MENU_SOUND_VOLUME) }),
@@ -65,7 +94,8 @@ export const useSettingsStore = create<SettingsStore>()(
       setMusicVolume: (volume) => set({ musicVolume: normalizeSoundVolume(volume, 0.18) }),
       setTheme: (theme) => set({ theme }),
       setPlacementSound: (placementSound) => set({ placementSound }),
-      setSoundVolume: (volume) => set({ soundVolume: normalizeSoundVolume(volume) }),
+      setSoundVolume: (volume) =>
+        set({ soundVolume: normalizeSoundVolume(volume, DEFAULT_TILE_SOUND_VOLUME) }),
       bindings: DEFAULT_BINDINGS,
       keyboardLayout: 'qwerty',
       layout: KEYBOARD_LAYOUT_MAPS.qwerty,
@@ -82,24 +112,53 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'autristik:settings',
-      version: 4,
+      version: 6,
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
+        language: s.language,
         bindings: s.bindings,
         keyboardLayout: s.keyboardLayout,
         theme: s.theme,
         placementSound: s.placementSound,
         soundVolume: s.soundVolume,
+        placementSoundEnabled: s.placementSoundEnabled,
         menuSoundEnabled: s.menuSoundEnabled,
         menuSoundVolume: s.menuSoundVolume,
         musicEnabled: s.musicEnabled,
         musicVolume: s.musicVolume,
+        clockSoundEnabled: s.clockSoundEnabled,
+        clockSoundVolume: s.clockSoundVolume,
+        feedbackSoundEnabled: s.feedbackSoundEnabled,
+        feedbackSoundVolume: s.feedbackSoundVolume,
       }),
       migrate: (persisted, version) => {
-        const previous = persisted as { bindings?: unknown; menuSoundVolume?: unknown } | undefined
+        const previous = persisted as
+          | {
+              bindings?: unknown
+              menuSoundVolume?: unknown
+              placementSound?: unknown
+              soundVolume?: unknown
+              specialSoundVolume?: unknown
+              placementSoundEnabled?: unknown
+              specialSoundEnabled?: unknown
+            }
+          | undefined
         const stored = previous?.bindings
         return {
           ...(persisted as object),
+          soundVolume:
+            version < 6 && previous?.soundVolume === 0.5
+              ? DEFAULT_TILE_SOUND_VOLUME
+              : normalizeSoundVolume(
+                  previous?.soundVolume ?? previous?.specialSoundVolume,
+                  DEFAULT_TILE_SOUND_VOLUME,
+                ),
+          placementSoundEnabled:
+            previous?.placementSoundEnabled !== false && previous?.specialSoundEnabled !== false,
+          placementSound:
+            version < 5 && previous?.placementSound === 'wood'
+              ? 'drop'
+              : normalizePlacementSound(previous?.placementSound),
           bindings:
             version < 3
               ? upgradeCameraBindings(version < 2 ? upgradeLegacyBindings(stored) : stored)
@@ -114,31 +173,46 @@ export const useSettingsStore = create<SettingsStore>()(
       merge: (persisted, current) => {
         const saved = persisted as
           | {
+              language?: unknown
               bindings?: unknown
               keyboardLayout?: unknown
               theme?: unknown
               placementSound?: unknown
               soundVolume?: unknown
+              placementSoundEnabled?: unknown
               menuSoundEnabled?: unknown
               menuSoundVolume?: unknown
               musicEnabled?: unknown
               musicVolume?: unknown
+              clockSoundEnabled?: unknown
+              clockSoundVolume?: unknown
+              feedbackSoundEnabled?: unknown
+              feedbackSoundVolume?: unknown
             }
           | undefined
         const keyboardLayout = saved?.keyboardLayout === 'azerty' ? 'azerty' : 'qwerty'
         return {
           ...current,
+          language: normalizeLanguage(saved?.language),
           bindings: normalizeBindings(saved?.bindings),
           keyboardLayout,
           layout: KEYBOARD_LAYOUT_MAPS[keyboardLayout],
           theme: normalizeTheme(saved?.theme),
           placementSound: normalizePlacementSound(saved?.placementSound),
-          soundVolume: normalizeSoundVolume(saved?.soundVolume),
+          soundVolume: normalizeSoundVolume(saved?.soundVolume, DEFAULT_TILE_SOUND_VOLUME),
+          placementSoundEnabled:
+            typeof saved?.placementSoundEnabled === 'boolean' ? saved.placementSoundEnabled : true,
           menuSoundEnabled:
             typeof saved?.menuSoundEnabled === 'boolean' ? saved.menuSoundEnabled : true,
           menuSoundVolume: normalizeSoundVolume(saved?.menuSoundVolume, DEFAULT_MENU_SOUND_VOLUME),
           musicEnabled: typeof saved?.musicEnabled === 'boolean' ? saved.musicEnabled : true,
           musicVolume: normalizeSoundVolume(saved?.musicVolume, 0.18),
+          clockSoundEnabled:
+            typeof saved?.clockSoundEnabled === 'boolean' ? saved.clockSoundEnabled : true,
+          clockSoundVolume: normalizeSoundVolume(saved?.clockSoundVolume, 0.25),
+          feedbackSoundEnabled:
+            typeof saved?.feedbackSoundEnabled === 'boolean' ? saved.feedbackSoundEnabled : true,
+          feedbackSoundVolume: normalizeSoundVolume(saved?.feedbackSoundVolume, 0.35),
         }
       },
     },

@@ -11,6 +11,24 @@ function buffer(channels: Float32Array[], sampleRate: number): AudioBuffer {
 }
 
 describe('music loop boundary', () => {
+  it('supports a longer crossfade for a calm track without a silent gap at the seam', () => {
+    const samples = Float32Array.from({ length: 12000 }, (_, i) => Math.sin(i * 0.03))
+    const original = buffer([samples], 1000)
+    const ctx = {
+      createBuffer: (count: number, length: number, rate: number) =>
+        buffer(
+          Array.from({ length: count }, () => new Float32Array(length)),
+          rate,
+        ),
+    } as AudioContext
+    const loop = seamlessLoop(ctx, original, 2)
+    expect(loop.length).toBe(10000)
+    const output = loop.getChannelData(0)
+    expect(Math.abs(output[0]! - output.at(-1)!)).toBeLessThan(0.04)
+    expect(Math.max(...output.map(Math.abs))).toBeLessThanOrEqual(1)
+    expect(original.length).toBe(12000)
+  })
+
   it('removes the abrupt seam on both stereo channels without silence or altering the original', () => {
     const channels = [
       Float32Array.from({ length: 1000 }, (_, i) => Math.sin(i * 0.03)),

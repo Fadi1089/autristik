@@ -1,8 +1,13 @@
-const scoreFormat = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
+import type { Language } from '../i18n/language'
+
+const scoreFormats = {
+  fr: new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }),
+  en: new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2 }),
+}
 
 /** Keep fractional combo points and quarter-step multipliers readable. */
-export function formatPoints(points: number): string {
-  return scoreFormat.format(points)
+export function formatPoints(points: number, language: Language = 'fr'): string {
+  return scoreFormats[language].format(points)
 }
 
 /** Elapsed play time: M:SS, then H:MM:SS for long games. */

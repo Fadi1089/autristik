@@ -11,8 +11,12 @@ import {
   tickFallingGame,
 } from '../game/falling'
 import type { FallingGameState } from '../game/falling'
-import { isGameOver, rotateCurrent } from '../game/game'
+import { isGameOver, rotateCurrent, swapCurrent } from '../game/game'
 import type { Difficulty } from '../game/levels'
+import { DEFAULT_GAME_MODE } from '../game/modes'
+import type { GameMode } from '../game/modes'
+import type { GameVariant } from '../game/variants'
+import { bestScore, useRecordsStore } from './recordsStore'
 
 export interface CameraFollow {
   readonly axis: 'q' | 'r'
@@ -20,11 +24,20 @@ export interface CameraFollow {
 }
 
 export interface GameStore extends FallingGameState {
+  /** Changes only when a new run starts, including first Play with the same seed. */
+  readonly runId: number
+  /** Snapshot for comparing this run with the record before it began. */
+  readonly bestAtStart: number | null
   readonly menuOpen: boolean
   readonly started: boolean
   /** Pending choice only affects the next new game, never the game being resumed. */
   readonly nextDifficulty: Difficulty
   setNextDifficulty(difficulty: Difficulty): void
+  readonly gameSeed: number
+  readonly nextMode: GameMode
+  setNextMode(mode: GameMode): void
+  readonly nextVariant: GameVariant
+  setNextVariant(variant: GameVariant): void
   /** Only successful manual lateral inputs create a camera request. */
   readonly cameraFollow: CameraFollow | null
   readonly cameraMove: number
@@ -36,7 +49,8 @@ export interface GameStore extends FallingGameState {
   advance(): void
   drop(): void
   rotate(turns: number): void
-  restart(seed?: number, difficulty?: Difficulty): void
+  swapTiles(): void
+  restart(seed?: number, difficulty?: Difficulty, mode?: GameMode, variant?: GameVariant): void
   openMenu(): void
   closeMenu(): void
   toggleMenu(): void
@@ -69,12 +83,43 @@ function withCameraRequest(state: GameStore, next: FallingGameState): Partial<Ga
   }
 }
 
+/** Apply menu choices on first Play while preserving the URL seed and ordinary island. */
+function firstGameSettings(state: GameStore): Partial<GameStore> {
+  if (state.started) return {}
+  if (state.mode === state.nextMode && state.variant === state.nextVariant)
+    return {
+      difficulty: state.nextDifficulty,
+      bestAtStart: bestScore(state.nextMode, state.nextVariant),
+    }
+  return {
+    ...createFallingGame(
+      state.gameSeed,
+      undefined,
+      state.nextDifficulty,
+      state.nextMode,
+      state.nextVariant,
+    ),
+    cameraFollow: null,
+    cameraMove: 0,
+    bestAtStart: bestScore(state.nextMode, state.nextVariant),
+  }
+}
+
+const startSeed = initialSeed()
+
 export const useGameStore = create<GameStore>()((set, get) => ({
-  ...createFallingGame(initialSeed()),
+  ...createFallingGame(startSeed),
+  runId: 0,
+  bestAtStart: bestScore(DEFAULT_GAME_MODE, 'standard'),
+  gameSeed: startSeed,
   menuOpen: true,
   started: false,
   nextDifficulty: 'easy',
   setNextDifficulty: (nextDifficulty) => set({ nextDifficulty }),
+  nextMode: DEFAULT_GAME_MODE,
+  setNextMode: (nextMode) => set({ nextMode }),
+  nextVariant: 'standard',
+  setNextVariant: (nextVariant) => set({ nextVariant }),
   cameraFollow: null,
   cameraMove: 0,
 
@@ -94,10 +139,21 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   drop: () => set((s) => (s.menuOpen ? s : hardDrop(s))),
   rotate: (turns) =>
     set((s) => (s.menuOpen || isGameOver(s) ? s : { rotation: rotateCurrent(s, turns).rotation })),
-  restart: (seed = randomSeed(), difficulty = get().nextDifficulty) =>
+  swapTiles: () => set((s) => (s.menuOpen || isGameOver(s) ? s : swapCurrent(s))),
+  restart: (
+    seed = randomSeed(),
+    difficulty = get().nextDifficulty,
+    mode = get().nextMode,
+    variant = get().nextVariant,
+  ) =>
     set({
-      ...createFallingGame(seed, undefined, difficulty),
+      ...createFallingGame(seed, undefined, difficulty, mode, variant),
+      runId: get().runId + 1,
+      bestAtStart: bestScore(mode, variant),
+      gameSeed: seed,
       nextDifficulty: difficulty,
+      nextMode: mode,
+      nextVariant: variant,
       cameraFollow: null,
       cameraMove: 0,
       menuOpen: false,
@@ -106,18 +162,26 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   openMenu: () => set({ menuOpen: true }),
   closeMenu: () =>
     set((s) => ({
+      ...firstGameSettings(s),
+      runId: s.started ? s.runId : s.runId + 1,
       menuOpen: false,
       started: true,
-      difficulty: s.started ? s.difficulty : s.nextDifficulty,
     })),
   toggleMenu: () =>
     set((s) => ({
+      ...firstGameSettings(s),
+      runId: s.started ? s.runId : s.runId + 1,
       menuOpen: !s.menuOpen,
       started: true,
-      difficulty: s.started ? s.difficulty : s.nextDifficulty,
     })),
   tick: (seconds) => set((s) => (s.menuOpen || isGameOver(s) ? s : tickFallingGame(s, seconds))),
 }))
+
+// Save improvements as they occur, so restarting or closing the tab does not lose a best score.
+useGameStore.subscribe((next, previous) => {
+  if (next.started && (next.score > previous.score || (!isGameOver(previous) && isGameOver(next))))
+    useRecordsStore.getState().recordScore(next.mode, next.variant, next.score)
+})
 
 if (import.meta.env.DEV) {
   ;(window as unknown as { gameStore: typeof useGameStore }).gameStore = useGameStore

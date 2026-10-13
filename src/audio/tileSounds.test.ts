@@ -10,7 +10,7 @@ describe('tile-specific sound selection', () => {
         expect(soundForTile([a, b, b, a], 1, 'glass')).toBe('glass')
       }
   })
-  it('distinguishes all six special sounds and preserves global silence', () => {
+  it('distinguishes all six special sounds independently of standard silence', () => {
     const grass = ['grass', 'grass', 'grass', 'grass'] as const
     expect(soundForTile(VOID_TILE, 1, 'wood')).toBe('special-void')
     expect(soundForTile(RAINBOW_TILE, 1, 'wood')).toBe('special-gold')
@@ -18,8 +18,11 @@ describe('tile-specific sound selection', () => {
     expect(soundForTile(grass, 2, 'wood')).toBe('special-bronze')
     expect(soundForTile(grass, 3, 'wood')).toBe('special-silver')
     expect(soundForTile(grass, 5, 'wood')).toBe('special-diamond')
-    for (const tile of [grass, VOID_TILE, RAINBOW_TILE, BEDROCK_TILE])
-      expect(soundForTile(tile, 5, 'none')).toBe('none')
+    expect(soundForTile(grass, 1, 'none')).toBe('none')
+    expect(soundForTile(grass, 5, 'none')).toBe('special-diamond')
+    expect(soundForTile(VOID_TILE, 1, 'none')).toBe('special-void')
+    expect(soundForTile(RAINBOW_TILE, 1, 'none')).toBe('special-gold')
+    expect(soundForTile(BEDROCK_TILE, 1, 'none')).toBe('special-bedrock')
   })
   it.each(SPECIAL_TILE_SOUNDS)(
     'generates a short, finite and unclipped %s effect with click-free endpoints',

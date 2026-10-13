@@ -21,10 +21,11 @@ export function Ghost() {
   const currentMultiplier = useGameStore((s) => s.currentMultiplier)
   const fallDirection = useGameStore((s) => s.fallDirection)
   const fallAnchor = useGameStore((s) => s.fallAnchor)
+  const tucked = useGameStore((s) => s.tucked)
   const { quadrants, target, destroyed } = useMemo(() => {
     const hand = { board, current, rotation }
     const quadrants = currentQuadrants(hand)
-    const target = landingPosition({ ...hand, falling, fallDirection, fallAnchor })
+    const target = landingPosition({ ...hand, falling, fallDirection, fallAnchor, tucked })
     return {
       quadrants,
       target,
@@ -33,7 +34,7 @@ export function Ghost() {
           ? destructionTargets(board, target)
           : [],
     }
-  }, [board, current, rotation, falling, fallDirection, fallAnchor])
+  }, [board, current, rotation, falling, fallDirection, fallAnchor, tucked])
   const ref = useRef<Group>(null)
   useFrame(({ clock }) => {
     if (ref.current) ref.current.position.y = 0.16 + Math.sin(clock.elapsedTime * 3) * 0.03
@@ -49,7 +50,7 @@ export function Ghost() {
             quadrants={quadrants}
             multiplier={currentMultiplier}
             glow={0.12}
-            opacity={0.6}
+            opacity={0.8}
             overlay
           />
           <GhostOutline moving />

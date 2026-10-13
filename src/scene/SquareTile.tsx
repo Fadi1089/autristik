@@ -33,7 +33,12 @@ export function SquareTile({
 }: SquareTileProps) {
   const kind = tileKind(quadrants)
   if (kind === 'gold') {
-    return <GoldenTile {...group} glow={glow} opacity={opacity} overlay={overlay} />
+    return (
+      <group {...group}>
+        <GoldenTile glow={glow} opacity={opacity} overlay={overlay} />
+        {multiplier > 1 && <BonusAura multiplier={multiplier} opacity={opacity} />}
+      </group>
+    )
   }
   if (kind === 'void' || kind === 'bedrock')
     return (

@@ -62,6 +62,9 @@ export function useKeyboardShortcuts() {
 
       const view = useViewStore.getState()
       switch (action) {
+        case 'swap':
+          game.swapTiles()
+          break
         case 'place':
           game.drop()
           break

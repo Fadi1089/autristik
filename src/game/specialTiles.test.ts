@@ -117,18 +117,18 @@ describe('bedrock blocking', () => {
       expect(terrainsMatch(terrain, 'bedrock')).toBe(false)
     },
   )
-  it('occupies the board and resets combos without points or bonus tiles', () => {
+  it('occupies the board and preserves combos without points or bonus tiles', () => {
     const game = { ...createGame(42), board: singleBoard(), current: BEDROCK_TILE, combo: 4 }
     const placed = placeCurrent(game, { q: 1, r: 0 })
     expect(placed.board['1,0']?.quadrants).toEqual(BEDROCK_TILE)
     expect(placed.lastPlacement).toMatchObject({
       points: 0,
       bonusTiles: 0,
-      combo: 0,
+      combo: 4,
       mismatched: [Direction.West],
     })
     const against = previewPlacement({ ...placed, current: RAINBOW_TILE }, { q: 2, r: 0 })!
-    expect(against).toMatchObject({ points: 0, combo: 0, matched: [] })
+    expect(against).toMatchObject({ points: 0, combo: 4, matched: [] })
   })
 })
 
@@ -176,12 +176,15 @@ describe('score bonus tiles', () => {
       expect(placed.score).toBe(100 + 17.5 * currentMultiplier)
       expect(placed.lastPlacement).toMatchObject(preview)
       expect(placed.board['1,0']?.multiplier).toBe(currentMultiplier)
-      // Neighbours do not grant their multiplier to future placements.
+      // A normal ×1 placement receives a score bonus without changing its own multiplier.
       const next = previewPlacement(
         { ...placed, current: grass, currentMultiplier: 1 },
         { q: 2, r: 0 },
       )!
-      expect(next).toMatchObject({ tileMultiplier: 1, points: 20 })
+      expect(next).toMatchObject({
+        tileMultiplier: currentMultiplier,
+        points: 20 * currentMultiplier,
+      })
     },
   )
 
@@ -207,20 +210,22 @@ describe('score bonus tiles', () => {
       const seed = rng.state
       const draw = randomTile(rng, 20)
       seen.add(`${tileKind(draw.quadrants)}:${draw.multiplier}`)
-      const game = { ...createGame(42), seed, placements: 19 }
+      const game = { ...createGame(42), seed, placements: 20 }
       expect(nextTilePreview(game)).toEqual(draw)
       const placed = placeCurrent(game, { q: 0, r: -2 })
       expect(placed.current).toEqual(draw.quadrants)
       expect(placed.currentMultiplier).toBe(draw.multiplier)
     }
-    expect([...seen].sort()).toEqual([
-      'bedrock:1',
-      'gold:1',
-      'normal:1',
-      'normal:2',
-      'normal:3',
-      'normal:5',
-      'void:1',
-    ])
+    expect([...seen]).toEqual(
+      expect.arrayContaining([
+        'bedrock:1',
+        'gold:1',
+        'normal:1',
+        'normal:2',
+        'normal:3',
+        'normal:5',
+        'void:1',
+      ]),
+    )
   })
 })

@@ -11,7 +11,137 @@ beforeAll(async () => {
   useGameStore = (await import('./gameStore')).useGameStore
 })
 afterAll(() => vi.unstubAllGlobals())
-beforeEach(() => useGameStore.getState().restart(42, 'easy'))
+beforeEach(() => useGameStore.getState().restart(42, 'easy', 'superblock', 'standard'))
+
+describe('gamemode selection', () => {
+  it('requests a fresh starting camera once per run, including a restart with the same seed', () => {
+    const id = useGameStore.getState().runId
+    useGameStore.getState().restart(42)
+    expect(useGameStore.getState().runId).toBe(id + 1)
+    useGameStore.getState().openMenu()
+    useGameStore.getState().closeMenu()
+    expect(useGameStore.getState().runId).toBe(id + 1)
+    useGameStore.setState({ started: false, menuOpen: true })
+    useGameStore.getState().closeMenu()
+    expect(useGameStore.getState().runId).toBe(id + 2)
+  })
+
+  it.each(['closeMenu', 'toggleMenu'] as const)(
+    'starts a chosen Time-attack with %s and the original board and seed',
+    (action) => {
+      const board = useGameStore.getState().board
+      useGameStore.setState({ started: false, menuOpen: true })
+      useGameStore.getState().setNextVariant('time-attack')
+      useGameStore.getState().setNextMode('classic')
+      useGameStore.getState()[action]()
+      expect(useGameStore.getState()).toMatchObject({
+        variant: 'time-attack',
+        mode: 'classic',
+        timeRemaining: 45,
+        remaining: 30,
+        gameSeed: 42,
+      })
+      expect(useGameStore.getState().board).toEqual(board)
+    },
+  )
+
+  it('pauses the countdown and applies pending format choices only on the next game', () => {
+    useGameStore.getState().restart(42, 'hard', 'superblock', 'time-attack')
+    useGameStore.getState().tick(5)
+    useGameStore.getState().openMenu()
+    const paused = useGameStore.getState()
+    paused.tick(100)
+    paused.drop()
+    paused.swapTiles()
+    expect(useGameStore.getState()).toBe(paused)
+    paused.setNextVariant('standard')
+    paused.closeMenu()
+    useGameStore.getState().tick(1)
+    expect(useGameStore.getState()).toMatchObject({
+      variant: 'time-attack',
+      timeRemaining: 39,
+      playedSeconds: 6,
+    })
+    useGameStore.getState().restart(42)
+    expect(useGameStore.getState()).toMatchObject({
+      variant: 'standard',
+      timeRemaining: null,
+      remaining: 30,
+      playedSeconds: 0,
+    })
+    useGameStore.getState().setNextVariant('time-attack')
+    useGameStore.getState().restart(42)
+    useGameStore.getState().tick(100)
+    expect(useGameStore.getState().timeRemaining).toBe(0)
+    const ended = useGameStore.getState()
+    ended.tick(1)
+    ended.drop()
+    ended.swapTiles()
+    expect(useGameStore.getState()).toBe(ended)
+    ended.restart(42)
+    expect(useGameStore.getState()).toMatchObject({
+      timeRemaining: 45,
+      playedSeconds: 0,
+      queued: null,
+    })
+  })
+
+  it.each(['closeMenu', 'toggleMenu'] as const)(
+    'starts the selected classic mode with %s, keeping the original seed and chosen difficulty',
+    (action) => {
+      const before = useGameStore.getState()
+      useGameStore.setState({ started: false, menuOpen: true })
+      useGameStore.getState().setNextMode('classic')
+      useGameStore.getState().setNextDifficulty('hard')
+      useGameStore.getState()[action]()
+      const after = useGameStore.getState()
+      expect(after).toMatchObject({
+        started: true,
+        menuOpen: false,
+        gameSeed: 42,
+        mode: 'classic',
+        difficulty: 'hard',
+        currentMultiplier: 1,
+        placements: 0,
+        playedSeconds: 0,
+      })
+      expect(after.board).toEqual(before.board)
+      after.drop()
+      expect(useGameStore.getState().mode).toBe('classic')
+      expect(useGameStore.getState().currentMultiplier).toBe(1)
+    },
+  )
+
+  it('prepares classic during pause without modifying the active Superblock game, then applies it on restart', () => {
+    useGameStore.getState().tick(0.3)
+    useGameStore.getState().openMenu()
+    const paused = useGameStore.getState()
+    useGameStore.getState().setNextMode('classic')
+    useGameStore.getState().closeMenu()
+    expect(useGameStore.getState()).toMatchObject({
+      mode: 'superblock',
+      nextMode: 'classic',
+      currentMultiplier: paused.currentMultiplier,
+      fallElapsed: 0.3,
+      playedSeconds: 0.3,
+    })
+    expect(useGameStore.getState().board).toBe(paused.board)
+    expect(useGameStore.getState().current).toBe(paused.current)
+    useGameStore.getState().restart(42)
+    expect(useGameStore.getState()).toMatchObject({
+      mode: 'classic',
+      currentMultiplier: 1,
+      placements: 0,
+      playedSeconds: 0,
+      combo: 0,
+      remaining: 30,
+    })
+    useGameStore.getState().openMenu()
+    useGameStore.getState().setNextMode('superblock')
+    useGameStore.getState().restart(42)
+    expect(useGameStore.getState()).toMatchObject({ mode: 'superblock', nextMode: 'superblock' })
+  })
+})
 
 describe('elapsed time and new-game difficulty', () => {
   it('counts only active play and resets on restarting', () => {
@@ -77,6 +207,40 @@ describe('elapsed time and new-game difficulty', () => {
 })
 
 describe('falling controls and camera requests', () => {
+  it.each(['classic', 'superblock'] as const)(
+    'keeps the cadence, resources and camera during unlimited exchanges in %s',
+    (mode) => {
+      useGameStore.getState().restart(42, 'insane', mode)
+      useGameStore.getState().tick(0.4)
+      const before = useGameStore.getState()
+      for (let i = 0; i < 100; i++) useGameStore.getState().swapTiles()
+      expect(useGameStore.getState()).toMatchObject({
+        current: before.current,
+        fallElapsed: before.fallElapsed,
+        falling: before.falling,
+        cameraMove: before.cameraMove,
+        cameraFollow: before.cameraFollow,
+        remaining: before.remaining,
+        playedSeconds: before.playedSeconds,
+        placements: before.placements,
+        combo: before.combo,
+        score: before.score,
+      })
+      useGameStore.getState().tick(0.06)
+      expect(useGameStore.getState().falling!.r).toBe(before.falling!.r + 1)
+      useGameStore.getState().openMenu()
+      const paused = useGameStore.getState()
+      paused.swapTiles()
+      expect(useGameStore.getState()).toBe(paused)
+      paused.restart(42)
+      expect(useGameStore.getState().queued).toBeNull()
+      useGameStore.setState({ remaining: 1 })
+      const last = useGameStore.getState()
+      last.swapTiles()
+      expect(useGameStore.getState()).toBe(last)
+    },
+  )
+
   it('clears the selected island when restarting', () => {
     useGameStore.getState().setFallDirection(Direction.North)
     expect(useGameStore.getState().fallAnchor).toBeDefined()

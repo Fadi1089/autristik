@@ -15,12 +15,12 @@ export const FALL_INTERVAL_DECAY = 0.93
 
 export const DIFFICULTIES = ['easy', 'medium', 'hard', 'insane'] as const
 export type Difficulty = (typeof DIFFICULTIES)[number]
-export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
+export const DIFFICULTY_LABELS = {
   easy: 'Easy',
   medium: 'Medium',
   hard: 'Hard',
   insane: 'Insane',
-}
+} as const satisfies Record<Difficulty, string>
 const START_SPEED_LEVEL: Record<Difficulty, number> = { easy: 1, medium: 10, hard: 20, insane: 30 }
 
 /** Each level removes 7% of the remaining gap to the minimum interval. */

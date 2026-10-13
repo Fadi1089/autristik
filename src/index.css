@@ -13,6 +13,7 @@
   --color-moss: #5f8f43;
   --color-moss-deep: #4c7535;
   --color-clay: #c4643c;
+  --color-danger: #bc453e;
 
   --animate-float-up: float-up 1.4s ease-out forwards;
   --animate-banner: banner 2.8s ease-out forwards;
@@ -94,6 +95,7 @@
   --color-moss: #80aa68;
   --color-moss-deep: #b6d59b;
   --color-clay: #e5a37f;
+  --color-danger: #f08b83;
   --scene-background: #19252b;
   --menu-shade: rgb(3 10 15 / 0.5);
   color-scheme: dark;
@@ -137,6 +139,42 @@
 }
 
 @layer base {
+  /* Theme-derived tracks and rounded thumbs for every scrollable menu or help panel. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--color-moss) 65%, var(--color-paper))
+      var(--color-paper-deep);
+  }
+
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--color-paper-deep);
+    border-radius: 999px;
+    margin-block: 12px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-moss) 65%, var(--color-paper));
+    border: 2px solid var(--color-paper-deep);
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--color-moss);
+  }
+
+  *::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: var(--color-paper-deep);
+  }
+
   html,
   body,
   #root {

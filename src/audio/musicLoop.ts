@@ -1,6 +1,13 @@
-/** Blend the tail into the head over 40 ms to avoid a click at the native loop boundary. */
-export function seamlessLoop(ctx: AudioContext, original: AudioBuffer): AudioBuffer {
-  const fade = Math.min(Math.round(original.sampleRate * 0.04), Math.floor(original.length / 4))
+/** Blend the tail into the head: short for seamless loops, longer for relaxed musical transitions. */
+export function seamlessLoop(
+  ctx: AudioContext,
+  original: AudioBuffer,
+  fadeSeconds = 0.04,
+): AudioBuffer {
+  const fade = Math.min(
+    Math.round(original.sampleRate * fadeSeconds),
+    Math.floor(original.length / 4),
+  )
   if (fade < 2) return original
   const length = original.length - fade
   const loop = ctx.createBuffer(original.numberOfChannels, length, original.sampleRate)

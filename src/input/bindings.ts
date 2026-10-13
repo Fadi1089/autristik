@@ -8,6 +8,7 @@ export const ACTIONS = [
   'moveLeft',
   'moveRight',
   'place',
+  'swap',
   'rotateCw',
   'rotateCcw',
   'pivotLeft',
@@ -28,6 +29,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   moveLeft: ['ArrowLeft', 'KeyA'],
   moveRight: ['ArrowRight', 'KeyD'],
   place: ['Enter', 'Space'],
+  swap: ['KeyF', 'Quote'],
   rotateCw: ['KeyE', 'PageDown'],
   rotateCcw: ['KeyQ', 'PageUp'],
   pivotLeft: ['KeyZ', 'Comma'],
@@ -36,19 +38,20 @@ export const DEFAULT_BINDINGS: Bindings = {
   zoomOut: ['Minus', 'NumpadSubtract'],
 }
 
-export const ACTION_LABELS: Readonly<Record<Action, string>> = {
+export const ACTION_LABELS = {
   moveUp: 'Move up',
   moveDown: 'Move down',
   moveLeft: 'Move left',
   moveRight: 'Move right',
   place: 'Place immediately',
+  swap: 'Swap current / next',
   rotateCw: 'Rotate clockwise',
   rotateCcw: 'Rotate anticlockwise',
   pivotLeft: 'Pivot left',
   pivotRight: 'Pivot right',
   zoomIn: 'Zoom in',
   zoomOut: 'Zoom out',
-}
+} as const satisfies Readonly<Record<Action, string>>
 
 /** Actions that keep firing while their key is held down. */
 export const REPEATABLE: ReadonlySet<Action> = new Set<Action>([
@@ -100,12 +103,24 @@ export function normalizeBindings(stored: unknown): Bindings {
   const next: Record<Action, KeySlots> = { ...DEFAULT_BINDINGS }
   if (typeof stored !== 'object' || stored === null) return next
   const record = stored as Record<string, unknown>
+  let savedSwap = false
   for (const action of ACTIONS) {
     const value = record[action]
     if (!Array.isArray(value) || value.length !== 2) continue
     const [a, b] = value as unknown[]
     const valid = (v: unknown) => (typeof v === 'string' && !RESERVED_CODES.has(v)) || v === null
-    if (valid(a) && valid(b)) next[action] = [a as string | null, b as string | null]
+    if (valid(a) && valid(b)) {
+      next[action] = [a as string | null, b as string | null]
+      if (action === 'swap') savedSwap = true
+    }
+  }
+  // Add both defaults without stealing a key from an older custom action.
+  if (!savedSwap) {
+    const available = (code: string | null) =>
+      code && ACTIONS.some((action) => action !== 'swap' && next[action].includes(code))
+        ? null
+        : code
+    next.swap = [available(DEFAULT_BINDINGS.swap[0]), available(DEFAULT_BINDINGS.swap[1])]
   }
   return next
 }

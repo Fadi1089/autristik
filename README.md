@@ -22,28 +22,36 @@ flush, so where two tiles meet, each square on one side faces one square on the 
 
 - The game opens on the menu. Press Play (or `Enter`, or `Esc`) to start. `Esc` or the button in the top
   left brings the menu back and pauses the game.
-  In both menus, How to play starts with a quick control guide for movement, arrival side,
-  camera turns, recentering and instant placement, using the player's current bindings and layout.
-  The game rules follow below; the guide stays hidden until How to play is selected.
+  In both menus, How to play has collapsible Rules and Controls sections, plus Tile types
+  when Superblock is selected. The sections start closed. Controls use the player's current
+  bindings and keyboard layout. Main menu focus is shown by colour and the four-square marker,
+  without a green outline.
+  Only one main option is highlighted; pointer hover and keyboard focus update that selection.
+  Up/Down cycle through the large entries. Difficulty sits beside the new-game action;
+  Right enters it and Left returns. Right/Left also enter and leave an open side panel.
 - Customization is available in both the starting and pause menus. Light preserves the original
   appearance; Dark changes the sky, ground, lighting, menus and HUD while keeping the terrain
   colours. The theme applies immediately and is saved locally.
-  Choose Wood, Button, Laser, Water drop, Steel, Glass or Silent for tile placement sounds.
-  Selecting a clip previews it; Preview sound repeats it and the volume slider sets its loudness.
-  Successful manual and automatic placements play the selected sound, including the last tile.
+  Choose Wood, Button, Laser, Water drop (default), Steel, Glass or Silent for standard tile sounds.
+  Selecting a clip previews it. Settings > Audio contains Preview sound, volumes and On/Off controls.
+  Successful manual and automatic standard placements play the selected sound, including the last tile.
+  All tile effects share one saved On/Off switch and volume slider, defaulting to 30%.
   Movement, rotation, restarting and opening menus stay silent. Clips are bundled locally and
   audio is unlocked by a user gesture. Sources and CC0 license notices live in
   [static/audio/CREDITS.md](static/audio/CREDITS.md).
   Menu navigation has a separate soft, low click for pointer hover and keyboard focus changes,
   with a lower pitch, reduced treble and a rounded attack/release envelope,
-  with no duplicate cue when the same button remains selected. Background music is Sunset Walk
-  by Kilua Boy (CC0), a quiet 76.8-second ambient loop. Web Audio repeats it without a transport
-  gap, with a 40 ms boundary blend and gentle volume fades. It continues across play/pause menus
-  and restarts, and fades to silence while the tab is hidden. Music and menu cues each have an
-  independent On/Off switch and saved volume under Settings > Audio and Customization > Audio.
+  with no duplicate cue when the same button remains selected. The owner-supplied MP3s are
+  `static/audio/menu-jazz.mp3` (Jazz at Dizzy's) for the main menu and
+  `static/audio/game-flute.mp3` (Relaxing Krishna Flute) for play and pause. Only a change
+  between these contexts replaces the player: pausing, resuming and restarting from pause
+  preserve the same track and playhead. HTML audio streams the long tracks with native looping;
+  Native audio controls volume without decoding entire tracks into memory.
+  Music becomes silent while the tab is hidden. Music and menu cues each have an
+  independent On/Off switch and saved volume under Settings > Audio.
   The menu cue defaults to 8% (about 68% quieter than its former 25% setting); existing default
-  settings are upgraded, while customized volumes and mute choices are preserved. Music starts after the first
-  click or key press; hovering alone does not grant browser audio permission.
+  settings are upgraded, while customized volumes and mute choices are preserved. Music attempts
+  playback as soon as the app opens; if browser autoplay rules block it, any click or key press retries.
   Navigate its buttons with arrows or the bound movement keys (WASD / ZQSD by default),
   including the Settings panel; `Enter` or `Space` activates the focused button.
 - Move sideways around the stack to change the arrival side automatically. If the next lane
@@ -62,7 +70,7 @@ flush, so where two tiles meet, each square on one side faces one square on the 
 - The compact Difficulty selector beside Play / New game changes only the starting cadence:
   Easy starts at 15 s per tile, Medium at about 10 s (Easy level 10), Hard at about 7.1 s
   (Easy level 20), and Insane at the 4.5 s minimum. Medium and Hard continue to accelerate
-  gently with each score level; Insane stays at the speed cap. All modes start at score level 1
+  gently with each score level; Insane stays at the speed cap. Standard games start at score level 1
   with 30 tiles and the same goals and rewards. Changing the selector during a pause affects
   the next new game, not the game being resumed.
 - The next tile starts ten squares from the outermost occupied tile in its lane, on the same column for
@@ -89,6 +97,13 @@ flush, so where two tiles meet, each square on one side faces one square on the 
   Remaining approach distance and cadence are preserved. Lateral movement, gravity and
   respawning stay on the selected island; the floating ghost may travel over other islands
   without stopping on them. Holding Shift + a key does not skip islands.
+- A lateral input first tries the adjacent empty cell at the falling tile's current depth.
+  Only a cell bordered by placed tiles on exactly three of its four faces allows insertion.
+  If it touches the selected island, the tile slides into that pocket without restarting its clock
+  and locks at the next gravity step, even under an overhang. Rotation and exchanging tiles
+  remain possible before locking; Enter/Space places it there immediately. Otherwise movement
+  follows lane relief as before. This applies in all four directions and both game modes.
+  The moving ghost is 80% opaque so its terrain colours remain readable.
 - The camera follows successful manual lateral movements smoothly. Automatic falling,
   locking and spawning leave it in place while the falling tile stays on screen.
   If the tile leaves the frame, the camera smoothly recenters on the tile, its landing
@@ -100,14 +115,19 @@ flush, so where two tiles meet, each square on one side faces one square on the 
   backing for contrast on both themes. Ghosts and their borders remain visible over other islands.
   The combo multiplier is displayed in the score card in the top-left corner.
   There is no direction panel.
-- The `?` tab on the right edge of the screen slides out the terrain legend and key list when
+- The `?` tab at the bottom-left edge slides out the terrain legend and key list when
   you hover the tab itself (tap it on touch screens). The rest of the screen edge does not
   trigger it. Keyboard focus can also open it, and its contents stay accessible while open.
 - `E` or `Page Down` rotates the tile clockwise, `Q` (QWERTY) / `A` (AZERTY) or `Page Up` anticlockwise.
-  The bottom tray shows the current tile larger on the left and the actual next tile smaller on
-  its right, followed by the tile count behind a vertical separator. Clicking the current tile
-  also rotates it clockwise. Both previews follow the main camera's angle; the next preview
-  stays unrotated and does not consume the random sequence. The next slot is empty when only
+  The right-hand vertical tray shows the current tile larger at the top and the actual next tile
+  smaller directly below, with Current/Next labels (localized) and a short separator between them.
+  The tile count sits below a wider horizontal separator. Clicking the current tile
+  rotates it anticlockwise on its left half, clockwise on its right half. Keyboard activation
+  of that preview remains clockwise. Click the next tile, or press `F` / `ù` on AZERTY (`F` / `'` on QWERTY),
+  to swap the two tiles as often as desired. Each tile keeps its own rotation and multiplier.
+  Swapping costs no tiles or points and preserves the fall position and elapsed cadence.
+  Both previews follow the main camera's angle; looking at the next tile does not consume the
+  random sequence, and repeated swaps never reroll it. The next slot is empty when only
   one tile remains in the supply. The rotation arrow buttons are removed.
 
 The game is fully playable with the keyboard alone. Default keys:
@@ -117,12 +137,21 @@ The game is fully playable with the keyboard alone. Default keys:
 | Arrows or `W` `A` `S` `D` | Move sideways / advance towards stack, relative to the camera |
 | `Shift` + movement key    | Choose arrival side, relative to the camera                   |
 | `Space` / `Enter`         | Place immediately against the first obstacle                  |
+| `F` / `ù` (AZERTY)        | Swap current / next tile (`F` / `'` on QWERTY)                |
 | `E` / `Page Down`         | Rotate clockwise                                              |
 | `Q` / `Page Up`           | Rotate anticlockwise (QWERTY; `A` on AZERTY)                  |
 | `Z` or `,` / `X` or `.`   | Next aligned camera side, left / right (90°; QWERTY)          |
 | `=` / `-`                 | Zoom                                                          |
 | `C` / `!`                 | Recenter on the falling tile and the island edge              |
 | `Esc`                     | Menu (always, can't be rebound)                               |
+
+French and English are available throughout the main and pause menus, tutorial, mode information,
+customization, HUD, tooltips and game-over screen. On first launch, the first supported browser
+language preference is selected (`fr-*` → French, `en-*` → English; otherwise English).
+Menu > Settings > Language lets players switch immediately, and saves the choice on this device.
+Existing preferences are retained when the language setting is first added. Score decimal separators
+and key names follow the language; keyboard layout and physical bindings remain independent.
+The title **Autristik** stays unchanged. Translations are centralized and typed in `src/i18n/`.
 
 Choose AZERTY or QWERTY under Menu > Settings > Keyboard layout. The selection is saved and
 updates key labels throughout the interface. Keys are matched by physical position, so movement
@@ -144,6 +173,7 @@ Mouse and touchpad:
 | Input                                   | Action                  |
 | --------------------------------------- | ----------------------- |
 | Click / tap                             | Choose a landing lane   |
+| Click / tap the next tray tile          | Swap current / next     |
 | Left-drag, one finger                   | Pan                     |
 | Scroll wheel, pinch                     | Zoom                    |
 | Sideways touchpad scroll, Shift + wheel | Pivot around the board  |
@@ -158,28 +188,96 @@ draw; the starting island still uses regular terrain only. A single gold top, go
 metallic finish and small twinkling surface flecks identify it on the board,
 moving/landing projections and both tray previews. All tiles keep a square footprint
 with slightly rounded edges, including the smaller supply sheets.
-The next-tile preview includes jokers and never consumes a draw.
+The next-tile preview includes jokers and never consumes a draw. Gold jokers can also carry
+bronze ×2, silver ×3 or diamond-blue ×5 bonuses, identified by their frame and tray badge.
+Within the 5% joker draws, those bonuses occur with probabilities 6%, 3% and 1% respectively;
+the remaining 90% are ordinary ×1 gold jokers.
 
-Special tiles are whole blocks and enter the same seeded supply, never the initial island:
+Gamemode is available in the main and pause menus. Select **Classique** for ordinary terrain
+tiles only, with no gold joker, void, bedrock or per-tile multipliers; combos, level goals,
+supply rewards and difficulty still apply. **Superblock** keeps all special tiles described
+below. Each choice has a small **Infos** tab with three short points. The selection applies
+to first Play or the next New game; resuming never changes an active game's mode or draws.
+Superblock is initially selected to preserve the existing gameplay. Mode and difficulty
+are independent. The current mode is shown in the pause menu and final score summary.
+
+The same Gamemode panel offers the independent **Standard** / **Time-attack** format choice,
+compatible with both Classique and Superblock. Time-attack starts with 30 tiles and 45 seconds
+of active play. Each placement consumes a tile, including special tiles; harmonious and perfect
+placements do not replenish the supply in this format. Every completed level resets the supply
+to exactly 30 tiles (unused tiles do not carry over) and adds exactly 45 seconds. A level-up on
+the last tile still refills the reserve. If the supply runs out before reaching the goal, the
+game ends immediately, even if time remains. The tray displays the remaining tiles normally.
+The score goals still rise by level. Gravity is fixed at 1.5 seconds per square (15 seconds for
+a full approach), irrespective of level or difficulty; its difficulty selector shows the fixed
+speed instead. The top-right card displays time remaining and elapsed play time. At zero,
+the game ends with a time-expired result; a simultaneous gravity placement cannot rescue it.
+Paused menus and hidden tabs freeze both clocks. Visible delayed ticks consume the full elapsed
+time, so browser stalls do not prolong the deadline. Choosing another format during pause applies
+only to the next New game; resuming preserves the active challenge, supply and countdown.
+
+At 15 seconds remaining or less, Time-attack plays a fast watch tick/tock loop (four clicks
+per second). It stops on pause, a hidden tab, game over (time or supply), or a level bonus
+that moves the countdown above the threshold. The native Web Audio loop uses a locally
+synthesized and cached sound, waits for user input to enable audio, and never overlaps itself.
+Settings > Audio provides an independent switch and volume (25% by default),
+so turning music off does not mute the clock.
+
+Best scores are saved locally in `autristik:records` for four separate combinations:
+Standard/Classique, Standard/Superblock, Time-attack/Classique and Time-attack/Superblock.
+The Gamemode cards show the best score for the selected format. Improvements are saved live,
+so closing the tab or restarting preserves them. The final screen shows the best, a new-record
+or tie message, or the point difference from the best score before that run. Difficulty does
+not create additional record categories. Scores are kept on this browser/device; clearing
+browser storage removes them. Fractional scores are preserved, and invalid saved entries
+are ignored. The audio controls and record feedback are available in both languages.
+
+Each new run resets the camera to the central island, with a fitted zoom that includes the
+approaching tile. This also works after restarting with the same seed, without reframing an
+ordinary pause/resume. Free camera movement remains available during play.
+
+The Time-attack countdown turns red at the same 15-second threshold as its ticking sound.
+Limited tile supplies turn red at five tiles or fewer, and each decrease to 5, 4, 3, 2 or 1
+plays a brief electronic double beep distinct from placement sounds. Replenishing the supply
+clears the alert. Crossing a previous record during play stays silent. At game over, exceeding
+the previous record plays the victory cue; otherwise a descending loss cue plays. These
+one-shot cues share an independent **Game alerts** switch and volume (35% by default) in
+Settings > Audio. Pausing, hiding the tab and restarting cancel pending cues.
+
+Menu panels are 29 rem wide on desktop. Fixed table columns, wrapping labels and shrinking grid
+tracks keep settings within the panel; only vertical scrolling is available. Scrollbars use the
+theme's paper and moss variables, with slim tracks and rounded thumbs in supported browsers.
+
+Special tiles are whole blocks in **Superblock** and enter the same seeded supply, never the initial island:
 
 | Tile          | Appearance                                          | Effect                                                                                   | Draw chance            |
 | ------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------- |
 | Golden joker  | Gold with surface glints                            | Matches every ordinary terrain; bedrock blocks it                                        | 5%                     |
-| Void          | Slowly revolving dark violet nebula                 | Clears the eight surrounding cells (diagonals included), except bedrock, then disappears | 1% after 20 placements |
+| Void          | Slowly revolving dark violet nebula                 | Clears the eight surrounding cells (diagonals included), except bedrock, then disappears | 3% after 10 placements |
 | Bedrock       | Mottled grey stone                                  | Indestructible; never matches, even with another bedrock or a joker                      | 4%                     |
 | Bronze bonus  | Brown metallic base/frame, ordinary terrain patches | ×2 points for this tile                                                                  | 6%                     |
 | Silver bonus  | Silver base/frame, ordinary terrain patches         | ×3 points for this tile                                                                  | 3%                     |
 | Diamond bonus | Diamond-blue base/frame, ordinary terrain patches   | ×5 points for this tile                                                                  | 1%                     |
 
-Void is unavailable until 20 successful placements; the initial five island tiles, rotations
+Void is unavailable until 10 successful placements; the initial five island tiles, rotations
 and invalid moves do not count. Destruction never reduces that counter, and a restart resets
-it. The next preview uses the count after the tile in hand is placed, so it stays exact at
-the unlock boundary. Ordinary tiles make up 81% before unlocking and 80% afterwards.
+it. The next preview uses the current completed placement count, because it can immediately
+be exchanged into the hand; neither tile can introduce void before the 10th completed placement.
+Ordinary tiles make up 81% before unlocking and 78% afterwards.
 Bonus frames preserve the matching terrain colours and
 their multiplier applies after the combo, including perfect-placement points, but never to
-bonus supply tiles or to neighbouring tiles' points. Current and next previews include the
-actual multiplier, with a small badge. Void destruction is previewed in violet before landing
-and marked with a short purple pulse. Void and bedrock earn no points and reset the combo;
+bonus supply tiles or points already earned. In Superblock, an incoming normal tile or gold
+joker scores with the strongest bonus among its own multiplier and its four edge neighbours.
+Diagonal and distant tiles do not transmit it; void and bedrock do not grant or receive bonuses.
+Ordinary draws start at ×1; gold draws can be ×1, ×2, ×3 or ×5. Bonuses are not multiplied
+together: touching ×2 and ×3 yields ×3, and an intrinsic ×5 stays ×5. Neighbour bonuses affect
+only the placement score. The new tile retains its intrinsic multiplier and does not propagate
+received bonuses. Existing neighbours and previously earned points remain unchanged; Classic stays ×1.
+The moving ghost, landing projection and tray show the tile's own bonus, using the corresponding
+bronze, silver or diamond frame. Void destruction is previewed in violet before landing
+and marked with a short purple pulse. Void earns no points and resets the combo.
+Bedrock earns no points and leaves the combo unchanged. Contacts with bedrock also leave
+the streak unaffected, while ordinary mismatched contacts still reset it;
 destruction never subtracts previously earned points or refunds the removed tiles. If the island
 is emptied, a standard tile immediately replaces the void at its placement cell. It has no
 multiplier, grants no points or bonus tiles and does not consume another supply tile or count
@@ -187,8 +285,9 @@ as another placement. The next draw remains exactly the one shown in the tray.
 
 Every special has its own original short sound: void suction, a coin-like gold chime,
 a low rock impact, and distinct bronze, silver and crystal-like diamond cues. All ordinary
-terrain combinations share the selected standard sound. The common placement volume applies
-to all of them, and Silent mutes every tile. Special cues are synthesized and cached locally,
+terrain combinations share the selected standard sound, defaulting to Water drop. Standard
+sound selection (including Silent) does not replace special effects. All tile effects share
+one 30% default volume and On/Off switch under Settings > Audio. Special cues are synthesized and cached locally,
 without downloads, and selected from the actual placement result, including automatic locking.
 
 | Placement                                               | Reward               |
@@ -202,12 +301,13 @@ A side counts as matching only when both of its squares match. Mismatches cost n
 Combos: a placement with at least one fully matching side and no mismatched contacts increases the
 multiplier by 0.25. It starts at ×1, so the first success earns ×1.25, followed by ×1.5,
 ×1.75, ×2, ×2.25, ×2.5, ×2.75 and ×3 (the cap). Any mismatched touching side resets
-it to ×1 for that placement, even if another side fully matches. Empty sides do not break
+it to ×1 for that placement, even if another side fully matches. In Superblock, bedrock
+placements and bedrock contacts are neutral for the streak. Empty sides do not break
 the combo. Only the new tile's points, including its perfect-placement point bonus, are
 multiplied; existing score and bonus tiles are unchanged. Fractional points are retained.
 The combo survives level changes and pauses, and resets on a new game.
 
-Levels: each level has a points goal with no time limit. Reaching it starts the next level
+Standard levels: each level has a points goal with no time limit. Reaching it starts the next level
 at once, on the same board, with 6 extra tiles. Points toward the goal start from zero
 each level; the total score keeps adding up.
 
@@ -218,7 +318,7 @@ each level; the total score keeps adding up.
 | 3     | 175               |
 | n     | 75 + 50 × (n − 1) |
 
-The game ends only when the stack (30 tiles to start) is empty. There is no countdown or
+In Standard, the game ends only when the stack (30 tiles to start) is empty. There is no countdown or
 duration-based game over. The menu pauses automatic falling. The level goals live in
 `src/game/levels.ts`. The top-right stopwatch shows active play time, pauses with the menu,
 stops at game over, and resets on a new game; it has no effect on the end of a game.

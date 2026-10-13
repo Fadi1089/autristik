@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { PerspectiveCamera, Vector3 } from 'three'
 import { Direction, neighbour } from '../game/coords'
 import { createFallingGame, landingPosition, spawnFalling } from '../game/falling'
-import { withTile } from '../game/board'
-import { isTileInFrame, planFallFraming } from './cameraFraming'
+import { boardTiles, withTile } from '../game/board'
+import { isTileInFrame, planFallFraming, planStartFraming } from './cameraFraming'
 
 function cameraFor(aspect = 16 / 9, heading = 0, polar = Math.PI / 4) {
   const camera = new PerspectiveCamera(50, aspect, 0.1, 200)
@@ -14,6 +14,33 @@ function cameraFor(aspect = 16 / 9, heading = 0, polar = Math.PI / 4) {
 }
 
 describe('falling tile camera framing', () => {
+  it.each([16 / 9, 1, 0.45])(
+    'starts centred on the island with every tile and the approaching ghost visible at aspect %s',
+    (aspect) => {
+      for (const direction of [Direction.South]) {
+        // Every new game starts with this approach direction.
+        const initial = createFallingGame(42)
+        const game = {
+          ...initial,
+          fallDirection: direction,
+          falling: spawnFalling(initial.board, direction),
+        }
+        const camera = cameraFor(aspect)
+        camera.position.multiplyScalar(8) // A distant previous-game zoom must not carry over.
+        const framing = planStartFraming(camera, game, 4, 65)!
+        expect(framing.target).toEqual(new Vector3(0, 0, 0))
+        expect(framing.distance).toBeLessThan(65)
+        camera.position
+          .copy(framing.target)
+          .add(new Vector3(0, 1, 1).normalize().multiplyScalar(framing.distance))
+        camera.lookAt(framing.target)
+        expect(isTileInFrame(camera, game.falling!)).toBe(true)
+        for (const tile of boardTiles(game.board))
+          expect(isTileInFrame(camera, tile.coord)).toBe(true)
+      }
+    },
+  )
+
   it('detects off-screen tiles after panning, zooming and when they are behind the camera', () => {
     const camera = cameraFor()
     expect(isTileInFrame(camera, { q: 0, r: 0 })).toBe(true)

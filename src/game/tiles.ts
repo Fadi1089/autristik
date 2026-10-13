@@ -1,6 +1,8 @@
 import { oppositeDirection } from './coords'
 import type { Direction } from './coords'
 import type { Rng } from './random'
+import { DEFAULT_GAME_MODE } from './modes'
+import type { GameMode } from './modes'
 
 export const REGULAR_TERRAINS = ['grass', 'forest', 'field', 'water', 'village'] as const
 export const TERRAINS = [...REGULAR_TERRAINS, 'rainbow', 'void', 'bedrock'] as const
@@ -9,6 +11,15 @@ export type TileMultiplier = 1 | 2 | 3 | 5
 export interface TileDraw {
   readonly quadrants: Quadrants
   readonly multiplier: TileMultiplier
+}
+export interface HeldTile extends TileDraw {
+  readonly rotation: Rotation
+}
+
+/** Bonus chances shared by ordinary enhanced tiles and gold jokers. */
+function randomMultiplier(rng: Rng): TileMultiplier {
+  const roll = rng.next()
+  return roll < 0.06 ? 2 : roll < 0.09 ? 3 : roll < 0.1 ? 5 : 1
 }
 
 /**
@@ -108,8 +119,8 @@ export function randomQuadrants(rng: Rng): Quadrants {
 export const RAINBOW_TILE: Quadrants = ['rainbow', 'rainbow', 'rainbow', 'rainbow']
 export const RAINBOW_TILE_CHANCE = 0.05
 export const VOID_TILE: Quadrants = ['void', 'void', 'void', 'void']
-export const VOID_UNLOCK_PLACEMENTS = 20
-export const VOID_TILE_CHANCE = 0.01
+export const VOID_UNLOCK_PLACEMENTS = 10
+export const VOID_TILE_CHANCE = 0.03
 export const BEDROCK_TILE: Quadrants = ['bedrock', 'bedrock', 'bedrock', 'bedrock']
 
 /** Special terrains are whole tiles, never individual patches on a normal draw. */
@@ -120,10 +131,12 @@ export function tileKind(quadrants: Quadrants): 'normal' | 'gold' | 'void' | 'be
   return 'normal'
 }
 
-/** Gold 5%, void 1% after 20 placements, bedrock 4%, bronze 6%, silver 3%, diamond 1%. */
-export function randomTile(rng: Rng, placements = 0): TileDraw {
+/** Gold 5%, void 3% after 10 placements, bedrock 4%, bronze 6%, silver 3%, diamond 1%. */
+export function randomTile(rng: Rng, placements = 0, mode: GameMode = DEFAULT_GAME_MODE): TileDraw {
+  if (mode === 'classic') return { quadrants: randomQuadrants(rng), multiplier: 1 }
   const roll = rng.next()
-  if (roll < RAINBOW_TILE_CHANCE) return { quadrants: RAINBOW_TILE, multiplier: 1 }
+  if (roll < RAINBOW_TILE_CHANCE)
+    return { quadrants: RAINBOW_TILE, multiplier: randomMultiplier(rng) }
   if (roll < 0.08) {
     if (placements >= VOID_UNLOCK_PLACEMENTS && roll < RAINBOW_TILE_CHANCE + VOID_TILE_CHANCE)
       return { quadrants: VOID_TILE, multiplier: 1 }
@@ -135,6 +148,10 @@ export function randomTile(rng: Rng, placements = 0): TileDraw {
 }
 
 /** Draw from the playable supply; the starting island uses regular terrain only. */
-export function randomTileQuadrants(rng: Rng, placements = 0): Quadrants {
-  return randomTile(rng, placements).quadrants
+export function randomTileQuadrants(
+  rng: Rng,
+  placements = 0,
+  mode: GameMode = DEFAULT_GAME_MODE,
+): Quadrants {
+  return randomTile(rng, placements, mode).quadrants
 }

@@ -8,7 +8,7 @@ import {
   moveInDirection,
   tickFallingGame,
 } from '../game/falling'
-import { rotateCurrent } from '../game/game'
+import { rotateCurrent, swapCurrent } from '../game/game'
 import { isNewPlacement } from './placementEvents'
 
 describe('placement sound events', () => {
@@ -32,6 +32,7 @@ describe('placement sound events', () => {
     for (const state of [
       moveInDirection(before, Direction.East),
       rotateCurrent(before, 1),
+      swapCurrent(before),
       tickFallingGame(before, 0.3),
     ])
       expect(isNewPlacement({ ...state, menuOpen: false }, before)).toBe(false)

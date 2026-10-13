@@ -12,13 +12,12 @@ export const SPECIAL_TILE_SOUNDS = [
 ] as const
 export type SpecialTileSound = (typeof SPECIAL_TILE_SOUNDS)[number]
 
-/** Use the tile just placed, not the new tile drawn afterwards. Silent mutes every tile. */
+/** Standard preferences never replace or mute a special tile's own sound. */
 export function soundForTile(
   quadrants: Quadrants,
   multiplier: TileMultiplier,
   standard: PlacementSound,
 ): PlacementSound | SpecialTileSound {
-  if (standard === 'none') return 'none'
   const kind = tileKind(quadrants)
   if (kind !== 'normal') return `special-${kind}`
   if (multiplier === 2) return 'special-bronze'

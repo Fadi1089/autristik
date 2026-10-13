@@ -1,75 +1,50 @@
-import { audioContext, loadBuffer } from './engine'
-import { seamlessLoop } from './musicLoop'
+import { MUSIC_FILES } from './musicTracks'
+import type { MusicTrack } from './musicTracks'
 
 export interface MusicPreferences {
+  track: MusicTrack
   enabled: boolean
   volume: number
   visible: boolean
 }
-
-let wanted: MusicPreferences = { enabled: true, volume: 0.18, visible: true }
-let unlocked = false
-let source: AudioBufferSourceNode | null = null
-let gain: GainNode | null = null
+let wanted: MusicPreferences = { track: 'music-menu', enabled: true, volume: 0.18, visible: true }
+let player: HTMLAudioElement | null = null
 let loading: Promise<boolean> | null = null
-let appliedGain: number | null = null
 let generation = 0
 
-function targetVolume(): number {
-  return wanted.enabled && wanted.visible ? wanted.volume : 0
+function applyVolume() {
+  if (player)
+    player.volume = wanted.enabled && wanted.visible ? Math.max(0, Math.min(1, wanted.volume)) : 0
 }
 
-function applyVolume(ctx: AudioContext) {
-  const volume = targetVolume()
-  if (!gain || volume === appliedGain) return
-  gain.gain.setTargetAtTime(volume, ctx.currentTime, 0.12)
-  appliedGain = volume
-}
-
-/** Updates keep the same looping voice and playhead across menus, pauses and preference changes. */
+/** Native streaming can autoplay independently of a suspended effects AudioContext. */
 export function updateBackgroundMusic(preferences: MusicPreferences): Promise<boolean> {
+  if (wanted.track !== preferences.track) {
+    generation++
+    loading = null
+    disposePlayer()
+  }
   wanted = preferences
-  if (!unlocked) return Promise.resolve(true)
-  const ctx = audioContext()
-  if (!ctx) return Promise.resolve(false)
-  if (source) {
-    applyVolume(ctx)
-    if (targetVolume() > 0 && ctx.state !== 'running')
-      return ctx
-        .resume()
-        .then(() => ctx.state === 'running')
-        .catch(() => false)
+  if (player) {
+    applyVolume()
     return Promise.resolve(true)
   }
-  if (targetVolume() <= 0) return Promise.resolve(true)
+  if (!wanted.enabled || !wanted.visible || wanted.volume <= 0) return Promise.resolve(true)
   if (loading) return loading
   const currentGeneration = generation
   const attempt = (async () => {
     try {
-      await ctx.resume()
-      const buffer = await loadBuffer(ctx, 'sunset-walk')
-      // Settings may have changed, or the app may have unmounted, while loading.
-      if (generation !== currentGeneration || targetVolume() <= 0) return true
-      if (ctx.state !== 'running') return false
-      const voice = ctx.createBufferSource()
-      const level = ctx.createGain()
-      voice.buffer = seamlessLoop(ctx, buffer)
-      voice.loop = true
-      level.gain.value = 0
-      voice.connect(level)
-      level.connect(ctx.destination)
-      source = voice
-      gain = level
-      appliedGain = null
-      applyVolume(ctx)
-      voice.start()
+      if (typeof Audio !== 'function') return false
+      const media = new Audio(`${import.meta.env.BASE_URL}audio/${MUSIC_FILES[preferences.track]}`)
+      media.loop = true
+      media.preload = 'auto'
+      player = media
+      applyVolume()
+      // Called immediately, including at mount. Autoplay failures leave input free to retry.
+      await media.play()
       return true
     } catch {
-      source?.disconnect()
-      gain?.disconnect()
-      source = null
-      gain = null
-      appliedGain = null
+      if (generation === currentGeneration) disposePlayer()
       return false
     }
   })()
@@ -80,20 +55,20 @@ export function updateBackgroundMusic(preferences: MusicPreferences): Promise<bo
   return attempt
 }
 
-/** Only actual user input starts the music, as required by browser autoplay policies. */
+/** Retry blocked autoplay on a real gesture anywhere in the page. */
 export function unlockBackgroundMusic(preferences: MusicPreferences): Promise<boolean> {
-  unlocked = true
   return updateBackgroundMusic(preferences)
 }
 
 export function stopBackgroundMusic() {
   generation++
-  unlocked = false
   loading = null
-  source?.stop()
-  source?.disconnect()
-  gain?.disconnect()
-  source = null
-  gain = null
-  appliedGain = null
+  disposePlayer()
+}
+
+function disposePlayer() {
+  player?.pause()
+  player?.removeAttribute('src')
+  player?.load()
+  player = null
 }

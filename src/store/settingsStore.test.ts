@@ -33,15 +33,61 @@ beforeAll(async () => {
 })
 afterAll(() => vi.unstubAllGlobals())
 beforeEach(() => {
+  useSettingsStore.getState().setLanguage('en')
   useSettingsStore.getState().resetBindings()
   useSettingsStore.getState().setKeyboardLayout('qwerty')
   useSettingsStore.getState().setTheme('light')
   useSettingsStore.getState().setPlacementSound('wood')
   useSettingsStore.getState().setSoundVolume(0.5)
+  useSettingsStore.getState().setPlacementSoundEnabled(true)
   useSettingsStore.getState().setMenuSoundEnabled(true)
   useSettingsStore.getState().setMenuSoundVolume(DEFAULT_MENU_SOUND_VOLUME)
   useSettingsStore.getState().setMusicEnabled(true)
   useSettingsStore.getState().setMusicVolume(0.18)
+  useSettingsStore.getState().setClockSoundEnabled(true)
+  useSettingsStore.getState().setClockSoundVolume(0.25)
+})
+
+describe('language preferences', () => {
+  it('uses browser preferences for older settings without changing other preferences', async () => {
+    vi.stubGlobal('navigator', { language: 'fr-CA', languages: ['fr-CA', 'en-US'] })
+    const settings = useSettingsStore.getState()
+    settings.bind('place', 0, 'KeyT')
+    settings.setTheme('dark')
+    settings.setMusicEnabled(false)
+    const persisted = JSON.parse(saved.get('autristik:settings')!)
+    delete persisted.state.language
+    saved.set('autristik:settings', JSON.stringify(persisted))
+    await useSettingsStore.persist.rehydrate()
+    expect(useSettingsStore.getState()).toMatchObject({
+      language: 'fr',
+      theme: 'dark',
+      musicEnabled: false,
+      keyboardLayout: 'qwerty',
+      bindings: { place: ['KeyT', 'Space'] },
+    })
+  })
+
+  it('persists an explicit choice across reloads despite the browser language, independently of keys', async () => {
+    vi.stubGlobal('navigator', { language: 'fr-FR', languages: ['fr-FR'] })
+    const settings = useSettingsStore.getState()
+    settings.setKeyboardLayout('azerty')
+    settings.setLanguage('en')
+    expect(JSON.parse(saved.get('autristik:settings')!).state.language).toBe('en')
+    await useSettingsStore.persist.rehydrate()
+    expect(useSettingsStore.getState().language).toBe('en')
+    settings.setLanguage('fr')
+    settings.resetBindings()
+    await useSettingsStore.persist.rehydrate()
+    expect(useSettingsStore.getState()).toMatchObject({ language: 'fr', keyboardLayout: 'azerty' })
+  })
+
+  it('falls back to browser detection for invalid saved languages', async () => {
+    vi.stubGlobal('navigator', { language: 'en-GB', languages: ['en-GB'] })
+    saved.set('autristik:settings', JSON.stringify({ version: 4, state: { language: 'xx' } }))
+    await useSettingsStore.persist.rehydrate()
+    expect(useSettingsStore.getState().language).toBe('en')
+  })
 })
 
 describe('keyboard layout settings', () => {
@@ -50,8 +96,8 @@ describe('keyboard layout settings', () => {
     expect(migrated.bindings.rotateCcw).toEqual(['KeyQ', 'PageUp'])
     expect(migrated.bindings.place).toEqual(['KeyP', 'Space'])
     expect(migrated.theme).toBe('light')
-    expect(migrated.placementSound).toBe('wood')
-    expect(migrated.soundVolume).toBe(0.5)
+    expect(migrated.placementSound).toBe('drop')
+    expect(migrated.soundVolume).toBe(0.3)
   })
 
   it('switches labels without losing custom shortcuts, and saves the choice', async () => {
@@ -65,7 +111,7 @@ describe('keyboard layout settings', () => {
     expect(state.bindings).toBe(bindings)
     expect(state.capturing).toBeNull()
     expect(JSON.parse(saved.get('autristik:settings')!)).toMatchObject({
-      version: 4,
+      version: 6,
       state: { keyboardLayout: 'azerty', bindings: { place: ['KeyT', 'Space'] } },
     })
     await useSettingsStore.persist.rehydrate()
@@ -107,11 +153,95 @@ describe('keyboard layout settings', () => {
     expect(state.bindings.pivotRight).toEqual(['KeyX', 'Period'])
     expect(state.bindings.rotateCw).toEqual(['KeyR', 'KeyE'])
     expect(state.keyboardLayout).toBe('azerty')
-    expect(JSON.parse(saved.get('autristik:settings')!).version).toBe(4)
+    expect(JSON.parse(saved.get('autristik:settings')!).version).toBe(6)
   })
 })
 
 describe('customization preferences', () => {
+  it('persists the shared tile switch and volume and upgrades the previous 50% default', async () => {
+    const settings = useSettingsStore.getState()
+    settings.setPlacementSoundEnabled(false)
+    settings.setSoundVolume(0.2)
+    await useSettingsStore.persist.rehydrate()
+    expect(useSettingsStore.getState()).toMatchObject({
+      placementSoundEnabled: false,
+      soundVolume: 0.2,
+    })
+    saved.set(
+      'autristik:settings',
+      JSON.stringify({
+        version: 5,
+        state: {
+          soundVolume: 0.5,
+          specialSoundVolume: 0.5,
+          placementSoundEnabled: true,
+          specialSoundEnabled: false,
+        },
+      }),
+    )
+    await useSettingsStore.persist.rehydrate()
+    expect(useSettingsStore.getState()).toMatchObject({
+      soundVolume: 0.3,
+      placementSoundEnabled: false,
+    })
+  })
+
+  it('migrates the old default to water while retaining other selected clips', async () => {
+    for (const sound of ['wood', 'glass', 'none']) {
+      saved.set(
+        'autristik:settings',
+        JSON.stringify({ version: 4, state: { placementSound: sound, soundVolume: 0.4 } }),
+      )
+      await useSettingsStore.persist.rehydrate()
+      expect(useSettingsStore.getState()).toMatchObject({
+        placementSound: sound === 'wood' ? 'drop' : sound,
+        placementSoundEnabled: true,
+      })
+    }
+    useSettingsStore.getState().setPlacementSound('wood')
+    await useSettingsStore.persist.rehydrate()
+    expect(useSettingsStore.getState().placementSound).toBe('wood')
+  })
+  it('preserves the independent game-alert mute and volume across reloads', async () => {
+    const store = useSettingsStore.getState()
+    store.setFeedbackSoundEnabled(false)
+    store.setFeedbackSoundVolume(0.17)
+    await useSettingsStore.persist.rehydrate()
+    expect(useSettingsStore.getState()).toMatchObject({
+      feedbackSoundEnabled: false,
+      feedbackSoundVolume: 0.17,
+    })
+    store.setFeedbackSoundEnabled(true)
+    store.setFeedbackSoundVolume(0.35)
+  })
+
+  it('saves independent countdown sound settings without changing music or tile effects', async () => {
+    const settings = useSettingsStore.getState()
+    settings.setClockSoundEnabled(false)
+    settings.setClockSoundVolume(0.4)
+    settings.setMusicEnabled(false)
+    await useSettingsStore.persist.rehydrate()
+    expect(useSettingsStore.getState()).toMatchObject({
+      clockSoundEnabled: false,
+      clockSoundVolume: 0.4,
+      musicEnabled: false,
+      soundVolume: 0.5,
+    })
+    settings.setClockSoundVolume(-1)
+    expect(useSettingsStore.getState().clockSoundVolume).toBe(0)
+    settings.setClockSoundVolume(2)
+    expect(useSettingsStore.getState().clockSoundVolume).toBe(1)
+    saved.set(
+      'autristik:settings',
+      JSON.stringify({ version: 4, state: { clockSoundEnabled: 'bad', clockSoundVolume: 'loud' } }),
+    )
+    await useSettingsStore.persist.rehydrate()
+    expect(useSettingsStore.getState()).toMatchObject({
+      clockSoundEnabled: true,
+      clockSoundVolume: 0.25,
+    })
+  })
+
   it.each([
     [0.25, DEFAULT_MENU_SOUND_VOLUME],
     [0.6, 0.6],
@@ -153,7 +283,7 @@ describe('customization preferences', () => {
         placementSound: 'glass',
         soundVolume: 0.4,
       })
-      expect(JSON.parse(saved.get('autristik:settings')!).version).toBe(4)
+      expect(JSON.parse(saved.get('autristik:settings')!).version).toBe(6)
     },
   )
   it('saves independent music and menu controls, including disabled and muted choices', async () => {
@@ -219,8 +349,8 @@ describe('customization preferences', () => {
     await useSettingsStore.persist.rehydrate()
     expect(useSettingsStore.getState()).toMatchObject({
       theme: 'light',
-      placementSound: 'wood',
-      soundVolume: 0.5,
+      placementSound: 'drop',
+      soundVolume: 0.3,
       menuSoundVolume: DEFAULT_MENU_SOUND_VOLUME,
     })
   })

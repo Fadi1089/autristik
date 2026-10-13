@@ -1,3 +1,4 @@
+import { useTranslation } from '../i18n/useTranslation'
 import type { Action, KeySlot } from '../input/bindings'
 import { keyLabel } from '../input/keyLabels'
 import { useSettingsStore } from '../store/settingsStore'
@@ -15,6 +16,8 @@ export function KeyCaps({
   max?: 1 | 2
   slot?: KeySlot
 }) {
+  const { language } = useTranslation()
+
   const slots = useSettingsStore((s) => s.bindings[action])
   const layout = useSettingsStore((s) => s.layout)
   const picked: readonly (string | null)[] = slot === undefined ? slots : [slots[slot]]
@@ -23,7 +26,7 @@ export function KeyCaps({
   return (
     <>
       {codes.map((code) => (
-        <kbd key={code}>{keyLabel(code, layout)}</kbd>
+        <kbd key={code}>{keyLabel(code, layout, language)}</kbd>
       ))}
     </>
   )

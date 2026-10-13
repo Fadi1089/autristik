@@ -1,9 +1,12 @@
 import type { PlacementSound } from '../customization'
 import { synthesizeTileSound } from './tileSounds'
 import type { SpecialTileSound } from './tileSounds'
+import { synthesizeClockTick } from './clockTick'
+import { GAME_CUES, synthesizeGameCue } from './gameCueSounds'
+import type { GameCue } from './gameCueSounds'
 
 export type AudioClip =
-  Exclude<PlacementSound, 'none'> | SpecialTileSound | 'menu-nav' | 'sunset-walk'
+  Exclude<PlacementSound, 'none'> | SpecialTileSound | GameCue | 'menu-nav' | 'clock-tick'
 let context: AudioContext | null = null
 const buffers = new Map<AudioClip, Promise<AudioBuffer>>()
 
@@ -21,8 +24,13 @@ export function audioContext(): AudioContext | null {
 export function loadBuffer(ctx: AudioContext, clip: AudioClip): Promise<AudioBuffer> {
   const cached = buffers.get(clip)
   if (cached) return cached
-  if (clip.startsWith('special-')) {
-    const samples = synthesizeTileSound(clip as SpecialTileSound, ctx.sampleRate)
+  if (clip.startsWith('special-') || clip === 'clock-tick' || GAME_CUES.includes(clip as GameCue)) {
+    const samples =
+      clip === 'clock-tick'
+        ? synthesizeClockTick(ctx.sampleRate)
+        : clip.startsWith('cue-')
+          ? synthesizeGameCue(clip as GameCue, ctx.sampleRate)
+          : synthesizeTileSound(clip as SpecialTileSound, ctx.sampleRate)
     const buffer = ctx.createBuffer(1, samples.length, ctx.sampleRate)
     buffer.getChannelData(0).set(samples)
     const generated = Promise.resolve(buffer)

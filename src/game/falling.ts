@@ -1,11 +1,15 @@
 import { boardIsland, boardIslands, boardTiles, isOccupied } from './board'
 import type { Board } from './board'
-import { Direction, directionOffset, neighbour, oppositeDirection } from './coords'
+import { DIRECTIONS, Direction, directionOffset, neighbour, oppositeDirection } from './coords'
 import type { Coord } from './coords'
 import { createGame, isGameOver, placeCurrent } from './game'
 import type { GameState } from './game'
 import { BASE_FALL_INTERVAL, fallInterval } from './levels'
 import type { Difficulty } from './levels'
+import { DEFAULT_GAME_MODE } from './modes'
+import type { GameMode } from './modes'
+import type { GameVariant } from './variants'
+import { canPlace } from './matching'
 
 export const FALL_DISTANCE = 10
 /** Level-one cadence, retained for callers that need the initial timing. */
@@ -13,7 +17,7 @@ export const FALL_INTERVAL = BASE_FALL_INTERVAL
 
 export interface FallingGameState extends GameState {
   readonly difficulty: Difficulty
-  /** Active play time, never used as a countdown or end condition. */
+  /** Active play time, separate from the Time-attack countdown. */
   readonly playedSeconds: number
   readonly falling: Coord | null
   /** World direction towards the stack, independent of camera orientation. */
@@ -21,12 +25,22 @@ export interface FallingGameState extends GameState {
   readonly fallElapsed: number
   /** A selected island can be approached across other islands without retargeting it. */
   readonly fallAnchor?: Coord
+  /** A lateral slide into a three-sided pocket locks on the next gravity step. */
+  readonly tucked?: boolean
 }
 
 function activeBoard(
   state: Pick<FallingGameState, 'board'> & { readonly fallAnchor?: Coord },
 ): Board {
   return state.fallAnchor ? boardIsland(state.board, state.fallAnchor) : state.board
+}
+
+/** Three occupied faces leave exactly one entrance for a lateral insertion. */
+function isInsertionPocket(board: Board, coord: Coord): boolean {
+  return (
+    !isOccupied(board, coord) &&
+    DIRECTIONS.filter((direction) => isOccupied(board, neighbour(coord, direction))).length === 3
+  )
 }
 
 /** The axis perpendicular to gravity is the only axis for lateral movement. */
@@ -79,8 +93,10 @@ export function createFallingGame(
   seed: number,
   tiles?: number,
   difficulty: Difficulty = 'easy',
+  mode: GameMode = DEFAULT_GAME_MODE,
+  variant: GameVariant = 'standard',
 ): FallingGameState {
-  const game = createGame(seed, tiles)
+  const game = createGame(seed, tiles, mode, variant)
   return {
     ...game,
     difficulty,
@@ -89,6 +105,7 @@ export function createFallingGame(
     fallDirection: Direction.South,
     fallElapsed: 0,
     fallAnchor: undefined,
+    tucked: false,
   }
 }
 
@@ -96,9 +113,11 @@ export function createFallingGame(
 export function landingPosition(
   state: Pick<FallingGameState, 'board' | 'falling' | 'fallDirection' | 'current'> & {
     readonly fallAnchor?: Coord
+    readonly tucked?: boolean
   },
 ): Coord | null {
   if (!state.falling || isGameOver(state)) return null
+  if (state.tucked && isInsertionPocket(state.board, state.falling)) return state.falling
   if (boardTiles(state.board).length === 0) return { q: 0, r: 0 }
   const axis = laneAxis(state.fallDirection)
   const forward = axis === 'q' ? 'r' : 'q'
@@ -118,15 +137,26 @@ export function landingPosition(
 function turnAtEdge(state: FallingGameState, outward: Direction): FallingGameState {
   const target = landingPosition(state)
   if (!target || !state.falling) return state
-  const anchor = neighbour(target, state.fallDirection)
+  const anchor = landingAnchor(state, target)
   const direction = oppositeDirection(outward)
   const axis = laneAxis(direction)
   const distance = Math.abs(anchor.q - state.falling.q) + Math.abs(anchor.r - state.falling.r)
   const falling = positionAboveLane(activeBoard(state), direction, anchor[axis], distance)
-  return { ...state, falling, fallDirection: direction, fallAnchor: anchor }
+  return { ...state, falling, fallDirection: direction, fallAnchor: anchor, tucked: false }
 }
 
-/** Follow the lane's relief without adding fall time; empty lanes turn around the board's edge. */
+/** A tucked hole can touch the island sideways even when its forward cell is empty. */
+function landingAnchor(state: FallingGameState, target: Coord): Coord {
+  const forward = neighbour(target, state.fallDirection)
+  if (isOccupied(activeBoard(state), forward)) return forward
+  return (
+    DIRECTIONS.map((direction) => neighbour(target, direction)).find((coord) =>
+      isOccupied(activeBoard(state), coord),
+    ) ?? forward
+  )
+}
+
+/** Slide into a three-sided pocket at current depth, otherwise follow the lane's relief. */
 export function moveFalling(state: FallingGameState, lane: number): FallingGameState {
   if (!state.falling || isGameOver(state) || !Number.isInteger(lane)) return state
   if (boardTiles(state.board).length === 0) return state
@@ -146,9 +176,15 @@ export function moveFalling(state: FallingGameState, lane: number): FallingGameS
   let next = state
   while (next.falling![axis] !== lane) {
     const value = next.falling![axis] + step
+    const beside = { ...next.falling!, [axis]: value }
+    // Prefer a real hole at the tile's current depth before following the lane's relief.
+    if (isInsertionPocket(state.board, beside) && canPlace(activeBoard(state), beside)) {
+      next = { ...next, falling: beside, tucked: true }
+      continue
+    }
     const falling = positionAboveLane(activeBoard(state), state.fallDirection, value, distance)
     if (!falling) return turnAtEdge(next, outward)
-    next = { ...next, falling }
+    next = { ...next, falling, tucked: false }
   }
   return next
 }
@@ -161,7 +197,7 @@ export function changeFallDirection(
   const target = landingPosition(state)
   if (!target || !state.falling) return state
   const distance = Math.abs(target.q - state.falling.q) + Math.abs(target.r - state.falling.r) + 1
-  const anchor = neighbour(target, state.fallDirection)
+  const anchor = landingAnchor(state, target)
   const axis = laneAxis(direction)
   const island = boardIsland(state.board, anchor)
   if (direction === state.fallDirection) {
@@ -201,6 +237,7 @@ export function changeFallDirection(
           falling: next.falling,
           fallDirection: next.nextDirection,
           fallAnchor: next.nextAnchor,
+          tucked: false,
         }
       : state
   }
@@ -214,6 +251,7 @@ export function changeFallDirection(
     fallDirection: direction,
     falling,
     fallAnchor: isOccupied(island, anchor) ? anchor : undefined,
+    tucked: false,
   }
 }
 
@@ -241,12 +279,15 @@ function lockFalling(state: FallingGameState, position: Coord): FallingGameState
         ),
     fallElapsed: 0,
     fallAnchor,
+    tucked: false,
   }
 }
 
 /** One step on demand or on the gravity clock; no time is consumed by manual input. */
 export function advanceFalling(state: FallingGameState): FallingGameState {
   if (!state.falling || isGameOver(state)) return state
+  if (state.tucked && isInsertionPocket(state.board, state.falling))
+    return lockFalling(state, state.falling)
   const next = neighbour(state.falling, state.fallDirection)
   return isOccupied(activeBoard(state), next) ||
     (boardTiles(state.board).length === 0 && state.falling.q === 0 && state.falling.r === 0)
@@ -275,14 +316,25 @@ export function tickFallingGame(state: FallingGameState, seconds: number): Falli
   let remaining = seconds
   while (remaining > 0 && !isGameOver(next)) {
     // A landing may advance the level: the next tile immediately uses its new cadence.
-    const interval = fallInterval(next.level, next.difficulty)
-    const dt = Math.min(remaining, Math.max(0, interval - next.fallElapsed))
+    const interval =
+      next.variant === 'time-attack'
+        ? BASE_FALL_INTERVAL
+        : fallInterval(next.level, next.difficulty)
+    const dt = Math.min(
+      remaining,
+      Math.max(0, interval - next.fallElapsed),
+      next.timeRemaining ?? Infinity,
+    )
     next = {
       ...next,
       fallElapsed: next.fallElapsed + dt,
       playedSeconds: next.playedSeconds + dt,
+      timeRemaining: next.timeRemaining === null ? null : Math.max(0, next.timeRemaining - dt),
     }
     remaining -= dt
+    // The deadline wins over a simultaneous gravity lock: no points after time expires.
+    if (next.timeRemaining !== null && next.timeRemaining <= 1e-9)
+      return { ...next, timeRemaining: 0, current: null, queued: null, falling: null }
     if (next.fallElapsed >= interval - 1e-9) next = advanceFalling(next)
   }
   return next

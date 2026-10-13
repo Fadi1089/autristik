@@ -2,6 +2,7 @@ import type { PlacementSound } from '../customization'
 import { audioContext, loadBuffer } from './engine'
 import type { AudioClip } from './engine'
 import type { SpecialTileSound } from './tileSounds'
+import type { GameCue } from './gameCueSounds'
 
 const voices: AudioBufferSourceNode[] = []
 
@@ -41,7 +42,7 @@ export function playMenuSound(volume: number): Promise<boolean> {
 }
 
 async function playClip(
-  sound: Exclude<AudioClip, 'sunset-walk'>,
+  sound: Exclude<AudioClip, 'clock-tick' | GameCue>,
   volume: number,
 ): Promise<boolean> {
   if (volume <= 0) return true

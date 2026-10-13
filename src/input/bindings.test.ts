@@ -15,6 +15,8 @@ describe('key bindings', () => {
     expect(actionForCode(DEFAULT_BINDINGS, 'KeyW')).toBe('moveUp')
     expect(actionForCode(DEFAULT_BINDINGS, 'ArrowUp')).toBe('moveUp')
     expect(actionForCode(DEFAULT_BINDINGS, 'Space')).toBe('place')
+    expect(actionForCode(DEFAULT_BINDINGS, 'KeyF')).toBe('swap')
+    expect(actionForCode(DEFAULT_BINDINGS, 'Quote')).toBe('swap')
     expect(actionForCode(DEFAULT_BINDINGS, 'KeyE')).toBe('rotateCw')
     expect(actionForCode(DEFAULT_BINDINGS, 'PageDown')).toBe('rotateCw')
     expect(actionForCode(DEFAULT_BINDINGS, 'PageUp')).toBe('rotateCcw')
@@ -61,6 +63,23 @@ describe('key bindings', () => {
     expect(upgraded.rotateCcw).toEqual(['KeyQ', null])
   })
 
+  it('adds exchange defaults to older settings without stealing customized keys', () => {
+    const older = Object.fromEntries(
+      Object.entries(DEFAULT_BINDINGS).filter(([action]) => action !== 'swap'),
+    )
+    expect(normalizeBindings(older).swap).toEqual(['KeyF', 'Quote'])
+    const customized = { ...older, place: ['KeyF', 'Quote'] }
+    const restored = normalizeBindings(customized)
+    expect(restored.place).toEqual(['KeyF', 'Quote'])
+    expect(restored.swap).toEqual([null, null])
+    expect(normalizeBindings({ ...older, rotateCw: ['KeyF', 'PageDown'] }).swap).toEqual([
+      null,
+      'Quote',
+    ])
+    expect(normalizeBindings({ ...older, swap: ['KeyT', null] }).swap).toEqual(['KeyT', null])
+    expect(normalizeBindings({ ...older, swap: [null, null] }).swap).toEqual([null, null])
+  })
+
   it('adds secondary camera defaults without replacing custom controls or stealing keys', () => {
     const previous = { ...DEFAULT_BINDINGS, pivotLeft: ['KeyZ', null], pivotRight: ['KeyX', null] }
     expect(upgradeCameraBindings(previous)).toEqual(DEFAULT_BINDINGS)
@@ -104,6 +123,8 @@ describe('key labels', () => {
     expect(keyLabel('Comma', KEYBOARD_LAYOUT_MAPS.azerty)).toBe(';')
     expect(keyLabel('Period', KEYBOARD_LAYOUT_MAPS.azerty)).toBe(':')
     expect(keyLabel('Slash', KEYBOARD_LAYOUT_MAPS.azerty)).toBe('!')
+    expect(keyLabel('Quote', KEYBOARD_LAYOUT_MAPS.azerty)).toBe('Ù')
+    expect(keyLabel('Quote', KEYBOARD_LAYOUT_MAPS.qwerty)).toBe("'")
     expect(keyLabel('Comma', KEYBOARD_LAYOUT_MAPS.qwerty)).toBe(',')
     expect(keyLabel('Period', KEYBOARD_LAYOUT_MAPS.qwerty)).toBe('.')
   })

@@ -3,6 +3,7 @@ export type GameTheme = (typeof GAME_THEMES)[number]
 
 /** About 68% quieter than the original 25% menu cue setting. */
 export const DEFAULT_MENU_SOUND_VOLUME = 0.08
+export const DEFAULT_TILE_SOUND_VOLUME = 0.3
 
 export const PLACEMENT_SOUNDS = [
   { id: 'wood', label: 'Wood' },
@@ -20,7 +21,7 @@ export function normalizeTheme(value: unknown): GameTheme {
 }
 
 export function normalizePlacementSound(value: unknown): PlacementSound {
-  return PLACEMENT_SOUNDS.some((sound) => sound.id === value) ? (value as PlacementSound) : 'wood'
+  return PLACEMENT_SOUNDS.some((sound) => sound.id === value) ? (value as PlacementSound) : 'drop'
 }
 
 export function normalizeSoundVolume(value: unknown, fallback = 0.5): number {

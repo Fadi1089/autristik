@@ -36,7 +36,13 @@ describe('golden joker matching', () => {
         quadrants: [terrain, terrain, terrain, terrain],
       })
     })
-    const game = { ...createGame(42), board, current: RAINBOW_TILE, combo: 3 }
+    const game = {
+      ...createGame(42),
+      board,
+      current: RAINBOW_TILE,
+      currentMultiplier: 1 as const,
+      combo: 3,
+    }
     for (let turns = 0; turns < 4; turns++) {
       const rotated = rotateCurrent(game, turns)
       const preview = previewPlacement(rotated, centre)!
