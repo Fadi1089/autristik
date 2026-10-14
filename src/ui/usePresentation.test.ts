@@ -130,6 +130,24 @@ describe('watch warning presentation wiring', () => {
     )
   })
 
+  it('switches back to jazz when leaving a paused run and keeps the flute through a new pause', () => {
+    game.getState().openMenu()
+    audio.musicUpdate.mockClear()
+    game.getState().returnToMainMenu()
+    expect(audio.musicUpdate).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ track: 'music-menu' }),
+    )
+    audio.musicUpdate.mockClear()
+    game.getState().closeMenu()
+    expect(audio.musicUpdate).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ track: 'music-game' }),
+    )
+    audio.musicUpdate.mockClear()
+    game.getState().openMenu()
+    game.getState().restart(42)
+    expect(audio.musicUpdate).not.toHaveBeenCalled()
+  })
+
   it('uses one mute and volume for all tiles while keeping their distinct sounds', () => {
     const grass = ['grass', 'grass', 'grass', 'grass'] as const
     game.getState().restart(42, 'easy', 'superblock')

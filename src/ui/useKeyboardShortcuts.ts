@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { oppositeDirection } from '../game/coords'
 import { isGameOver } from '../game/game'
+import { isInCavity } from '../game/falling'
 import { actionForCode, REPEATABLE } from '../input/bindings'
 import type { Action } from '../input/bindings'
 import { screenToWorldDirection } from '../input/movement'
@@ -53,7 +54,8 @@ export function useKeyboardShortcuts() {
       if (move) {
         const direction = screenToWorldDirection(move, useViewStore.getState().azimuth)
         if (e.shiftKey) {
-          if (!e.repeat) game.setFallDirection(oppositeDirection(direction))
+          if (!e.repeat)
+            game.setFallDirection(isInCavity(game) ? direction : oppositeDirection(direction))
         } else {
           game.move(direction)
         }

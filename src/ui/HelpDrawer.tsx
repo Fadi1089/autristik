@@ -84,6 +84,7 @@ export function HelpDrawer() {
       className="group/help pointer-events-none absolute left-0 bottom-0 flex flex-row-reverse -translate-x-[calc(100%_-_2.5rem)] items-end transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] data-open:translate-x-0 sm:bottom-6"
     >
       <button
+        data-camera-obstacle
         type="button"
         onClick={() => setPinned((p) => !p)}
         onPointerEnter={(event) => {
@@ -99,6 +100,7 @@ export function HelpDrawer() {
 
       {/* Hidden once it has slid away, so its shadow doesn't show at the screen edge. */}
       <div
+        data-camera-obstacle={open || undefined}
         inert={!open}
         aria-hidden={!open}
         className="invisible card pointer-events-none max-h-[calc(100dvh_-_3rem)] w-72 overflow-y-auto rounded-l-none py-5 pr-5 pl-6 transition-[visibility] duration-500 group-data-open/help:visible group-data-open/help:pointer-events-auto"

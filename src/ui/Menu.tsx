@@ -1,5 +1,5 @@
 import { useTranslation } from '../i18n/useTranslation'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
 import { isGameOver } from '../game/game'
 import { tileCount } from '../game/board'
@@ -7,23 +7,21 @@ import { SCENE_COLORS, TERRAIN_COLORS } from '../palette'
 import { navigateMenu } from './menuNavigation'
 import { useGameStore } from '../store/gameStore'
 import { useSettingsStore } from '../store/settingsStore'
-import { KeySettings } from './KeySettings'
-import { Customization } from './Customization'
+import { SettingsPanel } from './SettingsPanel'
+import { MenuSection } from './MenuSection'
 import { KeyCaps, MoveKeyCaps } from './KeyCaps'
 import { formatPoints } from './format'
 import { useMenuSounds } from './useMenuSounds'
-import { DifficultySelector } from './DifficultySelector'
 import { Gamemode } from './Gamemode'
 import { GAME_MODE_LABELS } from '../game/modes'
 import { GAME_VARIANT_LABELS } from '../game/variants'
 
-type Panel = 'how' | 'mode' | 'customization' | 'settings'
-type MenuChoice = 'start' | 'new' | Panel
+type Panel = 'how' | 'mode' | 'settings'
+type MenuChoice = 'start' | 'new' | 'home' | Panel
 
 const PANEL_TITLES = {
   how: 'How to play',
   mode: 'Gamemode',
-  customization: 'Customization',
   settings: 'Settings',
 } as const satisfies Record<Panel, string>
 
@@ -49,7 +47,6 @@ function MenuItem({
   id,
   selected,
   onSelect,
-  side,
   delay,
   autoFocus,
 }: {
@@ -59,7 +56,6 @@ function MenuItem({
   id: MenuChoice
   selected: boolean
   onSelect: () => void
-  side?: ReactNode
   delay: number
   autoFocus?: boolean
 }) {
@@ -83,11 +79,6 @@ function MenuItem({
         <Bullet />
         {children}
       </button>
-      {side && (
-        <div data-menu-secondary={id} className="ml-7 min-w-0 sm:ml-0">
-          {side}
-        </div>
-      )}
     </li>
   )
 }
@@ -131,7 +122,7 @@ export function HowToPlay() {
 
   return (
     <div className="space-y-5">
-      <GuideSection title={t('Rules')}>
+      <MenuSection title={t('Rules')}>
         <p className="rounded-xl bg-moss/8 p-3 text-sm text-ink/75">
           {t(
             'Time-attack: 30 tiles and 45 seconds to start. Each level refills the supply to 30 and adds 45 seconds. Fixed 15-second approach, with increasing score goals.',
@@ -155,7 +146,7 @@ export function HowToPlay() {
                   'Time-attack uses the same tile and camera controls. Reach a score goal before time runs out to gain 45 seconds. Tile travel time stays at 15 seconds at every level, independently of difficulty.',
                 )
               : t(
-                  'Tiles start ten squares away and accelerate gradually with each level. Starting travel time: Easy 15 s, Medium 10 s, Hard 7.1 s, Insane 4.5 s. They never take less than 4.5 s. The stopwatch counts active play and pauses with the menu, with no time limit. Movement keys follow the camera: towards the island advances one square; sideways selects a lane. Moving past an edge changes the arrival side. Shift + a movement key brings the tile from that side, keeping the remaining distance and cadence. Repeating the same Shift + direction visits the near edge of the next separate island; further presses alternate near and far edges. Cyan marks the moving tile, pale gold its destination. Place instantly with the bound placement keys. The next tile keeps the last lane. Rotate tiles to match terrain; pan, turn and zoom the camera freely. The camera reframes off-screen tiles automatically, or with C / !. Camera turn keys move between the four aligned sides (90°).',
+                  'Tiles start ten squares away and accelerate gradually with each level. Starting travel time: Easy 15 s, Medium 10 s, Hard 7.5 s, Insane 5 s. They never take less than 5 s. The stopwatch counts active play and pauses with the menu, with no time limit. Movement keys follow the camera: towards the island advances one square; sideways selects a lane. Moving past an edge changes the arrival side. Shift + a movement key brings the tile from that side, keeping the remaining distance and cadence. Repeating the same Shift + direction visits the near edge of the next separate island; further presses alternate near and far edges. Cyan marks the moving tile, pale gold its destination. Place instantly with the bound placement keys. The next tile keeps the last lane. Rotate tiles to match terrain; pan, turn and zoom the camera freely. The camera reframes off-screen tiles automatically, or with C / !. Camera turn keys move between the four aligned sides (90°).',
                 )}
           </Rule>
           <Rule n="2">
@@ -180,7 +171,7 @@ export function HowToPlay() {
         </ol>
         <p className="text-sm text-ink/75">
           {t(
-            'Slide sideways into a gap at the current tile position only when three of its four faces are occupied. It locks on the next fall step; otherwise lateral movement keeps the usual remaining distance.',
+            'Move within a cavity at the current tile height, even away from its walls. The same island must surround it in at least three directions, with a floor ahead. The tile keeps its direction and cadence; occupied cells block movement. Changing arrival side inside a cavity aims at its inner walls, keeping or shortening the remaining distance without escaping or restarting the cadence. Outside cavities, lateral movement keeps the usual remaining distance.',
           )}
         </p>
         <p className="font-display text-sm text-ink/60 italic">
@@ -188,42 +179,21 @@ export function HowToPlay() {
             ? t('Mismatches never cost points. Time-attack ends when time or tiles run out.')
             : t('Mismatches never cost points. The game ends when the stack is empty.')}
         </p>
-      </GuideSection>
-      <GuideSection title={t('Controls')}>
+      </MenuSection>
+      <MenuSection title={t('Controls')}>
         <ControlGuide />
-      </GuideSection>
+      </MenuSection>
       {mode === 'superblock' && (
-        <GuideSection title={t('Tile types (Superblock)')}>
+        <MenuSection title={t('Tile types (Superblock)')}>
           <SpecialTileGuide />
           <p className="text-sm text-ink/75">
             {t(
               'In Superblock, placement scores use the strongest bonus among the tile and its side neighbours. Tiles keep their own multiplier: bonuses do not spread. Standard tiles start at ×1; gold jokers can have ×1, ×2, ×3 or ×5.',
             )}
           </p>
-        </GuideSection>
+        </MenuSection>
       )}
     </div>
-  )
-}
-
-function GuideSection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <details className="group/guide rounded-xl border border-ink/10 bg-ink/3">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 font-semibold text-ink/85 transition hover:bg-ink/5 [&::-webkit-details-marker]:hidden">
-        {title}
-        <svg
-          viewBox="0 0 24 24"
-          className="size-4 shrink-0 text-ink/55 transition-transform group-open/guide:rotate-180"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          aria-hidden
-        >
-          <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </summary>
-      <div className="space-y-5 border-t border-ink/10 px-4 py-4">{children}</div>
-    </details>
   )
 }
 
@@ -295,7 +265,9 @@ function ControlGuide() {
       </ControlHint>
       <ControlHint
         title={t('Choose the arrival side')}
-        note={t('Shift + right brings the tile from the right; likewise for the other sides.')}
+        note={t(
+          'Outside cavities, Shift + right brings the tile from the right. Inside a cavity, Shift + a direction aims towards that wall: up towards the top, down towards the bottom.',
+        )}
       >
         <kbd>{t('Shift')}</kbd>
         <span>+</span>
@@ -364,6 +336,7 @@ export function Menu() {
   const { t, language } = useTranslation()
 
   const menuSounds = useMenuSounds()
+  const root = useRef<HTMLDivElement>(null)
   // Picking an active panel again closes it.
   const [panel, setPanel] = useState<Panel | null>(null)
   const [selected, setSelected] = useState<MenuChoice | null>('start')
@@ -376,6 +349,14 @@ export function Menu() {
   const variant = useGameStore((s) => s.variant)
   const closeMenu = useGameStore((s) => s.closeMenu)
   const restart = useGameStore((s) => s.restart)
+  const returnToMainMenu = useGameStore((s) => s.returnToMainMenu)
+
+  useEffect(() => {
+    if (!started)
+      root.current
+        ?.querySelector<HTMLButtonElement>('[data-menu-item="start"]')
+        ?.focus({ preventScroll: true })
+  }, [started])
 
   const canResume = started && !over
   const toggle = (next: Panel) => setPanel((p) => (p === next ? null : next))
@@ -395,6 +376,7 @@ export function Menu() {
 
   return (
     <div
+      ref={root}
       role="dialog"
       aria-modal="true"
       aria-label={t('Main menu')}
@@ -450,7 +432,6 @@ export function Menu() {
             ) : (
               <MenuItem
                 {...selection('start')}
-                side={<DifficultySelector />}
                 autoFocus
                 onClick={started ? () => restart() : closeMenu}
                 delay={220}
@@ -459,12 +440,7 @@ export function Menu() {
               </MenuItem>
             )}
             {canResume && (
-              <MenuItem
-                {...selection('new')}
-                side={<DifficultySelector />}
-                onClick={() => restart()}
-                delay={270}
-              >
+              <MenuItem {...selection('new')} onClick={() => restart()} delay={270}>
                 {t('New game')}
               </MenuItem>
             )}
@@ -485,28 +461,27 @@ export function Menu() {
               {t('How to play')}
             </MenuItem>
             <MenuItem
-              {...selection('customization')}
-              pressed={panel === 'customization'}
-              onClick={() => toggle('customization')}
-              delay={420}
-            >
-              {t('Customization')}
-            </MenuItem>
-            <MenuItem
               {...selection('settings')}
               pressed={panel === 'settings'}
               onClick={() => toggle('settings')}
-              delay={470}
+              delay={420}
             >
               {t('Settings')}
             </MenuItem>
-          </ul>
-
-          <p className="mt-4 text-xs text-ink/55">
-            {t(
-              'Up / Down: menu options · Right: difficulty or panel · Left: return · Enter / Space: select',
+            {started && (
+              <MenuItem
+                {...selection('home')}
+                onClick={() => {
+                  setPanel(null)
+                  setSelected('start')
+                  returnToMainMenu()
+                }}
+                delay={470}
+              >
+                {t('Return to main menu')}
+              </MenuItem>
             )}
-          </p>
+          </ul>
 
           {started && (
             <p
@@ -531,15 +506,7 @@ export function Menu() {
             className="card animate-rise min-w-0 self-center overflow-x-hidden p-6 sm:p-8 lg:max-h-full lg:overflow-y-auto"
           >
             <h2 className="eyebrow mb-5">{t(PANEL_TITLES[panel])}</h2>
-            {panel === 'mode' ? (
-              <Gamemode />
-            ) : panel === 'how' ? (
-              <HowToPlay />
-            ) : panel === 'customization' ? (
-              <Customization />
-            ) : (
-              <KeySettings />
-            )}
+            {panel === 'mode' ? <Gamemode /> : panel === 'how' ? <HowToPlay /> : <SettingsPanel />}
           </aside>
         )}
       </div>

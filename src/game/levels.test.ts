@@ -4,16 +4,16 @@ import { BASE_FALL_INTERVAL, DIFFICULTIES, fallInterval, MIN_FALL_INTERVAL } fro
 describe('level gravity curve', () => {
   it('starts each difficulty at its requested pace without skipping score levels', () => {
     expect(fallInterval(1, 'easy') * 10).toBe(15)
-    expect(fallInterval(1, 'medium')).toBe(fallInterval(10))
-    expect(fallInterval(1, 'hard')).toBe(fallInterval(20))
-    expect(fallInterval(1, 'insane') * 10).toBe(4.5)
-    expect(fallInterval(2, 'medium')).toBe(fallInterval(11))
-    expect(fallInterval(2, 'hard')).toBe(fallInterval(21))
+    expect(fallInterval(1, 'medium') * 10).toBe(10)
+    expect(fallInterval(1, 'hard') * 10).toBe(7.5)
+    expect(fallInterval(1, 'insane') * 10).toBe(5)
+    expect(fallInterval(2, 'medium')).toBeLessThan(fallInterval(1, 'medium'))
+    expect(fallInterval(2, 'hard')).toBeLessThan(fallInterval(1, 'hard'))
   })
 
-  it.each(DIFFICULTIES)('never falls below the 4.5-second minimum in %s', (difficulty) => {
+  it.each(DIFFICULTIES)('never falls below the 5-second minimum in %s', (difficulty) => {
     for (const level of [1, 2, 10, 30, 100, 1000]) {
-      expect(fallInterval(level, difficulty) * 10).toBeGreaterThanOrEqual(4.5)
+      expect(fallInterval(level, difficulty) * 10).toBeGreaterThanOrEqual(5)
     }
   })
 
@@ -28,11 +28,11 @@ describe('level gravity curve', () => {
     }
   })
 
-  it('keeps at least 4.5 seconds for a ten-step approach at high levels', () => {
+  it('keeps at least 5 seconds for a ten-step approach at high levels', () => {
     expect(fallInterval(1000)).toBeGreaterThanOrEqual(MIN_FALL_INTERVAL)
-    expect(fallInterval(1000) * 10).toBeCloseTo(4.5)
-    expect(fallInterval(5) * 10).toBeCloseTo(12.355, 2)
-    expect(fallInterval(10) * 10).toBeCloseTo(9.964, 2)
-    expect(fallInterval(20) * 10).toBeCloseTo(7.145, 2)
+    expect(fallInterval(1000) * 10).toBeCloseTo(5)
+    expect(fallInterval(5) * 10).toBeCloseTo(12.481, 2)
+    expect(fallInterval(10) * 10).toBeCloseTo(10.204, 2)
+    expect(fallInterval(20) * 10).toBeCloseTo(7.519, 2)
   })
 })

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Direction } from '../game/coords'
+import { Direction, directionOffset, oppositeDirection } from '../game/coords'
 import { withTile } from '../game/board'
 import { FALL_INTERVAL, landingPosition } from '../game/falling'
 import { screenToWorldDirection } from '../input/movement'
@@ -77,6 +77,74 @@ const moves: [ScreenDirection, string, string, ScreenDirection][] = [
 ]
 
 describe('Shift + movement controls', () => {
+  it.each(moves)(
+    'aims towards %s inside cavities with arrows and both layouts at every camera heading',
+    (motion, arrow, code) => {
+      const grass = ['grass', 'grass', 'grass', 'grass'] as const
+      let board = {}
+      for (let q = 0; q <= 10; q++)
+        for (let r = 0; r <= 10; r++) {
+          if (q === 0 || q === 10 || r === 0 || r === 10)
+            board = withTile(board, { coord: { q, r }, quadrants: grass })
+        }
+      for (const layout of ['azerty', 'qwerty'] as const) {
+        useSettingsStore.getState().setKeyboardLayout(layout)
+        for (const azimuth of [0, Math.PI / 2, Math.PI, -Math.PI / 2])
+          for (const key of [arrow, code]) {
+            const direction = screenToWorldDirection(motion, azimuth)
+            useViewStore.setState({ azimuth })
+            useGameStore.setState({
+              board,
+              falling: { q: 5, r: 5 },
+              fallAnchor: undefined,
+              tucked: false,
+              fallDirection: oppositeDirection(direction),
+              fallElapsed: 0.3,
+            })
+            const before = useGameStore.getState()
+            press(key)
+            const after = useGameStore.getState()
+            const delta = directionOffset(direction)
+            expect(after.fallDirection).toBe(direction)
+            expect(landingPosition(after)).toEqual({ q: 5 + delta.q * 4, r: 5 + delta.r * 4 })
+            expect(after.falling).toEqual(before.falling)
+            expect(after.fallElapsed).toBe(0.3)
+            expect(after.cameraMove).toBe(before.cameraMove)
+            press(key, { repeat: true })
+            expect(useGameStore.getState()).toBe(after)
+          }
+      }
+    },
+  )
+
+  it('aims up at the upper wall and down at the lower wall while preserving the cavity distance limit', () => {
+    const grass = ['grass', 'grass', 'grass', 'grass'] as const
+    let board = {}
+    for (let q = 0; q <= 6; q++)
+      for (let r = 0; r <= 7; r++) {
+        if (q === 0 || q === 6 || r === 0 || r === 7)
+          board = withTile(board, { coord: { q, r }, quadrants: grass })
+      }
+    const local = {
+      board,
+      falling: { q: 3, r: 2 },
+      fallAnchor: { q: 0, r: 2 },
+      tucked: true,
+      fallDirection: Direction.West,
+      fallElapsed: 0.4,
+    }
+    useGameStore.setState(local)
+    press('ArrowUp')
+    expect(landingPosition(useGameStore.getState())).toEqual({ q: 3, r: 1 })
+    expect(useGameStore.getState().falling).toEqual({ q: 3, r: 2 })
+    useGameStore.setState(local)
+    useSettingsStore.getState().bind('moveDown', 1, 'KeyJ')
+    press('KeyJ')
+    expect(landingPosition(useGameStore.getState())).toEqual({ q: 3, r: 6 })
+    expect(useGameStore.getState().falling).toEqual({ q: 3, r: 4 })
+    expect(useGameStore.getState().fallElapsed).toBe(0.4)
+  })
+
   it.each(['azerty', 'qwerty'] as const)(
     'exchanges the same tiles using F and the right-hand key on %s',
     (layout) => {

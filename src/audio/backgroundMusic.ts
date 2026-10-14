@@ -38,6 +38,7 @@ export function updateBackgroundMusic(preferences: MusicPreferences): Promise<bo
       const media = new Audio(`${import.meta.env.BASE_URL}audio/${MUSIC_FILES[preferences.track]}`)
       media.loop = true
       media.preload = 'auto'
+      media.autoplay = true
       player = media
       applyVolume()
       // Called immediately, including at mount. Autoplay failures leave input free to retry.

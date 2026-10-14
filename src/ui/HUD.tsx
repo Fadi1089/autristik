@@ -142,7 +142,10 @@ export function HUD() {
 
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-4 select-none sm:p-6">
-      <header className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
+      <header
+        data-camera-obstacle
+        className="flex flex-wrap items-start justify-between gap-2 sm:gap-3"
+      >
         <div className="flex items-start gap-2 sm:gap-3">
           <button
             type="button"
@@ -160,7 +163,7 @@ export function HUD() {
 
       <LevelBanner />
 
-      <footer className="absolute right-4 top-1/2 -translate-y-1/2 sm:right-6">
+      <footer data-camera-obstacle className="absolute right-4 top-1/2 -translate-y-1/2 sm:right-6">
         <TileTray />
       </footer>
 

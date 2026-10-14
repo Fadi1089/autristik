@@ -3,6 +3,7 @@ import { changeFallDirection, FALL_INTERVAL, spawnFalling } from '../game/fallin
 import { Direction } from '../game/coords'
 import { screenToWorldDirection } from '../input/movement'
 import type { useGameStore as Store } from './gameStore'
+import { musicTrackForGame } from '../audio/musicTracks'
 
 let useGameStore: typeof Store
 
@@ -14,6 +15,42 @@ afterAll(() => vi.unstubAllGlobals())
 beforeEach(() => useGameStore.getState().restart(42, 'easy', 'superblock', 'standard'))
 
 describe('gamemode selection', () => {
+  it('returns to a fresh home screen with jazz, keeping pending choices and saved records', async () => {
+    const { useRecordsStore } = await import('./recordsStore')
+    useRecordsStore.setState({ records: {} })
+    useGameStore.setState({ score: 150, levelScore: 30, combo: 2 })
+    useGameStore.getState().tick(5)
+    useGameStore.getState().openMenu()
+    expect(musicTrackForGame(useGameStore.getState())).toBe('music-game')
+    useGameStore.getState().setNextMode('classic')
+    useGameStore.getState().setNextVariant('time-attack')
+    useGameStore.getState().setNextDifficulty('hard')
+    const id = useGameStore.getState().runId
+    const records = useRecordsStore.getState().records
+    useGameStore.getState().returnToMainMenu()
+    expect(useGameStore.getState()).toMatchObject({
+      started: false,
+      menuOpen: true,
+      score: 0,
+      level: 1,
+      playedSeconds: 0,
+      remaining: 30,
+      timeRemaining: 45,
+      placements: 0,
+      combo: 0,
+      mode: 'classic',
+      variant: 'time-attack',
+      difficulty: 'hard',
+      runId: id,
+    })
+    expect(musicTrackForGame(useGameStore.getState())).toBe('music-menu')
+    expect(useRecordsStore.getState().records).toEqual(records)
+    useGameStore.getState().tick(60)
+    expect(useGameStore.getState().playedSeconds).toBe(0)
+    useGameStore.getState().closeMenu()
+    expect(useGameStore.getState().runId).toBe(id + 1)
+    expect(musicTrackForGame(useGameStore.getState())).toBe('music-game')
+  })
   it('requests a fresh starting camera once per run, including a restart with the same seed', () => {
     const id = useGameStore.getState().runId
     useGameStore.getState().restart(42)
@@ -172,7 +209,7 @@ describe('elapsed time and new-game difficulty', () => {
       remaining: 30,
       playedSeconds: 0,
     })
-    useGameStore.getState().tick(0.45)
+    useGameStore.getState().tick(0.5)
     expect(useGameStore.getState().falling).toEqual({ q: 0, r: -10 })
   })
 
@@ -226,7 +263,7 @@ describe('falling controls and camera requests', () => {
         combo: before.combo,
         score: before.score,
       })
-      useGameStore.getState().tick(0.06)
+      useGameStore.getState().tick(0.11)
       expect(useGameStore.getState().falling!.r).toBe(before.falling!.r + 1)
       useGameStore.getState().openMenu()
       const paused = useGameStore.getState()

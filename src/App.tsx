@@ -19,7 +19,7 @@ export function App() {
       <Canvas
         shadows="percentage"
         dpr={[1, 2]}
-        camera={{ position: [0, 16, 16], fov: 50, near: 0.1, far: 200 }}
+        camera={{ position: [0, 16, 16], fov: 50, near: 0.1, far: 512 }}
       >
         <Scene />
       </Canvas>

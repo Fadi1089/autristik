@@ -43,6 +43,7 @@ vi.mock('../store/recordsStore', async (importOriginal) => {
 let Menu: ComponentType
 let HowToPlay: ComponentType
 let KeySettings: ComponentType
+let SettingsPanel: ComponentType
 let Customization: ComponentType
 let Gamemode: ComponentType
 let HUD: ComponentType
@@ -59,6 +60,7 @@ beforeAll(async () => {
   records = (await import('../store/recordsStore')).useRecordsStore
   ;({ Menu, HowToPlay } = await import('./Menu'))
   ;({ KeySettings } = await import('./KeySettings'))
+  ;({ SettingsPanel } = await import('./SettingsPanel'))
   ;({ Customization } = await import('./Customization'))
   ;({ Gamemode } = await import('./Gamemode'))
   ;({ HUD } = await import('./HUD'))
@@ -93,7 +95,7 @@ describe('localized game overlays', () => {
       game.setState({ started: true, mode: 'superblock' })
       expect(render().match(/<details\b/g)).toHaveLength(3)
       expect(render()).toContain(
-        language === 'fr' ? 'trois de ses quatre faces' : 'three of its four faces',
+        language === 'fr' ? 'à la hauteur actuelle de la tuile' : 'at the current tile height',
       )
     },
   )
@@ -194,9 +196,23 @@ describe('localized game overlays', () => {
       expect(main).toContain('Autristik')
       expect(main).toContain(play)
       expect(main).toContain(preferences)
-      expect(main).toContain(customization)
+      expect(main).not.toContain(customization)
+      expect(main).not.toContain('data-menu-item="home"')
+      expect(main).not.toContain(
+        language === 'fr' ? 'Haut / Bas : options du menu' : 'Up / Down: menu options',
+      )
+      expect(main).not.toContain(language === 'fr' ? 'Activer la musique' : 'Enable music')
+      expect(main).not.toContain('<select')
+      const modePanel = render(Gamemode)
+      expect(modePanel).toContain(language === 'fr' ? 'Difficile · 7,5 s' : 'Hard · 7.5 s')
+      expect(modePanel).toContain(language === 'fr' ? 'Extrême · 5 s' : 'Insane · 5 s')
+      const merged = render(SettingsPanel)
+      expect(merged).toContain(customization)
+      expect(merged).toContain(language === 'fr' ? 'Général' : 'General')
+      expect(merged.match(/<details\b/g)).toHaveLength(2)
+      expect(merged).not.toMatch(/<details[^>]*\bopen=/)
       expect(main.match(/data-selected="true"/g)).toHaveLength(1)
-      expect(main).toContain('data-menu-secondary="start"')
+      expect(main).not.toContain('data-menu-secondary')
       const options = render(KeySettings)
       expect(options).toContain(languageLabel)
       expect(options).toContain('Français')
@@ -219,6 +235,12 @@ describe('localized game overlays', () => {
       )
       game.setState({ started: true })
       expect(render(Menu)).toContain(resume)
+      expect(render(Menu)).not.toContain(
+        language === 'fr' ? 'Haut / Bas : options du menu' : 'Up / Down: menu options',
+      )
+      expect(render(Menu)).toContain(
+        language === 'fr' ? 'Retour au menu principal' : 'Return to main menu',
+      )
       game.getState().closeMenu()
       expect(render(HUD)).toContain(level)
       expect(render(HUD)).toContain(timer)

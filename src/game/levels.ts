@@ -10,7 +10,7 @@ export const LEVEL_UP_TILES = 6
 
 /** Seconds per square at level 1, with a gentle approach to the fastest allowed cadence. */
 export const BASE_FALL_INTERVAL = 1.5
-export const MIN_FALL_INTERVAL = 0.45
+export const MIN_FALL_INTERVAL = 0.5
 export const FALL_INTERVAL_DECAY = 0.93
 
 export const DIFFICULTIES = ['easy', 'medium', 'hard', 'insane'] as const
@@ -21,15 +21,19 @@ export const DIFFICULTY_LABELS = {
   hard: 'Hard',
   insane: 'Insane',
 } as const satisfies Record<Difficulty, string>
-const START_SPEED_LEVEL: Record<Difficulty, number> = { easy: 1, medium: 10, hard: 20, insane: 30 }
+const START_FALL_INTERVAL: Record<Difficulty, number> = {
+  easy: 1.5,
+  medium: 1,
+  hard: 0.75,
+  insane: 0.5,
+}
 
 /** Each level removes 7% of the remaining gap to the minimum interval. */
 export function fallInterval(level: number, difficulty: Difficulty = 'easy'): number {
-  // Insane starts at the maximum speed; its score level and rewards still start at level 1.
-  if (difficulty === 'insane') return MIN_FALL_INTERVAL
-  const completed = Math.max(0, level - 1) + START_SPEED_LEVEL[difficulty] - 1
+  const completed = Math.max(0, level - 1)
   return (
-    MIN_FALL_INTERVAL + (BASE_FALL_INTERVAL - MIN_FALL_INTERVAL) * FALL_INTERVAL_DECAY ** completed
+    MIN_FALL_INTERVAL +
+    (START_FALL_INTERVAL[difficulty] - MIN_FALL_INTERVAL) * FALL_INTERVAL_DECAY ** completed
   )
 }
 

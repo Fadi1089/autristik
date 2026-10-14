@@ -11,6 +11,8 @@ import { useViewStore } from '../store/viewStore'
 import { coordToWorld } from './layout'
 import { isTileInFrame, planFallFraming, planStartFraming } from './cameraFraming'
 import type { FallFraming } from './cameraFraming'
+import { measureCameraViewport } from './hudViewport'
+import type { CameraViewport } from './hudViewport'
 
 /** How far past the outermost tile the camera target may wander. */
 const PAN_MARGIN = 6
@@ -24,7 +26,8 @@ const FOLLOW_EASING = 5
 /** Slow drift around the board while the menu is open (radians per second). */
 const MENU_ORBIT_SPEED = 0.12
 const MIN_DISTANCE = 4
-const MAX_DISTANCE = 65
+// Narrow windows may need extra distance to fit the corridor beside the fixed tile tray.
+const MAX_DISTANCE = 256
 
 const UP = new Vector3(0, 1, 0)
 const shift = new Vector3()
@@ -44,6 +47,9 @@ export function CameraRig() {
   const pendingZoom = useRef(0)
   const following = useRef<CameraFollow | null>(null)
   const recentering = useRef<FallFraming | null>(null)
+  const framingTarget = useRef<Vector3 | null>(null)
+  const viewport = useRef<CameraViewport | undefined>(undefined)
+  const viewportElapsed = useRef(0)
   const interacting = useRef(false)
   const starting = useRef(false)
   /** Heading to return to when the menu closes, since the menu slowly orbits the board. */
@@ -90,7 +96,10 @@ export function CameraRig() {
   useEffect(
     () =>
       useGameStore.subscribe((s, prev) => {
-        if (s.runId !== prev.runId) starting.current = true
+        if (s.runId !== prev.runId) {
+          starting.current = true
+          framingTarget.current = null
+        }
         if (s.cameraMove !== prev.cameraMove || s.cameraFollow !== prev.cameraFollow) {
           following.current = s.cameraFollow
           recentering.current = null
@@ -149,6 +158,23 @@ export function CameraRig() {
     if (!c) return
     const { target } = c
 
+    viewportElapsed.current += delta
+    if (!menuOpen && (starting.current || !viewport.current || viewportElapsed.current >= 0.1)) {
+      const next = measureCameraViewport(canvas)
+      const previous = viewport.current
+      if (
+        !previous ||
+        Object.keys(next).some(
+          (key) =>
+            Math.abs(next[key as keyof CameraViewport] - previous[key as keyof CameraViewport]) >
+            0.001,
+        )
+      )
+        recentering.current = null
+      viewport.current = next
+      viewportElapsed.current = 0
+    }
+
     if (
       starting.current &&
       !menuOpen &&
@@ -162,8 +188,15 @@ export function CameraRig() {
       target.set(0, 0, 0)
       camera.position.set(0, 16, 16)
       camera.lookAt(target)
-      const framing = planStartFraming(camera, useGameStore.getState(), MIN_DISTANCE, MAX_DISTANCE)
+      const framing = planStartFraming(
+        camera,
+        useGameStore.getState(),
+        MIN_DISTANCE,
+        MAX_DISTANCE,
+        viewport.current,
+      )
       if (framing) {
+        framingTarget.current = framing.target
         target.copy(framing.target)
         offset.set(0, 1, 1).normalize().multiplyScalar(framing.distance)
         camera.position.copy(target).add(offset)
@@ -242,9 +275,15 @@ export function CameraRig() {
     }
 
     shift.set(
-      Math.min(bounds.maxX, Math.max(bounds.minX, target.x)) - target.x,
+      Math.min(
+        Math.max(bounds.maxX, framingTarget.current?.x ?? bounds.maxX),
+        Math.max(Math.min(bounds.minX, framingTarget.current?.x ?? bounds.minX), target.x),
+      ) - target.x,
       0,
-      Math.min(bounds.maxZ, Math.max(bounds.minZ, target.z)) - target.z,
+      Math.min(
+        Math.max(bounds.maxZ, framingTarget.current?.z ?? bounds.maxZ),
+        Math.max(Math.min(bounds.minZ, framingTarget.current?.z ?? bounds.minZ), target.z),
+      ) - target.z,
     )
     if (shift.lengthSq() > 0) {
       target.add(shift)
@@ -255,10 +294,18 @@ export function CameraRig() {
     const game = useGameStore.getState()
     if (!menuOpen && !starting.current && game.falling && camera instanceof PerspectiveCamera) {
       const requested = view.recenterRequest !== 0
-      const outside = !isTileInFrame(camera, game.falling)
+      const outside = !isTileInFrame(camera, game.falling, viewport.current)
       const settled = Math.abs(pendingPivot.current) < 0.01 && Math.abs(pendingZoom.current) < 0.01
       if (requested || (outside && settled && !interacting.current && !recentering.current)) {
-        recentering.current = planFallFraming(camera, game, target, MIN_DISTANCE, MAX_DISTANCE)
+        recentering.current = planFallFraming(
+          camera,
+          game,
+          target,
+          MIN_DISTANCE,
+          MAX_DISTANCE,
+          viewport.current,
+        )
+        framingTarget.current = recentering.current?.target ?? null
         following.current = null
         if (requested) {
           pendingPivot.current = 0

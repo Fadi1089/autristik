@@ -10,6 +10,10 @@ class NodeLike {
   children: NodeLike[] = []
   parent: NodeLike | null = null
   pressed = false
+  open = false
+  get parentElement() {
+    return this.parent
+  }
   constructor(tag = 'div') {
     this.tag = tag
   }
@@ -27,6 +31,7 @@ class NodeLike {
   matches(selector: string): boolean {
     return selector.split(',').some((value) => {
       const part = value.trim()
+      if (part === 'details:not([open])') return this.tag === 'details' && !this.open
       const attribute = part.match(/^\[data-menu-(item|secondary|panel)(?:="([^"]+)")?\]$/)
       if (attribute) {
         const key = `menu${attribute[1]![0]!.toUpperCase()}${attribute[1]!.slice(1)}`
@@ -47,6 +52,8 @@ class NodeLike {
     ])
   }
   querySelector(selector: string): NodeLike | null {
+    if (selector === ':scope > summary')
+      return this.children.find((node) => node.tag === 'summary') ?? null
     return this.querySelectorAll(selector)[0] ?? null
   }
 }
@@ -65,15 +72,12 @@ function menu() {
   const root = new NodeLike()
   const start = root.add(new NodeLike('button'))
   start.dataset.menuItem = 'start'
-  const secondary = root.add(new NodeLike())
-  secondary.dataset.menuSecondary = 'start'
-  const difficulty = secondary.add(new Select())
-  const options = ['mode', 'how', 'customization', 'settings'].map((id) => {
+  const options = ['mode', 'how', 'settings'].map((id) => {
     const node = root.add(new NodeLike('button'))
     node.dataset.menuItem = id
     return node
   })
-  return { root, start, difficulty, options }
+  return { root, start, options }
 }
 
 function press(root: NodeLike, code: string) {
@@ -96,33 +100,35 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('two-axis menu navigation', () => {
-  it.each(['ArrowDown', 'KeyS'])(
-    'skips difficulty with %s and wraps only through the large menu entries',
-    (code) => {
-      const { root, start, options } = menu()
-      start.focus()
-      for (const option of options) {
-        press(root, code)
-        expect(page.activeElement).toBe(option)
-      }
+  it.each(['ArrowDown', 'KeyS'])('wraps only through the large menu entries with %s', (code) => {
+    const { root, start, options } = menu()
+    start.focus()
+    for (const option of options) {
       press(root, code)
-      expect(page.activeElement).toBe(start)
-      press(root, 'ArrowUp')
-      expect(page.activeElement).toBe(options.at(-1))
-    },
-  )
+      expect(page.activeElement).toBe(option)
+    }
+    press(root, code)
+    expect(page.activeElement).toBe(start)
+    press(root, 'ArrowUp')
+    expect(page.activeElement).toBe(options.at(-1))
+  })
   it.each([
     ['ArrowRight', 'ArrowLeft'],
     ['KeyD', 'KeyA'],
-  ])('enters difficulty with %s and exits with %s', (right, left) => {
-    const { root, start, difficulty } = menu()
-    start.focus()
+  ])('enters the mode panel with %s and leaves its difficulty with %s', (right, left) => {
+    const { root, options } = menu()
+    const mode = options[0]!
+    mode.pressed = true
+    const panel = root.add(new NodeLike())
+    panel.dataset.menuPanel = 'mode'
+    const difficulty = panel.add(new Select())
+    mode.focus()
     expect(press(root, right).preventDefault).toHaveBeenCalled()
     expect(page.activeElement).toBe(difficulty)
     expect(press(root, 'ArrowDown').preventDefault).not.toHaveBeenCalled()
     expect(page.activeElement).toBe(difficulty)
     press(root, left)
-    expect(page.activeElement).toBe(start)
+    expect(page.activeElement).toBe(mode)
   })
   it('enters an open panel to the right and returns to its main entry with left', () => {
     const { root, options } = menu()
@@ -144,5 +150,34 @@ describe('two-axis menu navigation', () => {
     const { root } = menu()
     root.add(new Input()).focus()
     expect(press(root, 'ArrowLeft').preventDefault).not.toHaveBeenCalled()
+  })
+  it('skips the controls inside collapsed sections, including nested disclosures', () => {
+    const { root, options } = menu()
+    const settings = options[2]!
+    settings.pressed = true
+    const panel = root.add(new NodeLike())
+    panel.dataset.menuPanel = 'settings'
+    const custom = panel.add(new NodeLike('details'))
+    const customTitle = custom.add(new NodeLike('summary'))
+    custom.add(new NodeLike('button'))
+    const nested = custom.add(new NodeLike('details'))
+    nested.add(new NodeLike('summary'))
+    nested.add(new NodeLike('button'))
+    const general = panel.add(new NodeLike('details'))
+    const generalTitle = general.add(new NodeLike('summary'))
+    const toggle = general.add(new NodeLike('button'))
+    settings.focus()
+    press(root, 'ArrowRight')
+    expect(page.activeElement).toBe(customTitle)
+    press(root, 'ArrowDown')
+    expect(page.activeElement).toBe(generalTitle)
+    press(root, 'ArrowDown')
+    expect(page.activeElement).toBe(customTitle)
+    general.open = true
+    generalTitle.focus()
+    press(root, 'ArrowDown')
+    expect(page.activeElement).toBe(toggle)
+    press(root, 'ArrowDown')
+    expect(page.activeElement).toBe(customTitle)
   })
 })

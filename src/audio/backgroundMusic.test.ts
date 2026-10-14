@@ -23,6 +23,7 @@ class Stream {
   readonly src: string
   volume = 1
   loop = false
+  autoplay = false
   preload = ''
   play = vi.fn(() => audio.play())
   pause = vi.fn()
@@ -68,6 +69,7 @@ describe('streaming background music lifecycle', () => {
     expect(players).toHaveLength(1)
     expect(players[0]!.src).toMatch(/audio\/menu-jazz\.mp3$/)
     expect(players[0]!.loop).toBe(true)
+    expect(players[0]!.autoplay).toBe(true)
     expect(players[0]!.play).toHaveBeenCalledOnce()
     expect(players[0]!.volume).toBe(0.3)
   })

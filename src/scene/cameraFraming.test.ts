@@ -4,9 +4,10 @@ import { Direction, neighbour } from '../game/coords'
 import { createFallingGame, landingPosition, spawnFalling } from '../game/falling'
 import { boardTiles, withTile } from '../game/board'
 import { isTileInFrame, planFallFraming, planStartFraming } from './cameraFraming'
+import { viewportWithoutHud } from './hudViewport'
 
 function cameraFor(aspect = 16 / 9, heading = 0, polar = Math.PI / 4) {
-  const camera = new PerspectiveCamera(50, aspect, 0.1, 200)
+  const camera = new PerspectiveCamera(50, aspect, 0.1, 512)
   camera.position.setFromSphericalCoords(16 * Math.SQRT2, polar, heading)
   camera.lookAt(0, 0, 0)
   camera.updateMatrixWorld()
@@ -14,6 +15,59 @@ function cameraFor(aspect = 16 / 9, heading = 0, polar = Math.PI / 4) {
 }
 
 describe('falling tile camera framing', () => {
+  it.each([
+    [1920, 1080],
+    [800, 900],
+    [400, 900],
+  ])(
+    'keeps the starting island and every approach direction clear of the HUD at %s × %s',
+    (width, height) => {
+      const viewport = viewportWithoutHud(width, height, [
+        { left: 24, right: width - 24, top: 24, bottom: 170 },
+        { left: width - 224, right: width - 24, top: height / 2 - 240, bottom: height / 2 + 240 },
+      ])
+      for (const direction of [Direction.North, Direction.East, Direction.South, Direction.West]) {
+        const initial = createFallingGame(42)
+        const game = {
+          ...initial,
+          fallDirection: direction,
+          falling: spawnFalling(initial.board, direction),
+        }
+        for (const heading of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+          for (const polar of [0.25, 0.8, 1.1]) {
+            const camera = cameraFor(width / height, heading, polar)
+            const orientation = camera.quaternion.clone()
+            const frame = planStartFraming(camera, game, 4, 256, viewport)!
+            expect(frame.distance).toBeLessThan(256)
+            camera.position
+              .copy(frame.target)
+              .add(new Vector3(0, 0, frame.distance).applyQuaternion(orientation))
+            camera.lookAt(frame.target)
+            expect(camera.quaternion.angleTo(orientation)).toBeLessThan(1e-6)
+            expect(isTileInFrame(camera, game.falling!, viewport)).toBe(true)
+            for (const tile of boardTiles(game.board))
+              expect(isTileInFrame(camera, tile.coord, viewport)).toBe(true)
+            const fallFrame = planFallFraming(camera, game, frame.target, 4, 256, viewport)!
+            camera.position
+              .copy(fallFrame.target)
+              .add(new Vector3(0, 0, fallFrame.distance).applyQuaternion(orientation))
+            camera.lookAt(fallFrame.target)
+            expect(isTileInFrame(camera, game.falling!, viewport)).toBe(true)
+            expect(isTileInFrame(camera, landingPosition(game)!, viewport)).toBe(true)
+          }
+        }
+      }
+    },
+  )
+  it('treats a tile behind the right tray as hidden even while it is within the screen', () => {
+    const camera = cameraFor()
+    const tile = { q: 12, r: 0 }
+    expect(isTileInFrame(camera, tile)).toBe(true)
+    const viewport = viewportWithoutHud(1920, 1080, [
+      { left: 1500, right: 1900, top: 50, bottom: 1030 },
+    ])
+    expect(isTileInFrame(camera, tile, viewport)).toBe(false)
+  })
   it.each([16 / 9, 1, 0.45])(
     'starts centred on the island with every tile and the approaching ghost visible at aspect %s',
     (aspect) => {

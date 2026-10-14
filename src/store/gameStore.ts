@@ -54,6 +54,7 @@ export interface GameStore extends FallingGameState {
   openMenu(): void
   closeMenu(): void
   toggleMenu(): void
+  returnToMainMenu(): void
   tick(seconds: number): void
 }
 
@@ -159,6 +160,25 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       menuOpen: false,
       started: true,
     }),
+  returnToMainMenu: () => {
+    const state = get()
+    const seed = initialSeed()
+    set({
+      ...createFallingGame(
+        seed,
+        undefined,
+        state.nextDifficulty,
+        state.nextMode,
+        state.nextVariant,
+      ),
+      gameSeed: seed,
+      bestAtStart: bestScore(state.nextMode, state.nextVariant),
+      menuOpen: true,
+      started: false,
+      cameraFollow: null,
+      cameraMove: 0,
+    })
+  },
   openMenu: () => set({ menuOpen: true }),
   closeMenu: () =>
     set((s) => ({

@@ -9,7 +9,6 @@ import type { Difficulty } from './levels'
 import { DEFAULT_GAME_MODE } from './modes'
 import type { GameMode } from './modes'
 import type { GameVariant } from './variants'
-import { canPlace } from './matching'
 
 export const FALL_DISTANCE = 10
 /** Level-one cadence, retained for callers that need the initial timing. */
@@ -25,7 +24,7 @@ export interface FallingGameState extends GameState {
   readonly fallElapsed: number
   /** A selected island can be approached across other islands without retargeting it. */
   readonly fallAnchor?: Coord
-  /** A lateral slide into a three-sided pocket locks on the next gravity step. */
+  /** Inside a cavity, movement follows physical cells instead of the outer lane relief. */
   readonly tucked?: boolean
 }
 
@@ -35,11 +34,34 @@ function activeBoard(
   return state.fallAnchor ? boardIsland(state.board, state.fallAnchor) : state.board
 }
 
-/** Three occupied faces leave exactly one entrance for a lateral insertion. */
-function isInsertionPocket(board: Board, coord: Coord): boolean {
+/** Three walls of the same island distinguish a cavity from an exposed outer edge. */
+function isInsertionCavity(board: Board, coord: Coord, direction: Direction): boolean {
+  if (isOccupied(board, coord)) return false
+  for (const island of boardIslands(board)) {
+    const walls = new Set<Direction>()
+    for (const tile of boardTiles(island)) {
+      if (tile.coord.q === coord.q) {
+        if (tile.coord.r < coord.r) walls.add(Direction.North)
+        if (tile.coord.r > coord.r) walls.add(Direction.South)
+      }
+      if (tile.coord.r === coord.r) {
+        if (tile.coord.q < coord.q) walls.add(Direction.West)
+        if (tile.coord.q > coord.q) walls.add(Direction.East)
+      }
+    }
+    if (walls.size >= 3 && walls.has(direction)) return true
+  }
+  return false
+}
+
+/** Shared cavity detection for physical movement and screen-relative direction shortcuts. */
+export function isInCavity(
+  state: Pick<FallingGameState, 'board' | 'falling' | 'fallDirection' | 'fallAnchor' | 'tucked'>,
+): boolean {
   return (
-    !isOccupied(board, coord) &&
-    DIRECTIONS.filter((direction) => isOccupied(board, neighbour(coord, direction))).length === 3
+    state.falling !== null &&
+    !isOccupied(state.board, state.falling) &&
+    (state.tucked || isInsertionCavity(activeBoard(state), state.falling, state.fallDirection))
   )
 }
 
@@ -117,12 +139,11 @@ export function landingPosition(
   },
 ): Coord | null {
   if (!state.falling || isGameOver(state)) return null
-  if (state.tucked && isInsertionPocket(state.board, state.falling)) return state.falling
   if (boardTiles(state.board).length === 0) return { q: 0, r: 0 }
   const axis = laneAxis(state.fallDirection)
   const forward = axis === 'q' ? 'r' : 'q'
   const delta = directionOffset(state.fallDirection)
-  const distances = boardTiles(activeBoard(state))
+  const distances = boardTiles(state.tucked ? state.board : activeBoard(state))
     .filter((tile) => tile.coord[axis] === state.falling![axis])
     .map((tile) => (tile.coord[forward] - state.falling![forward]) * delta[forward])
     .filter((distance) => distance > 0)
@@ -141,7 +162,12 @@ function turnAtEdge(state: FallingGameState, outward: Direction): FallingGameSta
   const direction = oppositeDirection(outward)
   const axis = laneAxis(direction)
   const distance = Math.abs(anchor.q - state.falling.q) + Math.abs(anchor.r - state.falling.r)
-  const falling = positionAboveLane(activeBoard(state), direction, anchor[axis], distance)
+  const falling = positionAboveLane(
+    boardIsland(state.board, anchor),
+    direction,
+    anchor[axis],
+    distance,
+  )
   return { ...state, falling, fallDirection: direction, fallAnchor: anchor, tucked: false }
 }
 
@@ -156,15 +182,36 @@ function landingAnchor(state: FallingGameState, target: Coord): Coord {
   )
 }
 
-/** Slide into a three-sided pocket at current depth, otherwise follow the lane's relief. */
+/** Enter an adjacent cavity at current depth, otherwise retain ordinary lane distance. */
 export function moveFalling(state: FallingGameState, lane: number): FallingGameState {
   if (!state.falling || isGameOver(state) || !Number.isInteger(lane)) return state
   if (boardTiles(state.board).length === 0) return state
+  const axis = laneAxis(state.fallDirection)
+  const beside = { ...state.falling, [axis]: lane }
+  const island = activeBoard(state)
+  const step = Math.sign(lane - state.falling[axis])
+  if (step !== 0 && !isOccupied(state.board, state.falling)) {
+    const inside = isInCavity(state)
+    let pathIsCavity = true
+    for (let value = state.falling[axis] + step; value !== lane + step; value += step) {
+      const cell = { ...state.falling, [axis]: value }
+      if (isOccupied(state.board, cell)) {
+        // Inside a cavity, walls block movement rather than sending the tile outside it.
+        if (inside) return state
+        pathIsCavity = false
+        break
+      }
+      if (!isInsertionCavity(island, cell, state.fallDirection)) {
+        if (inside) return state
+        pathIsCavity = false
+        break
+      }
+    }
+    if (pathIsCavity) return { ...state, falling: beside, tucked: true }
+  }
   const target = landingPosition(state)
   if (!target) return state
   const distance = Math.abs(target.q - state.falling.q) + Math.abs(target.r - state.falling.r) + 1
-  const axis = laneAxis(state.fallDirection)
-  const step = Math.sign(lane - state.falling[axis])
   const outward =
     axis === 'q'
       ? step > 0
@@ -176,12 +223,6 @@ export function moveFalling(state: FallingGameState, lane: number): FallingGameS
   let next = state
   while (next.falling![axis] !== lane) {
     const value = next.falling![axis] + step
-    const beside = { ...next.falling!, [axis]: value }
-    // Prefer a real hole at the tile's current depth before following the lane's relief.
-    if (isInsertionPocket(state.board, beside) && canPlace(activeBoard(state), beside)) {
-      next = { ...next, falling: beside, tucked: true }
-      continue
-    }
     const falling = positionAboveLane(activeBoard(state), state.fallDirection, value, distance)
     if (!falling) return turnAtEdge(next, outward)
     next = { ...next, falling, tucked: false }
@@ -197,6 +238,26 @@ export function changeFallDirection(
   const target = landingPosition(state)
   if (!target || !state.falling) return state
   const distance = Math.abs(target.q - state.falling.q) + Math.abs(target.r - state.falling.r) + 1
+  const cavity = activeBoard(state)
+  if (isInCavity(state)) {
+    // A turn inside the cavity uses the nearest real wall, never the outer silhouette.
+    // Repeating the current arrival side cannot switch to another island from inside it.
+    if (direction === state.fallDirection || !isInsertionCavity(cavity, state.falling, direction))
+      return state
+    const turned = { ...state, fallDirection: direction, tucked: true }
+    const landing = landingPosition(turned)
+    if (!landing) return state
+    const available =
+      Math.abs(landing.q - state.falling.q) + Math.abs(landing.r - state.falling.r) + 1
+    const steps = Math.max(0, available - distance)
+    let falling = state.falling
+    for (let step = 0; step < steps; step++) {
+      falling = neighbour(falling, direction)
+      if (isOccupied(state.board, falling) || !isInsertionCavity(cavity, falling, direction))
+        return state
+    }
+    return { ...turned, falling }
+  }
   const anchor = landingAnchor(state, target)
   const axis = laneAxis(direction)
   const island = boardIsland(state.board, anchor)
@@ -286,10 +347,8 @@ function lockFalling(state: FallingGameState, position: Coord): FallingGameState
 /** One step on demand or on the gravity clock; no time is consumed by manual input. */
 export function advanceFalling(state: FallingGameState): FallingGameState {
   if (!state.falling || isGameOver(state)) return state
-  if (state.tucked && isInsertionPocket(state.board, state.falling))
-    return lockFalling(state, state.falling)
   const next = neighbour(state.falling, state.fallDirection)
-  return isOccupied(activeBoard(state), next) ||
+  return isOccupied(state.tucked ? state.board : activeBoard(state), next) ||
     (boardTiles(state.board).length === 0 && state.falling.q === 0 && state.falling.r === 0)
     ? lockFalling(state, state.falling)
     : { ...state, falling: next, fallElapsed: 0 }

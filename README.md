@@ -27,13 +27,18 @@ flush, so where two tiles meet, each square on one side faces one square on the 
   bindings and keyboard layout. Main menu focus is shown by colour and the four-square marker,
   without a green outline.
   Only one main option is highlighted; pointer hover and keyboard focus update that selection.
-  Up/Down cycle through the large entries. Difficulty sits beside the new-game action;
-  Right enters it and Left returns. Right/Left also enter and leave an open side panel.
-- Customization is available in both the starting and pause menus. Light preserves the original
+  Up/Down cycle through the large entries. Right/Left enter and leave an open side panel.
+  Difficulty sits at the bottom of Gamemode, after the tile sets, in both menus.
+- Settings is available in both the starting and pause menus, with two initially collapsed
+  sections: Customization (themes and standard tile sound selection) and General (language,
+  audio volumes and switches, keyboard and mouse controls). Arrow-key navigation skips controls
+  inside closed sections. Return to main menu leaves the paused run, preserves saved records,
+  and restores the home music; Play then starts a fresh run with the selected options.
+  Light preserves the original
   appearance; Dark changes the sky, ground, lighting, menus and HUD while keeping the terrain
   colours. The theme applies immediately and is saved locally.
   Choose Wood, Button, Laser, Water drop (default), Steel, Glass or Silent for standard tile sounds.
-  Selecting a clip previews it. Settings > Audio contains Preview sound, volumes and On/Off controls.
+  Selecting a clip previews it. Settings > General > Audio contains Preview sound, volumes and On/Off controls.
   Successful manual and automatic standard placements play the selected sound, including the last tile.
   All tile effects share one saved On/Off switch and volume slider, defaulting to 30%.
   Movement, rotation, restarting and opening menus stay silent. Clips are bundled locally and
@@ -48,10 +53,11 @@ flush, so where two tiles meet, each square on one side faces one square on the 
   preserve the same track and playhead. HTML audio streams the long tracks with native looping;
   Native audio controls volume without decoding entire tracks into memory.
   Music becomes silent while the tab is hidden. Music and menu cues each have an
-  independent On/Off switch and saved volume under Settings > Audio.
+  independent On/Off switch and saved volume under Settings > General > Audio.
   The menu cue defaults to 8% (about 68% quieter than its former 25% setting); existing default
   settings are upgraded, while customized volumes and mute choices are preserved. Music attempts
-  playback as soon as the app opens; if browser autoplay rules block it, any click or key press retries.
+  playback as soon as the app opens; if browser autoplay rules block it, any click or key press
+  retries silently, without an activation button or explanatory text in the menu.
   Navigate its buttons with arrows or the bound movement keys (WASD / ZQSD by default),
   including the Settings panel; `Enter` or `Space` activates the focused button.
 - Move sideways around the stack to change the arrival side automatically. If the next lane
@@ -61,15 +67,15 @@ flush, so where two tiles meet, each square on one side faces one square on the 
   distance and fall cadence are preserved. Lateral movement follows the outer surface of
   each lane: taller stacks raise the tile and shorter stacks lower it without adding fall time.
 - A transparent tile moves towards the stack automatically, one square every 1.5 seconds at level 1 on Easy.
-  Each level gently shortens the interval: `0.45 + 1.05 × 0.93^(level - 1)` seconds per square.
-  A fresh ten-step approach takes 15 s at level 1, about 12.4 s at level 5, 10 s at level 10
-  and 7.1 s at level 20, gradually approaching a 4.5 s minimum. The new speed applies to the
+  Each level gently shortens the interval: `0.5 + (starting interval - 0.5) × 0.93^(level - 1)` seconds per square.
+  On Easy, a fresh ten-step approach takes 15 s at level 1, about 12.5 s at level 5, 10.2 s at level 10
+  and 7.5 s at level 20, gradually approaching a 5 s minimum. The new speed applies to the
   next tile after a level-up; manual side changes retain the elapsed cadence.
   It locks when the next square is occupied, scores normally, and the next tile starts another
   fall. Side contacts do not stop the fall. A fainter landing projection shows its destination.
-- The compact Difficulty selector beside Play / New game changes only the starting cadence:
-  Easy starts at 15 s per tile, Medium at about 10 s (Easy level 10), Hard at about 7.1 s
-  (Easy level 20), and Insane at the 4.5 s minimum. Medium and Hard continue to accelerate
+- The compact Difficulty selector at the bottom of Gamemode changes only the starting cadence:
+  Easy starts at exactly 15 s per tile, Medium at 10 s, Hard at 7.5 s,
+  and Insane at the 5 s minimum. Medium and Hard continue to accelerate
   gently with each score level; Insane stays at the speed cap. Standard games start at score level 1
   with 30 tiles and the same goals and rewards. Changing the selector during a pause affects
   the next new game, not the game being resumed.
@@ -98,10 +104,25 @@ flush, so where two tiles meet, each square on one side faces one square on the 
   respawning stay on the selected island; the floating ghost may travel over other islands
   without stopping on them. Holding Shift + a key does not skip islands.
 - A lateral input first tries the adjacent empty cell at the falling tile's current depth.
-  Only a cell bordered by placed tiles on exactly three of its four faces allows insertion.
-  If it touches the selected island, the tile slides into that pocket without restarting its clock
-  and locks at the next gravity step, even under an overhang. Rotation and exchanging tiles
-  remain possible before locking; Enter/Space places it there immediately. Otherwise movement
+  Cavities allow insertion when the same island surrounds an empty cell in at least three
+  cardinal directions, including a floor ahead in the unchanged fall direction. There is no
+  maximum wall distance or requirement to touch a wall while moving: large courtyards are
+  traversable at the tile's current depth. A multi-column selection keeps this depth only if
+  the entire path is empty and inside the cavity. Occupied cells block lateral movement inside
+  cavities; unrelated islands cannot serve as their enclosing walls. The tile keeps its clock,
+  then continues to the floor on the existing gravity cadence. A single-cell pocket locks at
+  the next step. Distant holes, exposed edges and occupied source cells retain ordinary lane movement.
+  Inside a cavity, changing arrival side targets the nearest inner wall in the same row or
+  column as the moving tile, instead of respawning outside the island. A farther wall advances
+  the tile along an empty path to preserve its remaining fall steps; a closer wall shortens
+  that distance without moving the tile backwards. The cadence is unchanged. Walls and open
+  exits block lateral escape; choosing an open direction or repeating the same arrival side
+  cannot leave the cavity or switch islands.
+  Inside cavities, Shift + a movement key aims towards that screen direction (up towards
+  the upper wall, down towards the lower wall, likewise left/right). Outside, it still
+  selects the arrival side. Both mappings follow camera orientation and rebound movement keys.
+  Rotation and exchanging tiles remain possible before locking; Enter/Space places it at
+  the cavity floor immediately. Otherwise movement
   follows lane relief as before. This applies in all four directions and both game modes.
   The moving ghost is 80% opaque so its terrain colours remain readable.
 - The camera follows successful manual lateral movements smoothly. Automatic falling,
@@ -231,6 +252,11 @@ or tie message, or the point difference from the best score before that run. Dif
 not create additional record categories. Scores are kept on this browser/device; clearing
 browser storage removes them. Fractional scores are preserved, and invalid saved entries
 are ignored. The audio controls and record feedback are available in both languages.
+
+The camera measures the visible HUD and frames the falling tile and its destination inside
+the largest unobstructed rectangular area. It accounts for the top cards, the tile tray and
+the help drawer, including window resizing, while preserving free camera controls and the
+tray's position and design. Manual recentering uses the same safe area.
 
 Each new run resets the camera to the central island, with a fitted zoom that includes the
 approaching tile. This also works after restarting with the same seed, without reframing an

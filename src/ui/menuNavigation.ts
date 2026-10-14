@@ -2,6 +2,25 @@ import type { KeyboardEvent } from 'react'
 import { actionForCode } from '../input/bindings'
 import type { Bindings } from '../input/bindings'
 
+function panelOptions(panel: HTMLElement): HTMLElement[] {
+  return Array.from(
+    panel.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled), summary'),
+  ).filter((option) => {
+    for (
+      let parent = option.parentElement;
+      parent && parent !== panel;
+      parent = parent.parentElement
+    ) {
+      if (
+        parent.matches('details:not([open])') &&
+        parent.querySelector(':scope > summary') !== option
+      )
+        return false
+    }
+    return true
+  })
+}
+
 /** Main entries form a vertical list; secondary controls and panels sit to their right. */
 export function navigateMenu(event: KeyboardEvent<HTMLDivElement>, bindings: Bindings): void {
   const action = actionForCode(bindings, event.code)
@@ -43,19 +62,15 @@ export function navigateMenu(event: KeyboardEvent<HTMLDivElement>, bindings: Bin
             ? root.querySelector<HTMLElement>('[data-menu-secondary]')
             : null)
         destination = secondary?.querySelector<HTMLElement>('select:not(:disabled)')
-        if (!destination && main.getAttribute('aria-pressed') === 'true')
-          destination = root
-            .querySelector<HTMLElement>('[data-menu-panel]')
-            ?.querySelector<HTMLElement>('button:not(:disabled), select:not(:disabled), summary')
+        if (!destination && main.getAttribute('aria-pressed') === 'true') {
+          const activePanel = root.querySelector<HTMLElement>('[data-menu-panel]')
+          destination = activePanel ? panelOptions(activePanel)[0] : null
+        }
       }
     } else if (left) {
       destination = root.querySelector<HTMLElement>(`[data-menu-item="${panel.dataset.menuPanel}"]`)
     } else if (up || down) {
-      const options = Array.from(
-        panel.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), select:not(:disabled), summary',
-        ),
-      )
+      const options = panelOptions(panel)
       const index = focused ? options.indexOf(focused) : -1
       if (options.length)
         destination = options[(index + (up ? -1 : 1) + options.length) % options.length]

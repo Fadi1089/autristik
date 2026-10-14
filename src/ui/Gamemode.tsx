@@ -7,6 +7,7 @@ import { useGameStore } from '../store/gameStore'
 import { GAME_VARIANTS, GAME_VARIANT_LABELS } from '../game/variants'
 import { recordKey, useRecordsStore } from '../store/recordsStore'
 import { formatPoints } from './format'
+import { DifficultySelector } from './DifficultySelector'
 
 const MODE_INFO: Record<GameMode, readonly Message[]> = {
   classic: [
@@ -141,6 +142,9 @@ export function Gamemode() {
             )
           : t('Difficulty and approach speed are independent of the game mode.')}
       </p>
+      <section className="border-t border-ink/10 pt-4">
+        <DifficultySelector />
+      </section>
     </div>
   )
 }
