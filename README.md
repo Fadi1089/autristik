@@ -1,4 +1,4 @@
-<h1 align="center">Autristik</h1>
+<h1 align="center">Autristik</h1> 
 
 <p align="center">
   <img src="src/assets/menu-village.webp" alt="A small village of tiles: fields, a pond with a waterfall, pine trees and a lookout tower" width="360">
