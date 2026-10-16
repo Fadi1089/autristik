@@ -69,12 +69,12 @@ flush, so where two tiles meet, each square on one side faces one square on the 
 
 Hold `Shift` with any bound movement key to choose the arrival side, relative to the camera:
 
-| `Shift` + | Effect                          |
-| --------- | ------------------------------- |
-| Right     | Tile falls right-to-left        |
-| Left      | Tile falls left-to-right        |
-| Up        | Tile falls top-to-bottom        |
-| Down      | Tile falls bottom-to-top        |
+| `Shift` + | Effect                   |
+| --------- | ------------------------ |
+| Right     | Tile falls right-to-left |
+| Left      | Tile falls left-to-right |
+| Up        | Tile falls top-to-bottom |
+| Down      | Tile falls bottom-to-top |
 
 - This preserves the remaining distance and cadence and uses the projected placement's row/column
   for the new lane.
@@ -167,14 +167,14 @@ Default keys:
 
 ### Mouse and touchpad
 
-| Input                                   | Action                  |
-| --------------------------------------- | ----------------------- |
-| Click / tap                             | Choose a landing lane   |
-| Click / tap the next tray tile          | Swap current / next     |
-| Left-drag, one finger                   | Pan                     |
-| Scroll wheel, pinch                     | Zoom                    |
+| Input                                     | Action                  |
+| ----------------------------------------- | ----------------------- |
+| Click / tap                               | Choose a landing lane   |
+| Click / tap the next tray tile            | Swap current / next     |
+| Left-drag, one finger                     | Pan                     |
+| Scroll wheel, pinch                       | Zoom                    |
 | Sideways touchpad scroll, `Shift` + wheel | Pivot around the board  |
-| Right-drag                              | Tilt (limited) and turn |
+| Right-drag                                | Tilt (limited) and turn |
 
 ### Layouts and rebinding
 

@@ -58,10 +58,10 @@ mode, draws, format or difficulty.
 
 ### Gamemode: Classique / Superblock
 
-| Gamemode       | Contents                                                                                                  |
-| -------------- | --------------------------------------------------------------------------------------------------------- |
+| Gamemode       | Contents                                                                                                                                           |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Classique**  | Ordinary terrain tiles only: no gold joker, void, bedrock or per-tile multipliers. Combos, level goals, supply rewards and difficulty still apply. |
-| **Superblock** | Keeps all [special tiles](#special-tiles-superblock). Selected by default to preserve the existing gameplay.         |
+| **Superblock** | Keeps all [special tiles](#special-tiles-superblock). Selected by default to preserve the existing gameplay.                                       |
 
 Each choice has a small **Infos** tab with three short points. The current mode is shown in the
 pause menu and final score summary.
@@ -102,12 +102,12 @@ both Classique and Superblock.
 
 The compact Difficulty selector at the bottom of Gamemode changes only the starting cadence:
 
-| Difficulty | Starting cadence (per tile) | Behaviour                                         |
-| ---------- | --------------------------- | ------------------------------------------------- |
-| Easy       | Exactly 15 s                | Accelerates gently with each score level          |
-| Medium     | 10 s                        | Accelerates gently with each score level          |
-| Hard       | 7.5 s                       | Accelerates gently with each score level          |
-| Insane     | 5 s (the minimum)           | Stays at the speed cap                            |
+| Difficulty | Starting cadence (per tile) | Behaviour                                |
+| ---------- | --------------------------- | ---------------------------------------- |
+| Easy       | Exactly 15 s                | Accelerates gently with each score level |
+| Medium     | 10 s                        | Accelerates gently with each score level |
+| Hard       | 7.5 s                       | Accelerates gently with each score level |
+| Insane     | 5 s (the minimum)           | Stays at the speed cap                   |
 
 - Standard games start at score level 1 with 30 tiles and the same goals and rewards.
 - Changing the selector during a pause affects the next new game, not the game being resumed.
