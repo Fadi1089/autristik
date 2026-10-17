@@ -1,5 +1,21 @@
 /** English source messages and their complete French translations. */
 export const FRENCH = {
+  'Grid exploration': 'Exploration de la grille',
+  'Grid and camera': 'Grille et caméra',
+  'Enable WebGL to explore the grid.': 'Active WebGL pour explorer la grille.',
+  'Return to the origin (C / !)': 'Revenir à l’origine (C / !)',
+  Recenter: 'Recentrer',
+  'Dark theme': 'Thème sombre',
+  'Light theme': 'Thème clair',
+  'Mute music': 'Couper la musique',
+  'Unmute music': 'Activer la musique',
+  'Drag to pan · Scroll to zoom · Right-drag to turn':
+    'Glisser pour déplacer · Molette pour zoomer · Clic droit glissé pour tourner',
+  'Touch: drag to pan, use two fingers to zoom or turn.':
+    'Tactile : glisse pour déplacer, utilise deux doigts pour zoomer ou tourner.',
+  'to move the camera': 'pour déplacer la caméra',
+  'Camera centre': 'Centre de la caméra',
+  'Centre: {x}, {z}': 'Centre : {x}, {z}',
   'Tiles remaining: {tiles}': 'Tuiles restantes : {tiles}',
   Current: 'Actuelle',
   General: 'Général',

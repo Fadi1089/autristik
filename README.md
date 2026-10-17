@@ -15,7 +15,27 @@ Each tile is split into four terrain squares; matching squares across a seam sco
 Built with Vite, React, TypeScript, Three.js (via @react-three/fiber and drei), Zustand and
 Tailwind CSS v4. It deploys to GitLab Pages.
 
-## How to play
+## Current validation stage: grid and camera
+
+The default view now opens directly on a continuous square grid, without placement,
+approaching tiles, scores, supplies, timers or game menus. This stage isolates the grid and
+camera for client validation before deciding the game rules.
+
+- Pan freely with left-drag, one finger, arrows or the saved WASD/ZQSD movement bindings.
+- Zoom with the wheel/pinch; right-drag or two fingers turns and tilts the camera.
+- The existing camera turn and zoom key bindings also work. `C`, `!` or Recenter returns
+  to the origin. No tile follow, menu orbit or board-dependent pan bounds run in this view.
+- Each unit cell remains visible throughout the ground viewport; stronger lines every five
+  cells help orientation. The grid is calculated per pixel on an unbounded plane, without
+  finite mesh edges, fog or a distance fade. Camera tilt and zoom keep the ground readable.
+- The previous light/dark palette, soft typography, music and saved preferences are retained.
+  Theme and music controls remain available; centre coordinates help check long-distance pans.
+- The earlier game remains in `src/GameApp.tsx`, available explicitly at `?view=game`.
+  It is loaded separately and its mechanics do not run in the default presentation.
+
+The following sections describe that earlier prototype, kept for later discussions.
+
+## Earlier prototype: how to play
 
 Each tile is a 2×2 grid of terrain squares (meadow, forest, field, water or village). Tiles sit
 flush, so where two tiles meet, each square on one side faces one square on the other.
