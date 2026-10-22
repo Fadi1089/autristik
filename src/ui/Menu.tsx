@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { isGameOver } from '../game/game'
-import { pieceCount } from '../game/board'
-import { SCENE_COLORS, TERRAIN_COLORS } from '../palette'
+import { TERRAIN_COLORS } from '../palette'
 import { useGameStore } from '../store/gameStore'
 import { useSettingsStore } from '../store/settingsStore'
 import villageArt from '../assets/menu-village.webp'
 import { KeySettings } from './KeySettings'
 
-type Panel = 'how' | 'settings'
+type Panel = 'settings'
 
 /** Four little squares that slide in next to the selected (focused or hovered) menu item. */
 function Bullet() {
@@ -17,10 +15,10 @@ function Bullet() {
       aria-hidden
       className="grid size-4 -translate-x-2 grid-cols-2 gap-px overflow-hidden rounded-[3px] opacity-0 transition duration-300 group-hover:translate-x-0 group-hover:opacity-100 group-focus:translate-x-0 group-focus:opacity-100 group-aria-pressed:translate-x-0 group-aria-pressed:opacity-100"
     >
-      <span style={{ background: TERRAIN_COLORS.grass }} />
-      <span style={{ background: TERRAIN_COLORS.forest }} />
-      <span style={{ background: TERRAIN_COLORS.water }} />
-      <span style={{ background: TERRAIN_COLORS.field }} />
+      <span style={{ background: TERRAIN_COLORS.red }} />
+      <span style={{ background: TERRAIN_COLORS.green }} />
+      <span style={{ background: TERRAIN_COLORS.blue }} />
+      <span style={{ background: TERRAIN_COLORS.yellow }} />
     </span>
   )
 }
@@ -62,91 +60,14 @@ function MenuItem({
   )
 }
 
-/** Two tiles side by side: the top pair across the seam matches, the bottom pair doesn't. */
-function SeamDiagram() {
-  const c = TERRAIN_COLORS
-  const cells: [x: number, y: number, fill: string][] = [
-    [0, 0, c.forest],
-    [24, 0, c.water],
-    [0, 24, c.grass],
-    [24, 24, c.field],
-    [52, 0, c.water],
-    [76, 0, c.grass],
-    [52, 24, c.grass],
-    [76, 24, c.grass],
-  ]
-  return (
-    <svg viewBox="-2 -2 104 52" className="w-32 shrink-0" aria-hidden>
-      {cells.map(([x, y, fill]) => (
-        <rect key={`${x},${y}`} x={x} y={y} width={24} height={24} fill={fill} />
-      ))}
-      <path d="M50 -2V50" stroke="var(--color-ink)" strokeOpacity={0.35} strokeDasharray="3 3" />
-      <circle cx={50} cy={12} r={4.5} fill={SCENE_COLORS.match} stroke="white" strokeWidth={1.5} />
-      <circle
-        cx={50}
-        cy={36}
-        r={4.5}
-        fill={SCENE_COLORS.mismatch}
-        stroke="white"
-        strokeWidth={1.5}
-      />
-    </svg>
-  )
-}
-
-function HowToPlay() {
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-5">
-        <SeamDiagram />
-        <p className="text-sm leading-snug text-ink/75">
-          Where two tiles meet, each square faces one square on the other tile. Same terrain on both
-          sides is a match.
-        </p>
-      </div>
-      <ol className="space-y-2.5 text-sm text-ink/80">
-        <Rule n="1">
-          Place each tile next to the board: click a square, tap it twice on a touch screen, or use
-          the keyboard alone (move, then Enter or Space). Rotate it to line up the squares.
-        </Rule>
-        <Rule n="2">
-          Every matching square along a seam scores 5 points. The current tile and the next three
-          are shown at the bottom.
-        </Rule>
-        <Rule n="3">
-          Match every side you touch (two or more) and a tile returns to your stack.
-        </Rule>
-        <Rule n="4">
-          Fill a gap exactly and match every edge for 30 bonus points and two tiles.
-        </Rule>
-      </ol>
-      <p className="font-display text-sm text-ink/60 italic">
-        Mismatches never cost points. The game ends when the stack is empty.
-      </p>
-    </div>
-  )
-}
-
-function Rule({ n, children }: { n: string; children: ReactNode }) {
-  return (
-    <li className="flex gap-3">
-      <span className="font-display text-base leading-5 font-semibold text-clay">{n}</span>
-      <span>{children}</span>
-    </li>
-  )
-}
-
 export function Menu() {
   // No panel shows the village art; picking a panel again goes back to it.
   const [panel, setPanel] = useState<Panel | null>(null)
   const started = useGameStore((s) => s.started)
-  const over = useGameStore(isGameOver)
-  const score = useGameStore((s) => s.score)
-  const tiles = useGameStore((s) => pieceCount(s.board))
   const closeMenu = useGameStore((s) => s.closeMenu)
   const restart = useGameStore((s) => s.restart)
 
-  const canResume = started && !over
+  const canResume = started
   const toggle = (next: Panel) => setPanel((p) => (p === next ? null : next))
   const items = useRef<HTMLUListElement>(null)
 
@@ -211,8 +132,7 @@ export function Menu() {
             className="mt-5 max-w-md animate-rise font-display text-lg leading-snug text-ink/70 italic"
             style={{ animationDelay: '160ms' }}
           >
-            Lay down meadow, forest and water one tile at a time. Line up the squares where tiles
-            meet and the stack keeps growing.
+            Place each tetromino on the grid to grow the world across distinct biomes.
           </p>
 
           <ul ref={items} className="mt-9 space-y-1">
@@ -235,22 +155,10 @@ export function Menu() {
                 New game
               </MenuItem>
             )}
-            <MenuItem pressed={panel === 'how'} onClick={() => toggle('how')} delay={320}>
-              How to play
-            </MenuItem>
-            <MenuItem pressed={panel === 'settings'} onClick={() => toggle('settings')} delay={370}>
+            <MenuItem pressed={panel === 'settings'} onClick={() => toggle('settings')} delay={320}>
               Settings
             </MenuItem>
           </ul>
-
-          {started && (
-            <p
-              className="mt-10 animate-rise font-display text-sm text-ink/70"
-              style={{ animationDelay: '440ms' }}
-            >
-              {score} points · {tiles} tiles
-            </p>
-          )}
         </section>
 
         {panel ? (
@@ -258,8 +166,8 @@ export function Menu() {
             key={panel}
             className="card animate-rise self-center p-6 sm:p-8 lg:max-h-full lg:overflow-y-auto"
           >
-            <h2 className="eyebrow mb-5">{panel === 'how' ? 'How to play' : 'Settings'}</h2>
-            {panel === 'how' ? <HowToPlay /> : <KeySettings />}
+            <h2 className="eyebrow mb-5">Settings</h2>
+            <KeySettings />
           </aside>
         ) : (
           <div

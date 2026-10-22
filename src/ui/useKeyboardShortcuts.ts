@@ -38,8 +38,8 @@ export function useKeyboardShortcuts() {
         if (!e.repeat) game.toggleMenu()
         return
       }
-      // Leave Enter, Space and friends to the menu and game-over buttons.
-      if (game.menuOpen || isGameOver(game)) return
+      // Leave Enter, Space and friends to the menu buttons.
+      if (game.menuOpen || isGameOver()) return
 
       const action = actionForCode(settings.bindings, e.code)
       if (!action) return

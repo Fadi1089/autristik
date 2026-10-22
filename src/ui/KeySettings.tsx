@@ -50,6 +50,8 @@ export function KeySettings() {
   const unbind = useSettingsStore((s) => s.unbind)
   const setCapturing = useSettingsStore((s) => s.setCapturing)
   const resetBindings = useSettingsStore((s) => s.resetBindings)
+  const keyboardLayout = useSettingsStore((s) => s.keyboardLayout)
+  const setKeyboardLayout = useSettingsStore((s) => s.setKeyboardLayout)
 
   // While a slot is waiting, the next key press is the new binding. Capturing on window
   // ahead of everything else keeps Esc from also closing the menu.
@@ -84,6 +86,24 @@ export function KeySettings() {
           >
             Reset to defaults
           </button>
+        </div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs font-semibold text-ink/65">Keyboard layout</span>
+          <div role="group" aria-label="Keyboard layout" className="flex rounded-lg bg-ink/6 p-1">
+            {(['qwerty', 'azerty'] as const).map((layout) => (
+              <button
+                key={layout}
+                type="button"
+                aria-pressed={keyboardLayout === layout}
+                onClick={() => setKeyboardLayout(layout)}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                  keyboardLayout === layout ? 'bg-moss text-paper' : 'text-ink/60 hover:text-ink'
+                }`}
+              >
+                {layout.toUpperCase()}
+              </button>
+            ))}
+          </div>
         </div>
         <p className="mb-3 text-xs text-ink/55">
           Pick a slot, then press a key. <kbd>Esc</kbd> cancels, <kbd>Backspace</kbd> clears.

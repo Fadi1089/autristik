@@ -1,10 +1,22 @@
 import type { Coord } from './coords'
 import type { Rng } from './random'
 
-export const TERRAINS = ['grass', 'forest', 'field', 'water', 'village'] as const
-export type Terrain = (typeof TERRAINS)[number]
+/**
+ * 5 biomes available:
+ * - black (noir)
+ * - red (rouge)
+ * - green (vert)
+ * - yellow (jaune)
+ * - blue (bleu)
+ */
+export const BIOMES = ['black', 'red', 'green', 'yellow', 'blue'] as const
+export type Biome = (typeof BIOMES)[number]
 
-/** The terrain of a piece's four squares, in the order of its shape's squares. */
+/** Alias for compatibility with existing terrain terminology. */
+export const TERRAINS = BIOMES
+export type Terrain = Biome
+
+/** The biome/terrain of a piece's four squares, in the order of its shape's squares. */
 export type Terrains = readonly [Terrain, Terrain, Terrain, Terrain]
 
 /** The seven tetrominoes. */
@@ -102,25 +114,100 @@ export function pieceSquares(piece: Tetromino, rotation: Rotation, at: Coord): S
   }))
 }
 
-const TERRAIN_WEIGHTS: Readonly<Record<Terrain, number>> = {
-  grass: 4,
-  forest: 3,
-  field: 3,
-  water: 1.5,
-  village: 1,
+/**
+ * Biome selection probabilities:
+ * - Red: 30%
+ * - Green: 30%
+ * - Black: 17.5%
+ * - Yellow: 17.5%
+ * - Blue: 5%
+ */
+export const BIOME_WEIGHTS: Readonly<Record<Biome, number>> = {
+  red: 0.3,
+  green: 0.3,
+  black: 0.175,
+  yellow: 0.175,
+  blue: 0.05,
 }
 
-/** Chance that a square copies the piece's dominant terrain, which makes pieces easier to match. */
-const DOMINANT_SQUARE_CHANCE = 0.55
+export const TERRAIN_WEIGHTS = BIOME_WEIGHTS
 
+/**
+ * Pick `count` distinct biomes without replacement from BIOMES using their selection weights.
+ */
+export function pickDistinctBiomes(rng: Rng, count: number): Biome[] {
+  const pool = [...BIOMES]
+  const chosen: Biome[] = []
+  for (let i = 0; i < count && pool.length > 0; i++) {
+    const weights: Record<string, number> = {}
+    for (const b of pool) {
+      weights[b] = BIOME_WEIGHTS[b]
+    }
+    const picked = rng.weighted(weights) as Biome
+    chosen.push(picked)
+    const idx = pool.indexOf(picked)
+    if (idx >= 0) pool.splice(idx, 1)
+  }
+  return chosen
+}
+
+/**
+ * Number of biomes per tetromino (4 squares):
+ * - 45% of having 2 biomes
+ * - 25% of having 3 biomes
+ * - 15% of having 4 biomes
+ * - 15% of having 1 biome
+ */
+export function pickBiomeCount(rng: Rng): 1 | 2 | 3 | 4 {
+  const roll = rng.next()
+  if (roll < 0.15) return 1
+  if (roll < 0.6) return 2 // 0.15 + 0.45
+  if (roll < 0.85) return 3 // 0.60 + 0.25
+  return 4 // 1 - 0.85 = 0.15
+}
+
+function shuffle<T>(arr: T[], rng: Rng): T[] {
+  const res = [...arr]
+  for (let i = res.length - 1; i > 0; i--) {
+    const j = Math.floor(rng.next() * (i + 1))
+    const temp = res[i]!
+    res[i] = res[j]!
+    res[j] = temp
+  }
+  return res
+}
+
+/**
+ * Generates 4 squares for a tetromino according to the biome count distribution
+ * (15% 1-biome, 45% 2-biomes, 25% 3-biomes, 15% 4-biomes) and biome weights.
+ */
 export function randomTerrains(rng: Rng): Terrains {
-  const dominant = rng.weighted(TERRAIN_WEIGHTS)
-  const pick = () =>
-    rng.next() < DOMINANT_SQUARE_CHANCE ? dominant : rng.weighted(TERRAIN_WEIGHTS)
-  return [pick(), pick(), pick(), pick()]
+  const count = pickBiomeCount(rng)
+  const biomes = pickDistinctBiomes(rng, count)
+
+  switch (count) {
+    case 1: {
+      const b = biomes[0]!
+      return [b, b, b, b]
+    }
+    case 2: {
+      const [b1, b2] = biomes
+      const extra1 = rng.next() < 0.5 ? b1! : b2!
+      const extra2 = rng.next() < 0.5 ? b1! : b2!
+      return shuffle([b1!, b2!, extra1, extra2], rng) as unknown as Terrains
+    }
+    case 3: {
+      const [b1, b2, b3] = biomes
+      const dup = [b1!, b2!, b3!][Math.floor(rng.next() * 3)]!
+      return shuffle([b1!, b2!, b3!, dup], rng) as unknown as Terrains
+    }
+    case 4: {
+      return shuffle(biomes, rng) as unknown as Terrains
+    }
+  }
 }
 
-/** Every shape is equally likely; terrain is drawn as it was for the old 2×2 tiles. */
+/** Every shape is equally likely; biomes are drawn per the specified probabilities. */
 export function randomTetromino(rng: Rng): Tetromino {
   const shape = SHAPES[Math.floor(rng.next() * SHAPES.length)]!
   return { shape, terrains: randomTerrains(rng) }

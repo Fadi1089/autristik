@@ -5,7 +5,7 @@ import { TERRAIN_COLORS } from '../palette'
 import { burst, DUST, LANDING_DELAY, SPECKS } from './dust'
 
 describe('placement dust', () => {
-  const piece = pieceSquares({ shape: 'T', terrains: ['grass', 'forest', 'field', 'water'] }, 0, {
+  const piece = pieceSquares({ shape: 'T', terrains: ['green', 'black', 'yellow', 'blue'] }, 0, {
     q: 3,
     r: -2,
   })

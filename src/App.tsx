@@ -1,7 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { Scene } from './scene/Scene'
 import { useGameStore } from './store/gameStore'
-import { GameOver } from './ui/GameOver'
 import { HUD } from './ui/HUD'
 import { Menu } from './ui/Menu'
 import { useKeyboardShortcuts } from './ui/useKeyboardShortcuts'
@@ -20,7 +19,6 @@ export function App() {
         <Scene />
       </Canvas>
       {!menuOpen && <HUD />}
-      <GameOver />
       {menuOpen && <Menu />}
     </main>
   )

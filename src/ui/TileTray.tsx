@@ -107,15 +107,14 @@ const UPCOMING_SLOTS = [
 ] as const
 
 /**
- * The piece in hand between its rotate buttons, the next three pieces getting smaller as
- * they wait their turn, and how many tetrominoes are left in the stack.
+ * The piece in hand between its rotate buttons, and the next three pieces getting smaller as
+ * they wait their turn.
  */
 export function TileTray() {
   const current = useGameStore((s) => s.current)
   const rotation = useGameStore((s) => s.rotation)
-  const remaining = useGameStore((s) => s.remaining)
   const seed = useGameStore((s) => s.seed)
-  const upcoming = useMemo(() => upcomingTiles({ remaining, seed }), [remaining, seed])
+  const upcoming = useMemo(() => upcomingTiles({ seed }), [seed])
   const rotate = useGameStore((s) => s.rotate)
   const [spin, setSpin] = useState<Spin | null>(null)
   /** Quarter turns of the piece in hand, counted the short way round so it never spins back. */
@@ -147,7 +146,7 @@ export function TileTray() {
   if (!current) return null
 
   return (
-    <div className="card flex h-14 items-center gap-4 pr-5 pl-2 sm:h-[4.6rem] sm:gap-6 sm:pr-7 sm:pl-3">
+    <div className="card flex h-14 items-center gap-4 px-3 sm:h-[4.6rem] sm:gap-6 sm:px-4">
       <div className="flex items-center gap-1">
         <RotateButton
           label={`Rotate counter-clockwise${ccwKey ? ` (${ccwKey})` : ''}`}
@@ -184,7 +183,7 @@ export function TileTray() {
             // Re-keyed on every placement so each slot slides in as the queue moves up.
             // Fixed 4-square slots keep the line steady whatever the shapes are.
             <li
-              key={`${i}-${remaining}`}
+              key={`${i}-${seed}`}
               aria-label={describe(piece)}
               className={`grid size-[4em] animate-queue place-items-center ${UPCOMING_SLOTS[i]}`}
               style={{ animationDelay: `${i * 40}ms` }}
@@ -194,16 +193,6 @@ export function TileTray() {
           ))}
         </ol>
       )}
-
-      <div
-        className="flex flex-col justify-center"
-        aria-label={`${remaining} tetrominoes remaining`}
-      >
-        <span className="eyebrow">Remaining</span>
-        <span className="font-display text-2xl leading-none font-semibold tabular-nums sm:mt-0.5 sm:text-[2rem]">
-          {remaining}
-        </span>
-      </div>
     </div>
   )
 }

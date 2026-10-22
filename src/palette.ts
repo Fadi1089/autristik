@@ -1,21 +1,25 @@
-import type { Terrain } from './game/tiles'
+import type { Biome } from './game/tiles'
 
-/** Shared colours for the 3D scene and the HTML overlay. */
-export const TERRAIN_COLORS: Readonly<Record<Terrain, string>> = {
-  grass: '#a3c96f',
-  forest: '#4f8a52',
-  field: '#e6c35c',
-  water: '#62a9cc',
-  village: '#d97c5b',
+/** Shared colours for the 3D scene and the HTML overlay for the 5 biomes. */
+export const TERRAIN_COLORS: Readonly<Record<Biome, string>> = {
+  black: '#26262a',
+  red: '#e04a3f',
+  green: '#4f9e52',
+  yellow: '#f5bc38',
+  blue: '#3a8ee6',
 }
 
-export const TERRAIN_LABELS: Readonly<Record<Terrain, string>> = {
-  grass: 'Meadow',
-  forest: 'Forest',
-  field: 'Field',
-  water: 'Water',
-  village: 'Village',
+export const BIOME_COLORS = TERRAIN_COLORS
+
+export const TERRAIN_LABELS: Readonly<Record<Biome, string>> = {
+  black: 'Noir',
+  red: 'Rouge',
+  green: 'Vert',
+  yellow: 'Jaune',
+  blue: 'Bleu',
 }
+
+export const BIOME_LABELS = TERRAIN_LABELS
 
 export const SCENE_COLORS = {
   background: '#f3eadb',

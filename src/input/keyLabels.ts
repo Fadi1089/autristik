@@ -38,16 +38,43 @@ const NAMED: Readonly<Record<string, string>> = {
   Insert: 'Insert',
 }
 
-/** Physical-key code → printed key, from the browser's Keyboard API when it has one. */
+/** Physical-key code → printed key for the selected keyboard layout. */
 export type LayoutMap = Readonly<Record<string, string>>
+export type KeyboardLayout = 'qwerty' | 'azerty'
+
+const QWERTY_LABELS: LayoutMap = Object.fromEntries(
+  Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ', (letter) => [`Key${letter}`, letter]),
+)
+
+export const KEYBOARD_LAYOUT_MAPS: Readonly<Record<KeyboardLayout, LayoutMap>> = {
+  qwerty: QWERTY_LABELS,
+  azerty: {
+    ...QWERTY_LABELS,
+    KeyW: 'Z',
+    KeyA: 'Q',
+    KeyQ: 'A',
+    KeyZ: 'W',
+    KeyM: ',',
+    Comma: ';',
+    Period: ':',
+    Slash: '!',
+    Semicolon: 'M',
+    Quote: 'ù',
+  },
+}
 
 /**
- * Human label for a KeyboardEvent.code. With a layout map (Chromium) letter keys show
- * what is printed on the player's keyboard, e.g. "Z" for KeyW on AZERTY.
+ * Human label for a KeyboardEvent.code. With a layout map letter keys show
+ * what is printed on the player's keyboard, e.g. "Z" for KeyW on AZERTY, or "W" on QWERTY.
  */
 export function keyLabel(code: string, layout: LayoutMap | null = null): string {
   const printed = layout?.[code]
-  if (printed && printed.trim() && /^(Key|Digit)/.test(code)) return printed.toUpperCase()
+  if (
+    printed &&
+    printed.trim() &&
+    (/^(Key|Digit)/.test(code) || ['Semicolon', 'Comma', 'Period', 'Slash', 'Quote'].includes(code))
+  )
+    return printed.toUpperCase()
   const named = NAMED[code]
   if (named) return named
   const letter = /^Key([A-Z])$/.exec(code)

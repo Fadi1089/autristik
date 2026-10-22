@@ -6,7 +6,7 @@ import {
   withBinding,
   withoutBinding,
 } from './bindings'
-import { keyLabel } from './keyLabels'
+import { KEYBOARD_LAYOUT_MAPS, keyLabel } from './keyLabels'
 
 describe('key bindings', () => {
   it('finds the action for a key, including secondary slots', () => {
@@ -42,7 +42,7 @@ describe('key bindings', () => {
   })
 })
 
-describe('key labels', () => {
+describe('key labels and QWERTY/AZERTY layout maps', () => {
   it('names keys from their codes', () => {
     expect(keyLabel('KeyW')).toBe('W')
     expect(keyLabel('ArrowLeft')).toBe('←')
@@ -53,5 +53,25 @@ describe('key labels', () => {
   it("prefers the player's printed layout for letters", () => {
     expect(keyLabel('KeyW', { KeyW: 'z' })).toBe('Z')
     expect(keyLabel('ArrowUp', { ArrowUp: 'x' })).toBe('↑')
+  })
+
+  it('supports QWERTY layout labels accurately', () => {
+    const qwerty = KEYBOARD_LAYOUT_MAPS.qwerty
+    expect(keyLabel('KeyW', qwerty)).toBe('W')
+    expect(keyLabel('KeyA', qwerty)).toBe('A')
+    expect(keyLabel('KeyS', qwerty)).toBe('S')
+    expect(keyLabel('KeyD', qwerty)).toBe('D')
+    expect(keyLabel('KeyQ', qwerty)).toBe('Q')
+    expect(keyLabel('KeyZ', qwerty)).toBe('Z')
+  })
+
+  it('supports AZERTY layout labels accurately', () => {
+    const azerty = KEYBOARD_LAYOUT_MAPS.azerty
+    expect(keyLabel('KeyW', azerty)).toBe('Z')
+    expect(keyLabel('KeyA', azerty)).toBe('Q')
+    expect(keyLabel('KeyS', azerty)).toBe('S')
+    expect(keyLabel('KeyD', azerty)).toBe('D')
+    expect(keyLabel('KeyQ', azerty)).toBe('A')
+    expect(keyLabel('KeyZ', azerty)).toBe('W')
   })
 })

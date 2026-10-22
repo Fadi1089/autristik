@@ -24,7 +24,7 @@ export interface GameStore extends GameState {
   rotate(turns: number): void
   place(c: Coord): void
   restart(seed?: number): void
-  /** Clears the placed tiles back to a starting island; the stack and score carry on. */
+  /** Clears the placed tiles back to a starting island; the queue carries on. */
   resetGrid(): void
   openMenu(): void
   closeMenu(): void

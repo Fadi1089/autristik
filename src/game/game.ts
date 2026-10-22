@@ -4,14 +4,10 @@ import type { Coord } from './coords'
 import { canPlace, evaluatePlacement } from './matching'
 import type { PlacementEvaluation } from './matching'
 import { createRng } from './random'
-import { scorePlacement } from './scoring'
-import type { PlacementScore } from './scoring'
 import { normalizeRotation, pieceSquares, randomTetromino } from './tiles'
 import type { Rotation, Square, Tetromino } from './tiles'
 
-export const STARTING_TILES = 30
-
-export type PlacementPreview = PlacementEvaluation & PlacementScore
+export type PlacementPreview = PlacementEvaluation
 
 /** Tiles shown after the one in hand. */
 export const VISIBLE_NEXT = 3
@@ -22,33 +18,24 @@ export interface PlacementResult extends PlacementPreview {
   readonly squares: readonly Square[]
 }
 
-/** Why a game ended: the stack ran out. */
-export type EndReason = 'tiles'
-
 export interface GameState {
   readonly board: Board
-  /** Tetromino in hand, unrotated. Null once the stack is empty. */
+  /** Tetromino in hand, unrotated. */
   readonly current: Tetromino | null
   readonly rotation: Rotation
-  /** Tiles left to place, including the one in hand. */
-  readonly remaining: number
-  /** Total points. */
-  readonly score: number
   /** PRNG state used for the next draw. */
   readonly seed: number
   readonly lastPlacement: PlacementResult | null
 }
 
-export function createGame(seed: number, tiles: number = STARTING_TILES): GameState {
+export function createGame(seed: number): GameState {
   const rng = createRng(seed)
   const board = createStartingBoard(rng)
-  const current = tiles > 0 ? randomTetromino(rng) : null
+  const current = randomTetromino(rng)
   return {
     board,
     current,
     rotation: 0,
-    remaining: Math.max(0, tiles),
-    score: 0,
     seed: rng.state,
     lastPlacement: null,
   }
@@ -56,16 +43,14 @@ export function createGame(seed: number, tiles: number = STARTING_TILES): GameSt
 
 /** The tiles drawn after the one in hand, peeked from the same sequence without drawing them. */
 export function upcomingTiles(
-  state: Pick<GameState, 'remaining' | 'seed'>,
+  state: Pick<GameState, 'seed'>,
   count: number = VISIBLE_NEXT,
 ): Tetromino[] {
   const rng = createRng(state.seed)
-  return Array.from({ length: Math.max(0, Math.min(count, state.remaining - 1)) }, () =>
-    randomTetromino(rng),
-  )
+  return Array.from({ length: count }, () => randomTetromino(rng))
 }
 
-/** Puts the board back to a starting island; the tile in hand and the stack carry on. */
+/** Puts the board back to a starting island; the tile in hand carries on. */
 export function resetBoard(state: GameState): GameState {
   // A separate sequence for the island, so the upcoming tiles stay exactly as shown.
   return {
@@ -96,8 +81,7 @@ export function rotateCurrent(state: GameState, turns: number): GameState {
 export function previewPlacement(state: HandState, c: Coord): PlacementPreview | null {
   const squares = currentSquares(state, c)
   if (!squares || !canPlace(state.board, squares)) return null
-  const evaluation = evaluatePlacement(state.board, squares)
-  return { ...evaluation, ...scorePlacement(evaluation) }
+  return evaluatePlacement(state.board, squares)
 }
 
 /**
@@ -107,27 +91,26 @@ export function previewPlacement(state: HandState, c: Coord): PlacementPreview |
 export function placeCurrent(state: GameState, c: Coord): GameState {
   const squares = currentSquares(state, c)
   const preview = previewPlacement(state, c)
-  if (!squares || !preview || isGameOver(state)) return state
+  if (!squares || !preview) return state
 
-  const remaining = state.remaining - 1 + preview.bonusTiles
   const rng = createRng(state.seed)
-  const current = remaining > 0 ? randomTetromino(rng) : null
+  const current = randomTetromino(rng)
 
   return {
     board: withPiece(state.board, squares),
     current,
     rotation: 0,
-    remaining,
-    score: state.score + preview.points,
     seed: rng.state,
     lastPlacement: { ...preview, coord: c, squares },
   }
 }
 
-export function endReason(state: Pick<GameState, 'current'>): EndReason | null {
-  return state.current === null ? 'tiles' : null
+export function endReason(state?: unknown): null {
+  void state
+  return null
 }
 
-export function isGameOver(state: Pick<GameState, 'current'>): boolean {
-  return endReason(state) !== null
+export function isGameOver(state?: unknown): boolean {
+  void state
+  return false
 }

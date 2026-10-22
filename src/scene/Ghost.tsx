@@ -106,8 +106,6 @@ export function Ghost() {
       if (dots.current) dots.current.visible = Math.abs(spin.current.rotation.y - target) < 0.05
     }
     if (ref.current) ref.current.position.y = HOVER_LIFT + Math.sin(clock.elapsedTime * 3) * 0.02
-    // Pin the score label to whichever top corner of the tile is up and right on screen,
-    // so it never covers the tile or the squares it is being matched against.
     if (label.current) {
       const { azimuth } = useViewStore.getState()
       const half = TILE_SIZE / 2
@@ -141,17 +139,9 @@ export function Ghost() {
       {preview && (
         <group ref={label}>
           <Html pointerEvents="none" zIndexRange={[10, 0]}>
-            <div className="flex translate-x-1.5 -translate-y-full items-baseline gap-1 rounded-full border border-ink/8 bg-paper/55 px-2 py-0.5 whitespace-nowrap text-ink/80 backdrop-blur-[2px]">
-              <span className="font-display text-sm font-semibold">+{preview.points}</span>
-              {preview.bonusTiles > 0 && (
-                <span className="text-[0.7rem] font-semibold text-moss-deep/90">
-                  +{preview.bonusTiles} tile{preview.bonusTiles > 1 ? 's' : ''}
-                </span>
-              )}
+            <div className="hidden translate-x-1.5 -translate-y-full items-baseline gap-1 rounded-full border border-ink/8 bg-paper/55 px-2 py-0.5 whitespace-nowrap text-ink/80 backdrop-blur-[2px] pointer-coarse:inline-flex">
               {/* Touch screens place on a second tap, so say so there. */}
-              <span className="hidden text-[0.7rem] text-ink/60 pointer-coarse:inline">
-                tap again
-              </span>
+              <span className="text-[0.7rem] text-ink/60">tap again</span>
             </div>
           </Html>
         </group>

@@ -11,14 +11,16 @@ export const PIECE_GAP = 0.04 * TILE_SIZE
 /** Height of the soil block every piece sits on. */
 export const BASE_HEIGHT = 0.11
 
-/** Height of each terrain block above the soil. */
+/** Height of each terrain/biome block above the soil. */
 export const TERRAIN_HEIGHT: Readonly<Record<Terrain, number>> = {
-  water: 0.0125,
-  grass: 0.03,
-  field: 0.04,
-  forest: 0.07,
-  village: 0.09,
+  blue: 0.02,
+  green: 0.035,
+  yellow: 0.05,
+  red: 0.065,
+  black: 0.08,
 }
+
+export const BIOME_HEIGHT = TERRAIN_HEIGHT
 
 export function coordToWorld({ q, r }: Coord): [x: number, z: number] {
   return [q * TILE_SIZE, r * TILE_SIZE]
