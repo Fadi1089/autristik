@@ -1,166 +1,205 @@
 import { describe, expect, it } from 'vitest'
-import { EMPTY_BOARD, withTile } from './board'
+import { EMPTY_BOARD, pieceCount, withPiece } from './board'
 import type { Board } from './board'
-import { coord, coordKey, Direction, DIRECTIONS, oppositeDirection } from './coords'
-import type { Coord } from './coords'
+import { coordKey } from './coords'
 import {
   canPlace,
+  clampCursor,
   evaluatePlacement,
   nearestCandidate,
   placementCandidates,
   terrainsMatch,
 } from './matching'
+import { createRng } from './random'
 import { scorePlacement } from './scoring'
-import { facingQuadrants, Quadrant, rotateQuadrants, sideQuadrants } from './tiles'
-import type { Quadrants, Terrain } from './tiles'
+import { pieceSquares, randomTetromino, SHAPES, shapeOffsets } from './tiles'
+import type { Rotation, Square, Terrain } from './tiles'
 
-const uniform = (t: Terrain): Quadrants => [t, t, t, t]
+const ROTATIONS: readonly Rotation[] = [0, 1, 2, 3]
+const square = (q: number, r: number, terrain: Terrain): Square => ({ coord: { q, r }, terrain })
 
-function boardOf(...tiles: [Coord, Quadrants][]): Board {
-  return tiles.reduce<Board>(
-    (b, [c, quadrants]) => withTile(b, { coord: c, quadrants }),
-    EMPTY_BOARD,
-  )
+/** A board with one square of `terrain` on each listed cell, each as its own piece. */
+function boardOf(cells: readonly [number, number, Terrain][]): Board {
+  return cells.reduce<Board>((board, [q, r, t]) => withPiece(board, [square(q, r, t)]), EMPTY_BOARD)
 }
 
-describe('quadrants', () => {
-  // NW grass, NE forest, SE field, SW water
-  const tile: Quadrants = ['grass', 'forest', 'field', 'water']
+describe('tetromino shapes', () => {
+  it.each(SHAPES)(
+    '%s keeps four connected squares around its anchor in every rotation',
+    (shape) => {
+      for (const rotation of ROTATIONS) {
+        const cells = shapeOffsets(shape, rotation)
+        expect(cells).toHaveLength(4)
+        expect(cells[0]).toEqual({ q: 0, r: 0 })
+        expect(new Set(cells.map(coordKey)).size).toBe(4)
+        for (const c of cells)
+          expect(cells.some((o) => Math.abs(o.q - c.q) + Math.abs(o.r - c.r) === 1)).toBe(true)
+      }
+    },
+  )
 
-  it('rotates clockwise: the north-west square moves to the north-east corner', () => {
-    expect(rotateQuadrants(tile, 1)).toEqual(['water', 'grass', 'forest', 'field'])
-    expect(rotateQuadrants(tile, 2)).toEqual(['field', 'water', 'grass', 'forest'])
+  it('turns clockwise seen from above and comes back after four turns', () => {
+    // The I piece lies east-west, then north-south after one turn.
+    expect(shapeOffsets('I', 0).every((c) => c.r === 0)).toBe(true)
+    expect(shapeOffsets('I', 1).every((c) => c.q === 0)).toBe(true)
+    // T's stem points south; one clockwise turn makes it point west.
+    expect(shapeOffsets('T', 1)).toContainEqual({ q: -1, r: 0 })
+    expect(shapeOffsets('T', 1)).not.toContainEqual({ q: 1, r: 0 })
+    // A fourth turn lands back on the starting orientation.
+    for (const shape of SHAPES)
+      expect(shapeOffsets(shape, 3).map(({ q, r }) => ({ q: -r || 0, r: q }))).toEqual(
+        shapeOffsets(shape, 0),
+      )
   })
 
-  it('wraps around for full and negative turns', () => {
-    expect(rotateQuadrants(tile, 4)).toEqual(tile)
-    expect(rotateQuadrants(tile, -1)).toEqual(rotateQuadrants(tile, 3))
+  it('keeps each terrain on its square as the piece turns', () => {
+    const piece = { shape: 'L' as const, terrains: ['grass', 'forest', 'field', 'water'] as const }
+    const squares = pieceSquares(piece, 2, { q: 5, r: 5 })
+    expect(squares[0]).toEqual(square(5, 5, 'grass'))
+    expect(squares.map((s) => s.terrain)).toEqual(piece.terrains)
   })
 
-  it('lists the two squares along each side', () => {
-    expect(sideQuadrants(Direction.North)).toEqual([Quadrant.NorthWest, Quadrant.NorthEast])
-    expect(sideQuadrants(Direction.East)).toEqual([Quadrant.NorthEast, Quadrant.SouthEast])
-    expect(sideQuadrants(Direction.South)).toEqual([Quadrant.SouthEast, Quadrant.SouthWest])
-    expect(sideQuadrants(Direction.West)).toEqual([Quadrant.SouthWest, Quadrant.NorthWest])
-  })
-
-  it('pairs each square on a side with the neighbour square directly across the seam', () => {
-    expect(facingQuadrants(Direction.North)).toEqual([
-      [Quadrant.NorthWest, Quadrant.SouthWest],
-      [Quadrant.NorthEast, Quadrant.SouthEast],
-    ])
-    expect(facingQuadrants(Direction.East)).toEqual([
-      [Quadrant.NorthEast, Quadrant.NorthWest],
-      [Quadrant.SouthEast, Quadrant.SouthWest],
-    ])
-    // Seen from the neighbour, the same pairs come back swapped.
-    for (const d of DIRECTIONS) {
-      const back = facingQuadrants(oppositeDirection(d)).map(([a, b]) => [b, a])
-      expect(back.sort()).toEqual([...facingQuadrants(d)].sort())
+  it('draws every shape with the same probability', () => {
+    const rng = createRng(7)
+    const counts = new Map<string, number>()
+    const draws = 70000
+    for (let i = 0; i < draws; i++) {
+      const { shape } = randomTetromino(rng)
+      counts.set(shape, (counts.get(shape) ?? 0) + 1)
     }
+    for (const shape of SHAPES) expect(counts.get(shape)! / draws).toBeCloseTo(1 / 7, 2)
   })
 })
 
-describe('square matching', () => {
+describe('edge matching', () => {
   it('matches identical terrains only', () => {
-    expect(terrainsMatch('forest', 'forest')).toBe(true)
-    expect(terrainsMatch('forest', 'field')).toBe(false)
+    expect(terrainsMatch('grass', 'grass')).toBe(true)
+    expect(terrainsMatch('grass', 'forest')).toBe(false)
   })
 
-  it('compares each half of a side with the square it touches', () => {
-    // Centre tile's east side is NE forest over SE field.
-    const board = boardOf([coord(0, 0), ['grass', 'forest', 'field', 'water']])
-    const east = coord(1, 0)
-
-    // Our west side is NW (touches forest) over SW (touches field).
-    const good = evaluatePlacement(board, east, ['forest', 'grass', 'grass', 'field'])
-    expect(good).toMatchObject({ neighbours: 1, matched: [Direction.West], mismatched: [] })
-    expect(good.contacts.every((c) => c.matches)).toBe(true)
-
-    // Upside down, the same terrains no longer line up.
-    const flipped = evaluatePlacement(board, east, ['field', 'grass', 'grass', 'forest'])
-    expect(flipped).toMatchObject({ matched: [], mismatched: [Direction.West] })
-    expect(flipped.contacts.filter((c) => c.matches)).toHaveLength(0)
-  })
-
-  it('counts a half match as a contact but not as a matched side', () => {
-    const board = boardOf([coord(0, -1), uniform('forest')])
-    const result = evaluatePlacement(board, coord(0, 0), ['forest', 'grass', 'grass', 'grass'])
-    expect(result.mismatched).toEqual([Direction.North])
-    expect(result.contacts).toEqual([
-      { direction: Direction.North, quadrant: Quadrant.NorthWest, matches: true },
-      { direction: Direction.North, quadrant: Quadrant.NorthEast, matches: false },
+  it('compares every outer edge of the piece with the square it touches', () => {
+    const board = boardOf([
+      [0, -1, 'grass'],
+      [1, -1, 'water'],
     ])
-    expect(scorePlacement(result).points).toBe(5)
+    // An I piece lying east-west just south of them.
+    const piece = [
+      square(0, 0, 'grass'),
+      square(1, 0, 'grass'),
+      square(2, 0, 'grass'),
+      square(3, 0, 'grass'),
+    ]
+    const result = evaluatePlacement(board, piece)
+    expect(result.neighbours).toBe(2)
+    expect(result.contacts.filter((c) => c.matches)).toHaveLength(1)
+    expect(result).toMatchObject({ harmonious: false, perfect: false })
+    expect(scorePlacement(result)).toEqual({ points: 5, bonusTiles: 0 })
   })
 
-  it('counts matches and mismatches across several neighbours', () => {
-    const board = boardOf(
-      [coord(0, -1), uniform('forest')], // north
-      [coord(1, 0), uniform('water')], // east
-      [coord(0, 1), uniform('field')], // south
-    )
-    // Top row forest, bottom row field, so north and south match but east does not.
-    const result = evaluatePlacement(board, coord(0, 0), ['forest', 'forest', 'field', 'field'])
-    expect(result.neighbours).toBe(3)
-    expect(result.contacts).toHaveLength(6)
-    expect(result.matched).toEqual([Direction.North, Direction.South])
-    expect(result.mismatched).toEqual([Direction.East])
-    expect(result.harmonious).toBe(false)
-    expect(result.perfect).toBe(false)
+  it('never counts edges between the piece’s own squares', () => {
+    const piece = pieceSquares({ shape: 'O', terrains: ['grass', 'water', 'field', 'forest'] }, 0, {
+      q: 0,
+      r: 0,
+    })
+    expect(evaluatePlacement(EMPTY_BOARD, piece).neighbours).toBe(0)
   })
 
-  it('flags harmonious and perfect placements', () => {
-    const ring = boardOf(
-      [coord(0, -1), uniform('grass')],
-      [coord(1, 0), uniform('grass')],
-      [coord(0, 1), uniform('grass')],
-      [coord(-1, 0), uniform('grass')],
-    )
-    const perfect = evaluatePlacement(ring, coord(0, 0), uniform('grass'))
-    expect(perfect).toMatchObject({ neighbours: 4, harmonious: true, perfect: true })
-    expect(scorePlacement(perfect)).toEqual({ points: 8 * 5 + 30, bonusTiles: 2 })
-
-    const pair = boardOf([coord(0, -1), uniform('grass')], [coord(1, 0), uniform('grass')])
-    const harmonious = evaluatePlacement(pair, coord(0, 0), uniform('grass'))
-    expect(harmonious).toMatchObject({ neighbours: 2, harmonious: true, perfect: false })
+  it('flags harmonious placements: two or more contacts, all matching', () => {
+    const board = boardOf([
+      [0, -1, 'grass'],
+      [1, -1, 'grass'],
+    ])
+    const piece = [
+      square(0, 0, 'grass'),
+      square(1, 0, 'grass'),
+      square(0, 1, 'field'),
+      square(1, 1, 'field'),
+    ]
+    const result = evaluatePlacement(board, piece)
+    expect(result).toMatchObject({ neighbours: 2, harmonious: true, perfect: false })
+    expect(scorePlacement(result)).toEqual({ points: 10, bonusTiles: 1 })
   })
 
-  it('treats a lone neighbour as neither harmonious nor perfect', () => {
-    const board = boardOf([coord(0, 0), uniform('grass')])
-    const result = evaluatePlacement(board, coord(0, 1), uniform('grass'))
-    expect(result).toMatchObject({ neighbours: 1, harmonious: false, perfect: false })
+  it('flags perfect placements: the piece fills a gap and matches all round', () => {
+    // A ring of grass around a 2×2 hole.
+    const ring: [number, number, Terrain][] = []
+    for (let q = -1; q <= 2; q++)
+      for (let r = -1; r <= 2; r++) if (q < 0 || q > 1 || r < 0 || r > 1) ring.push([q, r, 'grass'])
+    const board = boardOf(ring)
+    const piece = pieceSquares({ shape: 'O', terrains: ['grass', 'grass', 'grass', 'grass'] }, 0, {
+      q: 0,
+      r: 0,
+    })
+    const result = evaluatePlacement(board, piece)
+    expect(result).toMatchObject({ neighbours: 8, perfect: true })
+    expect(scorePlacement(result)).toEqual({ points: 8 * 5 + 30, bonusTiles: 2 })
   })
 })
 
 describe('placement rules', () => {
-  const board = boardOf([coord(0, 0), uniform('grass')])
+  const board = boardOf([[0, 0, 'grass']])
 
-  it('only allows empty squares that touch the board side to side', () => {
-    expect(canPlace(board, coord(1, 0))).toBe(true)
-    expect(canPlace(board, coord(0, 0))).toBe(false) // occupied
-    expect(canPlace(board, coord(1, 1))).toBe(false) // diagonal only
-    expect(canPlace(board, coord(5, 5))).toBe(false) // detached
+  it('needs every cell empty and at least one edge touching the board', () => {
+    expect(canPlace(board, [square(1, 0, 'grass'), square(2, 0, 'grass')])).toBe(true)
+    expect(canPlace(board, [square(0, 0, 'grass'), square(1, 0, 'grass')])).toBe(false)
+    // Corner contact alone does not count.
+    expect(canPlace(board, [square(1, 1, 'grass')])).toBe(false)
+    expect(canPlace(board, [square(5, 5, 'grass')])).toBe(false)
   })
 
-  it('lists every empty neighbouring square once', () => {
-    const two = withTile(board, { coord: coord(1, 0), quadrants: uniform('grass') })
-    const keys = placementCandidates(two).map(coordKey)
-    expect(keys).toHaveLength(6)
-    expect(new Set(keys).size).toBe(6)
-    expect(keys).not.toContain(coordKey(coord(0, 0)))
-    expect(keys).not.toContain(coordKey(coord(1, 0)))
+  it('starts an empty board at the origin', () => {
+    expect(canPlace(EMPTY_BOARD, [square(0, 0, 'grass')])).toBe(true)
+    expect(canPlace(EMPTY_BOARD, [square(1, 0, 'grass')])).toBe(false)
+  })
+
+  it('keeps each placed piece distinct', () => {
+    const two = withPiece(withPiece(EMPTY_BOARD, [square(0, 0, 'grass')]), [square(1, 0, 'grass')])
+    expect(pieceCount(two)).toBe(2)
+    expect(two['0,0']!.piece).not.toBe(two['1,0']!.piece)
+  })
+
+  it('lists every empty neighbouring cell once', () => {
+    expect(placementCandidates(board).map(coordKey).sort()).toEqual(
+      ['0,-1', '1,0', '0,1', '-1,0'].sort(),
+    )
+  })
+})
+
+describe('keyboard cursor bounds', () => {
+  it('reach every placement of every shape and rotation, from every side', () => {
+    const board = boardOf([
+      [0, 0, 'grass'],
+      [1, 0, 'grass'],
+      [2, 0, 'grass'],
+      [3, 0, 'grass'],
+    ])
+    for (const shape of SHAPES)
+      for (const rotation of ROTATIONS) {
+        const piece = { shape, terrains: ['grass', 'grass', 'grass', 'grass'] as const }
+        for (let q = -10; q <= 13; q++)
+          for (let r = -10; r <= 10; r++) {
+            if (!canPlace(board, pieceSquares(piece, rotation, { q, r }))) continue
+            expect(clampCursor(board, { q, r }), `${shape} ${rotation} at ${q},${r}`).toEqual({
+              q,
+              r,
+            })
+          }
+      }
+  })
+
+  it('keeps the cursor from wandering far from the board', () => {
+    const board = boardOf([[0, 0, 'grass']])
+    expect(clampCursor(board, { q: 50, r: -50 })).toEqual({ q: 3, r: -3 })
   })
 })
 
 describe('nearestCandidate', () => {
-  it('picks the open square closest to a point', () => {
-    const board = boardOf([coord(0, 0), uniform('grass')], [coord(1, 0), uniform('grass')])
-    expect(nearestCandidate(board, coord(5, 0))).toEqual(coord(2, 0))
-    expect(nearestCandidate(board, coord(0, -4))).toEqual(coord(0, -1))
+  it('picks the open cell closest to a point', () => {
+    const board = boardOf([[0, 0, 'grass']])
+    expect(nearestCandidate(board, { q: 5, r: 0 })).toEqual({ q: 1, r: 0 })
   })
 
-  it('offers the origin to rebuild an island emptied by a void tile', () => {
-    expect(nearestCandidate(EMPTY_BOARD, coord(0, 0))).toEqual(coord(0, 0))
+  it('returns null for an empty board', () => {
+    expect(nearestCandidate(EMPTY_BOARD, { q: 0, r: 0 })).toBeNull()
   })
 })

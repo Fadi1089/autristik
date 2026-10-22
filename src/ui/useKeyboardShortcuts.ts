@@ -1,22 +1,25 @@
 import { useEffect } from 'react'
-import { oppositeDirection } from '../game/coords'
 import { isGameOver } from '../game/game'
-import { isInCavity } from '../game/falling'
+import { nearestCandidate } from '../game/matching'
 import { actionForCode, REPEATABLE } from '../input/bindings'
 import type { Action } from '../input/bindings'
 import { screenToWorldDirection } from '../input/movement'
 import type { ScreenDirection } from '../input/movement'
+import { worldToCoord } from '../scene/layout'
 import { useGameStore } from '../store/gameStore'
 import { useSettingsStore } from '../store/settingsStore'
 import { useViewStore } from '../store/viewStore'
 
-const ZOOM_STEP = 0.14
 const MOVES: Partial<Record<Action, ScreenDirection>> = {
   moveUp: 'up',
-  moveRight: 'right',
   moveDown: 'down',
   moveLeft: 'left',
+  moveRight: 'right',
 }
+
+/** Radians of camera pivot per key press (or key repeat). */
+const PIVOT_STEP = Math.PI / 16
+const ZOOM_STEP = 0.14
 
 /**
  * Global keyboard controls. Esc always toggles the menu; everything else goes
@@ -38,13 +41,6 @@ export function useKeyboardShortcuts() {
       // Leave Enter, Space and friends to the menu and game-over buttons.
       if (game.menuOpen || isGameOver(game)) return
 
-      // Match ! by its character: unshifted on AZERTY, Shift + 1 on QWERTY.
-      if (e.code === 'KeyC' || e.key === '!') {
-        e.preventDefault()
-        if (!e.repeat) useViewStore.getState().requestRecenter()
-        return
-      }
-
       const action = actionForCode(settings.bindings, e.code)
       if (!action) return
       e.preventDefault()
@@ -52,23 +48,25 @@ export function useKeyboardShortcuts() {
 
       const move = MOVES[action]
       if (move) {
-        const direction = screenToWorldDirection(move, useViewStore.getState().azimuth)
-        if (e.shiftKey) {
-          if (!e.repeat)
-            game.setFallDirection(isInCavity(game) ? direction : oppositeDirection(direction))
-        } else {
-          game.move(direction)
+        const view = useViewStore.getState()
+        if (!game.cursor) {
+          // Take over from wherever the mouse left the ghost and move it at once; with no
+          // ghost yet, the first press drops it on the open square nearest the view's centre.
+          if (game.hover) game.setCursor(game.hover)
+          else {
+            const start = nearestCandidate(game.board, worldToCoord(view.focusX, view.focusZ))
+            if (start) game.setCursor(start)
+            return
+          }
         }
+        game.moveCursor(screenToWorldDirection(move, view.azimuth))
         return
       }
 
       const view = useViewStore.getState()
       switch (action) {
-        case 'swap':
-          game.swapTiles()
-          break
         case 'place':
-          game.drop()
+          game.placeAtHover()
           break
         case 'rotateCw':
           game.rotate(1)
@@ -77,10 +75,10 @@ export function useKeyboardShortcuts() {
           game.rotate(-1)
           break
         case 'pivotLeft':
-          view.requestSidePivot(-1)
+          view.requestPivot(-PIVOT_STEP)
           break
         case 'pivotRight':
-          view.requestSidePivot(1)
+          view.requestPivot(PIVOT_STEP)
           break
         case 'zoomIn':
           view.requestZoom(ZOOM_STEP)

@@ -1,48 +1,27 @@
-import { oppositeDirection } from './coords'
-import type { Direction } from './coords'
+import type { Coord } from './coords'
 import type { Rng } from './random'
-import { DEFAULT_GAME_MODE } from './modes'
-import type { GameMode } from './modes'
 
-export const REGULAR_TERRAINS = ['grass', 'forest', 'field', 'water', 'village'] as const
-export const TERRAINS = [...REGULAR_TERRAINS, 'rainbow', 'void', 'bedrock'] as const
+export const TERRAINS = ['grass', 'forest', 'field', 'water', 'village'] as const
 export type Terrain = (typeof TERRAINS)[number]
-export type TileMultiplier = 1 | 2 | 3 | 5
-export interface TileDraw {
-  readonly quadrants: Quadrants
-  readonly multiplier: TileMultiplier
+
+/** The terrain of a piece's four squares, in the order of its shape's squares. */
+export type Terrains = readonly [Terrain, Terrain, Terrain, Terrain]
+
+/** The seven tetrominoes. */
+export const SHAPES = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'] as const
+export type Shape = (typeof SHAPES)[number]
+
+/** A piece: four terrain squares laid out as a tetromino, one square per board cell. */
+export interface Tetromino {
+  readonly shape: Shape
+  readonly terrains: Terrains
 }
-export interface HeldTile extends TileDraw {
-  readonly rotation: Rotation
+
+/** One square of a piece placed (or about to be placed) on the board. */
+export interface Square {
+  readonly coord: Coord
+  readonly terrain: Terrain
 }
-
-/** Bonus chances shared by ordinary enhanced tiles and gold jokers. */
-function randomMultiplier(rng: Rng): TileMultiplier {
-  const roll = rng.next()
-  return roll < 0.06 ? 2 : roll < 0.09 ? 3 : roll < 0.1 ? 5 : 1
-}
-
-/**
- * A tile is a 2×2 grid of terrain squares. Quadrants are numbered clockwise from
- * the north-west corner, matching the clockwise order of Direction.
- */
-export const Quadrant = {
-  NorthWest: 0,
-  NorthEast: 1,
-  SouthEast: 2,
-  SouthWest: 3,
-} as const
-export type Quadrant = (typeof Quadrant)[keyof typeof Quadrant]
-
-export const QUADRANTS: readonly Quadrant[] = [
-  Quadrant.NorthWest,
-  Quadrant.NorthEast,
-  Quadrant.SouthEast,
-  Quadrant.SouthWest,
-]
-
-/** Terrain of each sub-square, in Quadrant order: [NW, NE, SE, SW]. */
-export type Quadrants = readonly [Terrain, Terrain, Terrain, Terrain]
 
 /** Number of clockwise quarter turns. */
 export type Rotation = 0 | 1 | 2 | 3
@@ -51,53 +30,79 @@ export function normalizeRotation(turns: number): Rotation {
   return (((turns % 4) + 4) % 4) as Rotation
 }
 
-/** Column (-1 west, +1 east) and row (-1 north, +1 south) of a quadrant inside its tile. */
-export function quadrantOffset(quadrant: Quadrant): { readonly x: -1 | 1; readonly z: -1 | 1 } {
-  return {
-    x: quadrant === Quadrant.NorthWest || quadrant === Quadrant.SouthWest ? -1 : 1,
-    z: quadrant === Quadrant.NorthWest || quadrant === Quadrant.NorthEast ? -1 : 1,
-  }
-}
-
 /**
- * The two quadrants along one side, ordered clockwise around the tile.
- * North is [NW, NE], east is [NE, SE], south is [SE, SW], west is [SW, NW].
+ * Square offsets from the anchor, the square under the pointer, which comes first so a
+ * piece always turns around it. `q` grows east and `r` grows south.
  */
-export function sideQuadrants(direction: Direction): readonly [Quadrant, Quadrant] {
-  return [normalizeRotation(direction) as Quadrant, normalizeRotation(direction + 1) as Quadrant]
+const SHAPE_OFFSETS: Readonly<Record<Shape, readonly Coord[]>> = {
+  I: [
+    { q: 0, r: 0 },
+    { q: -1, r: 0 },
+    { q: 1, r: 0 },
+    { q: 2, r: 0 },
+  ],
+  O: [
+    { q: 0, r: 0 },
+    { q: 1, r: 0 },
+    { q: 0, r: 1 },
+    { q: 1, r: 1 },
+  ],
+  T: [
+    { q: 0, r: 0 },
+    { q: -1, r: 0 },
+    { q: 1, r: 0 },
+    { q: 0, r: 1 },
+  ],
+  S: [
+    { q: 0, r: 0 },
+    { q: 1, r: 0 },
+    { q: -1, r: 1 },
+    { q: 0, r: 1 },
+  ],
+  Z: [
+    { q: 0, r: 0 },
+    { q: -1, r: 0 },
+    { q: 0, r: 1 },
+    { q: 1, r: 1 },
+  ],
+  J: [
+    { q: 0, r: 0 },
+    { q: -1, r: -1 },
+    { q: -1, r: 0 },
+    { q: 1, r: 0 },
+  ],
+  L: [
+    { q: 0, r: 0 },
+    { q: 1, r: -1 },
+    { q: -1, r: 0 },
+    { q: 1, r: 0 },
+  ],
 }
 
-/**
- * Pairs each quadrant on our `direction` side with the neighbour quadrant it touches,
- * as [ours, theirs]. Our north-west square touches the northern neighbour's
- * south-west square, our north-east touches its south-east, and so on.
- */
-export function facingQuadrants(direction: Direction): readonly [Quadrant, Quadrant][] {
-  const [a, b] = sideQuadrants(direction)
-  const [c, d] = sideQuadrants(oppositeDirection(direction))
-  // Both sides are listed clockwise, so they run in opposite directions along the seam.
-  return [
-    [a, d],
-    [b, c],
-  ]
+/** A shape's square offsets after `rotation` clockwise quarter turns (seen from above). */
+export function shapeOffsets(shape: Shape, rotation: Rotation = 0): Coord[] {
+  return SHAPE_OFFSETS[shape].map((offset) => {
+    let { q, r } = offset
+    // One clockwise turn: north (0, -1) becomes east (1, 0).
+    for (let turn = 0; turn < rotation; turn++) [q, r] = [-r || 0, q]
+    return { q, r }
+  })
 }
 
-/**
- * Rotates a tile clockwise (seen from above) by `turns` quarter turns:
- * after one turn the old north-west square sits in the north-east corner.
- */
-export function rotateQuadrants(quadrants: Quadrants, turns: number): Quadrants {
-  const t = normalizeRotation(turns)
-  const at = (q: Quadrant) => quadrants[normalizeRotation(q - t)]
-  return [
-    at(Quadrant.NorthWest),
-    at(Quadrant.NorthEast),
-    at(Quadrant.SouthEast),
-    at(Quadrant.SouthWest),
-  ]
+/** Farthest any square sits from its piece's anchor, along one axis (turning only swaps axes). */
+export const SHAPE_REACH = Math.max(
+  ...SHAPES.flatMap((shape) => SHAPE_OFFSETS[shape].flatMap((o) => [Math.abs(o.q), Math.abs(o.r)])),
+)
+
+/** The squares a piece covers when its anchor sits on `at`. */
+export function pieceSquares(piece: Tetromino, rotation: Rotation, at: Coord): Square[] {
+  return shapeOffsets(piece.shape, rotation).map((offset, i) => ({
+    coord: { q: at.q + offset.q, r: at.r + offset.r },
+    terrain: piece.terrains[i]!,
+  }))
 }
 
-const TERRAIN_WEIGHTS: Readonly<Record<(typeof REGULAR_TERRAINS)[number], number>> = {
+const TERRAIN_WEIGHTS: Readonly<Record<Terrain, number>> = {
   grass: 4,
   forest: 3,
   field: 3,
@@ -105,53 +110,18 @@ const TERRAIN_WEIGHTS: Readonly<Record<(typeof REGULAR_TERRAINS)[number], number
   village: 1,
 }
 
-/** Chance that a quadrant copies the tile's dominant terrain, which makes tiles easier to match. */
-const DOMINANT_QUADRANT_CHANCE = 0.55
+/** Chance that a square copies the piece's dominant terrain, which makes pieces easier to match. */
+const DOMINANT_SQUARE_CHANCE = 0.55
 
-export function randomQuadrants(rng: Rng): Quadrants {
+export function randomTerrains(rng: Rng): Terrains {
   const dominant = rng.weighted(TERRAIN_WEIGHTS)
   const pick = () =>
-    rng.next() < DOMINANT_QUADRANT_CHANCE ? dominant : rng.weighted(TERRAIN_WEIGHTS)
+    rng.next() < DOMINANT_SQUARE_CHANCE ? dominant : rng.weighted(TERRAIN_WEIGHTS)
   return [pick(), pick(), pick(), pick()]
 }
 
-/** A whole joker tile (rendered gold); keep its original terrain id in the game model. */
-export const RAINBOW_TILE: Quadrants = ['rainbow', 'rainbow', 'rainbow', 'rainbow']
-export const RAINBOW_TILE_CHANCE = 0.05
-export const VOID_TILE: Quadrants = ['void', 'void', 'void', 'void']
-export const VOID_UNLOCK_PLACEMENTS = 10
-export const VOID_TILE_CHANCE = 0.03
-export const BEDROCK_TILE: Quadrants = ['bedrock', 'bedrock', 'bedrock', 'bedrock']
-
-/** Special terrains are whole tiles, never individual patches on a normal draw. */
-export function tileKind(quadrants: Quadrants): 'normal' | 'gold' | 'void' | 'bedrock' {
-  if (quadrants.every((terrain) => terrain === 'rainbow')) return 'gold'
-  if (quadrants.every((terrain) => terrain === 'void')) return 'void'
-  if (quadrants.every((terrain) => terrain === 'bedrock')) return 'bedrock'
-  return 'normal'
-}
-
-/** Gold 5%, void 3% after 10 placements, bedrock 4%, bronze 6%, silver 3%, diamond 1%. */
-export function randomTile(rng: Rng, placements = 0, mode: GameMode = DEFAULT_GAME_MODE): TileDraw {
-  if (mode === 'classic') return { quadrants: randomQuadrants(rng), multiplier: 1 }
-  const roll = rng.next()
-  if (roll < RAINBOW_TILE_CHANCE)
-    return { quadrants: RAINBOW_TILE, multiplier: randomMultiplier(rng) }
-  if (roll < 0.08) {
-    if (placements >= VOID_UNLOCK_PLACEMENTS && roll < RAINBOW_TILE_CHANCE + VOID_TILE_CHANCE)
-      return { quadrants: VOID_TILE, multiplier: 1 }
-    return { quadrants: randomQuadrants(rng), multiplier: 1 }
-  }
-  if (roll < 0.12) return { quadrants: BEDROCK_TILE, multiplier: 1 }
-  const multiplier = roll < 0.18 ? 2 : roll < 0.21 ? 3 : roll < 0.22 ? 5 : 1
-  return { quadrants: randomQuadrants(rng), multiplier }
-}
-
-/** Draw from the playable supply; the starting island uses regular terrain only. */
-export function randomTileQuadrants(
-  rng: Rng,
-  placements = 0,
-  mode: GameMode = DEFAULT_GAME_MODE,
-): Quadrants {
-  return randomTile(rng, placements, mode).quadrants
+/** Every shape is equally likely; terrain is drawn as it was for the old 2×2 tiles. */
+export function randomTetromino(rng: Rng): Tetromino {
+  const shape = SHAPES[Math.floor(rng.next() * SHAPES.length)]!
+  return { shape, terrains: randomTerrains(rng) }
 }

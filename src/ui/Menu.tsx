@@ -1,36 +1,21 @@
-import { useTranslation } from '../i18n/useTranslation'
 import { useEffect, useRef, useState } from 'react'
-import type { KeyboardEvent, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { isGameOver } from '../game/game'
-import { tileCount } from '../game/board'
+import { pieceCount } from '../game/board'
 import { SCENE_COLORS, TERRAIN_COLORS } from '../palette'
-import { navigateMenu } from './menuNavigation'
 import { useGameStore } from '../store/gameStore'
 import { useSettingsStore } from '../store/settingsStore'
-import { SettingsPanel } from './SettingsPanel'
-import { MenuSection } from './MenuSection'
-import { KeyCaps, MoveKeyCaps } from './KeyCaps'
-import { formatPoints } from './format'
-import { useMenuSounds } from './useMenuSounds'
-import { Gamemode } from './Gamemode'
-import { GAME_MODE_LABELS } from '../game/modes'
-import { GAME_VARIANT_LABELS } from '../game/variants'
+import villageArt from '../assets/menu-village.webp'
+import { KeySettings } from './KeySettings'
 
-type Panel = 'how' | 'mode' | 'settings'
-type MenuChoice = 'start' | 'new' | 'home' | Panel
+type Panel = 'how' | 'settings'
 
-const PANEL_TITLES = {
-  how: 'How to play',
-  mode: 'Gamemode',
-  settings: 'Settings',
-} as const satisfies Record<Panel, string>
-
-/** Four little squares that slide in next to the hovered menu item. */
+/** Four little squares that slide in next to the selected (focused or hovered) menu item. */
 function Bullet() {
   return (
     <span
       aria-hidden
-      className="grid size-4 -translate-x-2 grid-cols-2 gap-px overflow-hidden rounded-[3px] opacity-0 transition duration-300 group-data-selected:translate-x-0 group-data-selected:opacity-100"
+      className="grid size-4 -translate-x-2 grid-cols-2 gap-px overflow-hidden rounded-[3px] opacity-0 transition duration-300 group-hover:translate-x-0 group-hover:opacity-100 group-focus:translate-x-0 group-focus:opacity-100 group-aria-pressed:translate-x-0 group-aria-pressed:opacity-100"
     >
       <span style={{ background: TERRAIN_COLORS.grass }} />
       <span style={{ background: TERRAIN_COLORS.forest }} />
@@ -44,37 +29,31 @@ function MenuItem({
   children,
   onClick,
   pressed,
-  id,
-  selected,
-  onSelect,
+  primary,
   delay,
   autoFocus,
 }: {
   children: ReactNode
   onClick: () => void
   pressed?: boolean
-  id: MenuChoice
-  selected: boolean
-  onSelect: () => void
+  primary?: boolean
   delay: number
   autoFocus?: boolean
 }) {
   return (
-    <li
-      className="animate-rise flex flex-wrap items-center gap-x-4 gap-y-2"
-      style={{ animationDelay: `${delay}ms` }}
-      onPointerEnter={onSelect}
-      onFocusCapture={onSelect}
-    >
+    <li className="animate-rise" style={{ animationDelay: `${delay}ms` }}>
       <button
         type="button"
         onClick={onClick}
         aria-pressed={pressed}
-        data-menu-item={id}
-        data-selected={selected || undefined}
-        onPointerEnter={(event) => event.currentTarget.focus({ preventScroll: true })}
         autoFocus={autoFocus}
-        className="group flex items-center gap-3 rounded-lg py-1.5 pr-2 font-display text-[clamp(1.7rem,3.4vw,2.4rem)] leading-none font-normal text-ink/70 transition data-selected:translate-x-1 data-selected:font-semibold data-selected:text-ink focus-visible:outline-none"
+        // Hovering selects too, so the mouse and the arrow keys share one selection.
+        onPointerEnter={(e) => e.currentTarget.focus({ preventScroll: true })}
+        className={`group flex items-center gap-3 rounded-lg py-1.5 pr-2 font-display text-[clamp(1.7rem,3.4vw,2.4rem)] leading-none transition hover:translate-x-1 focus:translate-x-1 ${
+          primary
+            ? 'font-semibold text-ink'
+            : 'font-normal text-ink/70 hover:text-ink focus:text-ink'
+        } aria-pressed:text-ink`}
       >
         <Bullet />
         {children}
@@ -115,128 +94,36 @@ function SeamDiagram() {
   )
 }
 
-export function HowToPlay() {
-  const { t } = useTranslation()
-  const variant = useGameStore((s) => (s.started ? s.variant : s.nextVariant))
-  const mode = useGameStore((s) => (s.started ? s.mode : s.nextMode))
-
+function HowToPlay() {
   return (
     <div className="space-y-5">
-      <MenuSection title={t('Rules')}>
-        <p className="rounded-xl bg-moss/8 p-3 text-sm text-ink/75">
-          {t(
-            'Time-attack: 30 tiles and 45 seconds to start. Each level refills the supply to 30 and adds 45 seconds. Fixed 15-second approach, with increasing score goals.',
-          )}{' '}
-          {t(
-            'Time-attack works with either tile set. Menu and hidden-tab pauses stop the countdown.',
-          )}
+      <div className="flex items-center gap-5">
+        <SeamDiagram />
+        <p className="text-sm leading-snug text-ink/75">
+          Where two tiles meet, each square faces one square on the other tile. Same terrain on both
+          sides is a match.
         </p>
-        <div className="flex items-center gap-5">
-          <SeamDiagram />
-          <p className="text-sm leading-snug text-ink/75">
-            {t(
-              'Where two tiles meet, each square faces one square on the other tile. Matching terrains score points. Classic uses only ordinary terrain; Superblock adds special tiles.',
-            )}
-          </p>
-        </div>
-        <ol className="space-y-2.5 text-sm text-ink/80">
-          <Rule n="1">
-            {variant === 'time-attack'
-              ? t(
-                  'Time-attack uses the same tile and camera controls. Reach a score goal before time runs out to gain 45 seconds. Tile travel time stays at 15 seconds at every level, independently of difficulty.',
-                )
-              : t(
-                  'Tiles start ten squares away and accelerate gradually with each level. Starting travel time: Easy 15 s, Medium 10 s, Hard 7.5 s, Insane 5 s. They never take less than 5 s. The stopwatch counts active play and pauses with the menu, with no time limit. Movement keys follow the camera: towards the island advances one square; sideways selects a lane. Moving past an edge changes the arrival side. Shift + a movement key brings the tile from that side, keeping the remaining distance and cadence. Repeating the same Shift + direction visits the near edge of the next separate island; further presses alternate near and far edges. Cyan marks the moving tile, pale gold its destination. Place instantly with the bound placement keys. The next tile keeps the last lane. Rotate tiles to match terrain; pan, turn and zoom the camera freely. The camera reframes off-screen tiles automatically, or with C / !. Camera turn keys move between the four aligned sides (90°).',
-                )}
-          </Rule>
-          <Rule n="2">
-            {variant === 'time-attack'
-              ? t(
-                  'Every matching square scores 5 points. Fully matching sides with no mismatches raise the combo by 0.25, up to ×3; a mismatch resets it, except bedrock contacts. Combos and tile bonuses multiply only that tile’s score. Each level has a higher score goal and awards 45 seconds.',
-                )
-              : t(
-                  "Every matching square along a seam scores 5 points. A placement with at least one fully matching side and no mismatched contacts raises the combo by 0.25, up to ×3. A mismatch resets it to ×1, except neutral bedrock contacts. The multiplier applies only to that tile's points; extra tiles stay the same. Reach each level's goal to move on and earn extra tiles; the next goal is higher. There is no time limit.",
-                )}
-          </Rule>
-          {variant === 'standard' && (
-            <Rule n="3">
-              {t('Match every side you touch (two or more) and a tile returns to your stack.')}
-            </Rule>
-          )}
-          <Rule n={variant === 'standard' ? '4' : '3'}>
-            {variant === 'time-attack'
-              ? t('Fill a gap and match all four sides for 30 bonus points.')
-              : t('Fill a gap and match all four sides for 30 bonus points and two tiles.')}
-          </Rule>
-        </ol>
-        <p className="text-sm text-ink/75">
-          {t(
-            'Move within a cavity at the current tile height, even away from its walls. The same island must surround it in at least three directions, with a floor ahead. The tile keeps its direction and cadence; occupied cells block movement. Changing arrival side inside a cavity aims at its inner walls, keeping or shortening the remaining distance without escaping or restarting the cadence. Outside cavities, lateral movement keeps the usual remaining distance.',
-          )}
-        </p>
-        <p className="font-display text-sm text-ink/60 italic">
-          {variant === 'time-attack'
-            ? t('Mismatches never cost points. Time-attack ends when time or tiles run out.')
-            : t('Mismatches never cost points. The game ends when the stack is empty.')}
-        </p>
-      </MenuSection>
-      <MenuSection title={t('Controls')}>
-        <ControlGuide />
-      </MenuSection>
-      {mode === 'superblock' && (
-        <MenuSection title={t('Tile types (Superblock)')}>
-          <SpecialTileGuide />
-          <p className="text-sm text-ink/75">
-            {t(
-              'In Superblock, placement scores use the strongest bonus among the tile and its side neighbours. Tiles keep their own multiplier: bonuses do not spread. Standard tiles start at ×1; gold jokers can have ×1, ×2, ×3 or ×5.',
-            )}
-          </p>
-        </MenuSection>
-      )}
+      </div>
+      <ol className="space-y-2.5 text-sm text-ink/80">
+        <Rule n="1">
+          Place each tile next to the board: click a square, tap it twice on a touch screen, or use
+          the keyboard alone (move, then Enter or Space). Rotate it to line up the squares.
+        </Rule>
+        <Rule n="2">
+          Every matching square along a seam scores 5 points. The current tile and the next three
+          are shown at the bottom.
+        </Rule>
+        <Rule n="3">
+          Match every side you touch (two or more) and a tile returns to your stack.
+        </Rule>
+        <Rule n="4">
+          Fill a gap exactly and match every edge for 30 bonus points and two tiles.
+        </Rule>
+      </ol>
+      <p className="font-display text-sm text-ink/60 italic">
+        Mismatches never cost points. The game ends when the stack is empty.
+      </p>
     </div>
-  )
-}
-
-function SpecialTileGuide() {
-  const { t } = useTranslation()
-  const types = [
-    [
-      'Golden joker',
-      'Matches every ordinary terrain. Can have its own ×1, ×2, ×3 or ×5 bonus.',
-      'linear-gradient(135deg, #a87516, #ffe9a0, #e5b535)',
-    ],
-    [
-      'Bedrock · no matches',
-      'Indestructible, even by void. Blocks connections without changing the combo.',
-      'repeating-linear-gradient(45deg, #343746 0 4px, #8c8d93 4px 7px)',
-    ],
-    [
-      'Void · clears 3×3',
-      'Available after 10 placements, with a 3% draw chance. Removes its surrounding tiles and itself, except bedrock. If the board is emptied, a standard tile replaces it.',
-      'radial-gradient(circle at 35% 35%, #9a52cc, #241039 70%)',
-    ],
-    [
-      'Bronze ×2 · Silver ×3 · Diamond ×5',
-      'Multiplies its placement score and the scores of new side neighbours. Received bonuses never spread to other tiles; the strongest bonus applies.',
-      'linear-gradient(135deg, #a47545, #d4d9dd, #73ceef)',
-    ],
-  ] as const
-  return (
-    <dl className="space-y-4 text-sm">
-      {types.map(([title, note, background]) => (
-        <div key={title}>
-          <dt className="flex items-center gap-2 font-semibold">
-            <span
-              className="size-5 shrink-0 rounded-md shadow-sm"
-              style={{ background }}
-              aria-hidden
-            />
-            {t(title)}
-          </dt>
-          <dd className="mt-1 text-ink/65">{t(note)}</dd>
-        </div>
-      ))}
-    </dl>
   )
 }
 
@@ -249,152 +136,57 @@ function Rule({ n, children }: { n: string; children: ReactNode }) {
   )
 }
 
-/** A short control reference inside How to play. */
-function ControlGuide() {
-  const { t } = useTranslation()
-
-  return (
-    <dl className="space-y-3.5 text-sm">
-      <ControlHint
-        title={t('Move the tile')}
-        note={t('Sideways to choose a lane; towards the island to advance.')}
-      >
-        <MoveKeyCaps slot={0} />
-        <span className="text-ink/40">{t('or')}</span>
-        <MoveKeyCaps slot={1} />
-      </ControlHint>
-      <ControlHint
-        title={t('Choose the arrival side')}
-        note={t(
-          'Outside cavities, Shift + right brings the tile from the right. Inside a cavity, Shift + a direction aims towards that wall: up towards the top, down towards the bottom.',
-        )}
-      >
-        <kbd>{t('Shift')}</kbd>
-        <span>+</span>
-        <MoveKeyCaps slot={0} />
-        <span className="text-ink/40">{t('or')}</span>
-        <MoveKeyCaps slot={1} />
-      </ControlHint>
-      <ControlHint
-        title={t('Turn the camera')}
-        note={t('Each press moves to the next aligned side of the island (90°).')}
-      >
-        <span aria-label={t('Left')}>←</span>
-        <KeyCaps action="pivotLeft" />
-        <span className="ml-2" aria-label={t('Right')}>
-          →
-        </span>
-        <KeyCaps action="pivotRight" />
-      </ControlHint>
-      <ControlHint
-        title={t('Recenter the camera')}
-        note={t('Frame the falling tile and its destination together.')}
-      >
-        <kbd>C</kbd>
-        <span className="text-ink/40">{t('or')}</span>
-        <kbd>!</kbd>
-      </ControlHint>
-      <ControlHint
-        title={t('Place instantly')}
-        note={t('Place at the final transparent projection.')}
-      >
-        <KeyCaps action="place" />
-      </ControlHint>
-      <ControlHint
-        title={t('Swap current / next')}
-        note={t(
-          'Swap freely, or click the next tile. Rotations, bonuses and remaining fall time are preserved.',
-        )}
-      >
-        <KeyCaps action="swap" />
-      </ControlHint>
-    </dl>
-  )
-}
-
-function ControlHint({
-  title,
-  note,
-  children,
-}: {
-  title: string
-  note: string
-  children: ReactNode
-}) {
-  return (
-    <div>
-      <dt className="font-semibold text-ink/85">{title}</dt>
-      <dd className="mt-1">
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">{children}</div>
-        <p className="mt-1 text-xs leading-snug text-ink/60">{note}</p>
-      </dd>
-    </div>
-  )
-}
-
 export function Menu() {
-  const { t, language } = useTranslation()
-
-  const menuSounds = useMenuSounds()
-  const root = useRef<HTMLDivElement>(null)
-  // Picking an active panel again closes it.
+  // No panel shows the village art; picking a panel again goes back to it.
   const [panel, setPanel] = useState<Panel | null>(null)
-  const [selected, setSelected] = useState<MenuChoice | null>('start')
   const started = useGameStore((s) => s.started)
   const over = useGameStore(isGameOver)
   const score = useGameStore((s) => s.score)
-  const level = useGameStore((s) => s.level)
-  const tiles = useGameStore((s) => tileCount(s.board))
-  const mode = useGameStore((s) => s.mode)
-  const variant = useGameStore((s) => s.variant)
+  const tiles = useGameStore((s) => pieceCount(s.board))
   const closeMenu = useGameStore((s) => s.closeMenu)
   const restart = useGameStore((s) => s.restart)
-  const returnToMainMenu = useGameStore((s) => s.returnToMainMenu)
-
-  useEffect(() => {
-    if (!started)
-      root.current
-        ?.querySelector<HTMLButtonElement>('[data-menu-item="start"]')
-        ?.focus({ preventScroll: true })
-  }, [started])
 
   const canResume = started && !over
   const toggle = (next: Panel) => setPanel((p) => (p === next ? null : next))
-  const selection = (id: MenuChoice) => ({
-    id,
-    selected: selected === id,
-    onSelect: () => setSelected(id),
-  })
+  const items = useRef<HTMLUListElement>(null)
 
-  const navigate = (e: KeyboardEvent<HTMLDivElement>) => {
-    const settings = useSettingsStore.getState()
-    if (settings.capturing || e.metaKey || e.ctrlKey || e.altKey) return
-    // Enter/Space activate the focused button, even if rebound for movement in game.
-    if (e.code === 'Enter' || e.code === 'Space') return
-    navigateMenu(e, settings.bindings)
-  }
+  // Up / Down move between the menu items; Enter (a native button press) picks one.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+      if (useSettingsStore.getState().capturing || !items.current) return
+      const active = document.activeElement
+      // Leave arrows to the side panel while something in it has focus.
+      if (active && active !== document.body && !items.current.contains(active)) return
+      e.preventDefault()
+      const buttons = [...items.current.querySelectorAll<HTMLButtonElement>('button')]
+      const at = buttons.indexOf(active as HTMLButtonElement)
+      const step = e.key === 'ArrowDown' ? 1 : -1
+      const next = at < 0 ? 0 : (at + step + buttons.length) % buttons.length
+      buttons[next]?.focus({ preventScroll: true })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div
-      ref={root}
       role="dialog"
       aria-modal="true"
-      aria-label={t('Main menu')}
-      onKeyDown={navigate}
-      {...menuSounds}
-      className="absolute inset-0 z-20 animate-fade overflow-x-hidden overflow-y-auto"
+      aria-label="Main menu"
+      className="absolute inset-0 z-20 animate-fade overflow-y-auto"
     >
       {/* Blurred, warm-tinted view of the board behind the menu. */}
       <div className="fixed inset-0 bg-paper/40 backdrop-blur-[14px] backdrop-saturate-[1.15]" />
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_30%_40%,transparent_20%,var(--menu-shade)_100%)]" />
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_30%_40%,transparent_20%,rgb(59_46_34/0.18)_100%)]" />
       <div className="pointer-events-none fixed inset-0 grain opacity-40" />
 
       {/*
         On wide screens the grid is exactly one screen tall and both columns have fixed
         widths, so swapping the right-hand panel never nudges the menu on the left.
       */}
-      <div className="relative mx-auto grid min-h-full max-w-[76rem] content-center gap-10 px-6 py-12 sm:px-10 lg:h-full lg:grid-cols-[minmax(0,1fr)_29rem] lg:grid-rows-[minmax(0,1fr)] lg:gap-14">
-        <section className="min-w-0 lg:self-center">
+      <div className="relative mx-auto grid min-h-full max-w-6xl content-center gap-10 px-6 py-12 sm:px-10 lg:h-full lg:grid-cols-[minmax(0,1fr)_25rem] lg:grid-rows-[minmax(0,1fr)] lg:gap-14">
+        <section className="lg:self-center">
           <h1
             className="animate-rise font-display text-[clamp(4rem,10vw,9rem)] leading-[0.82] font-semibold tracking-[-0.03em] text-ink"
             style={{ animationDelay: '60ms' }}
@@ -419,95 +211,69 @@ export function Menu() {
             className="mt-5 max-w-md animate-rise font-display text-lg leading-snug text-ink/70 italic"
             style={{ animationDelay: '160ms' }}
           >
-            {t(
-              'Guide falling meadow, forest and water tiles. Move sideways, rotate, and line up the terrain as each tile joins the stack.',
-            )}
+            Lay down meadow, forest and water one tile at a time. Line up the squares where tiles
+            meet and the stack keeps growing.
           </p>
 
-          <ul className="mt-9 space-y-1">
+          <ul ref={items} className="mt-9 space-y-1">
             {canResume ? (
-              <MenuItem {...selection('start')} autoFocus onClick={closeMenu} delay={220}>
-                {t('Resume')}
+              <MenuItem primary autoFocus onClick={closeMenu} delay={220}>
+                Resume
               </MenuItem>
             ) : (
               <MenuItem
-                {...selection('start')}
+                primary
                 autoFocus
                 onClick={started ? () => restart() : closeMenu}
                 delay={220}
               >
-                {started ? t('New game') : t('Play')}
+                {started ? 'New game' : 'Play'}
               </MenuItem>
             )}
             {canResume && (
-              <MenuItem {...selection('new')} onClick={() => restart()} delay={270}>
-                {t('New game')}
+              <MenuItem onClick={() => restart()} delay={270}>
+                New game
               </MenuItem>
             )}
-            <MenuItem
-              {...selection('mode')}
-              pressed={panel === 'mode'}
-              onClick={() => toggle('mode')}
-              delay={320}
-            >
-              {t('Gamemode')}
+            <MenuItem pressed={panel === 'how'} onClick={() => toggle('how')} delay={320}>
+              How to play
             </MenuItem>
-            <MenuItem
-              {...selection('how')}
-              pressed={panel === 'how'}
-              onClick={() => toggle('how')}
-              delay={370}
-            >
-              {t('How to play')}
+            <MenuItem pressed={panel === 'settings'} onClick={() => toggle('settings')} delay={370}>
+              Settings
             </MenuItem>
-            <MenuItem
-              {...selection('settings')}
-              pressed={panel === 'settings'}
-              onClick={() => toggle('settings')}
-              delay={420}
-            >
-              {t('Settings')}
-            </MenuItem>
-            {started && (
-              <MenuItem
-                {...selection('home')}
-                onClick={() => {
-                  setPanel(null)
-                  setSelected('start')
-                  returnToMainMenu()
-                }}
-                delay={470}
-              >
-                {t('Return to main menu')}
-              </MenuItem>
-            )}
           </ul>
 
           {started && (
             <p
               className="mt-10 animate-rise font-display text-sm text-ink/70"
-              style={{ animationDelay: '490ms' }}
+              style={{ animationDelay: '440ms' }}
             >
-              {t('{mode} · Level {level} · {score} points · {tiles} tiles', {
-                mode: `${t(GAME_VARIANT_LABELS[variant])} · ${t(GAME_MODE_LABELS[mode])}`,
-                level,
-                score: formatPoints(score, language),
-                tiles,
-              })}
+              {score} points · {tiles} tiles
             </p>
           )}
         </section>
 
-        {panel && (
+        {panel ? (
           <aside
-            data-menu-panel={panel}
-            onPointerEnter={() => setSelected(null)}
             key={panel}
-            className="card animate-rise min-w-0 self-center overflow-x-hidden p-6 sm:p-8 lg:max-h-full lg:overflow-y-auto"
+            className="card animate-rise self-center p-6 sm:p-8 lg:max-h-full lg:overflow-y-auto"
           >
-            <h2 className="eyebrow mb-5">{t(PANEL_TITLES[panel])}</h2>
-            {panel === 'mode' ? <Gamemode /> : panel === 'how' ? <HowToPlay /> : <SettingsPanel />}
+            <h2 className="eyebrow mb-5">{panel === 'how' ? 'How to play' : 'Settings'}</h2>
+            {panel === 'how' ? <HowToPlay /> : <KeySettings />}
           </aside>
+        ) : (
+          <div
+            className="pointer-events-none animate-rise self-center justify-self-center lg:h-full lg:max-h-[38rem] lg:w-[30rem] lg:max-w-none"
+            style={{ animationDelay: '200ms' }}
+          >
+            <img
+              src={villageArt}
+              alt="A small village of tiles: fields, a pond with a waterfall, pine trees and a lookout tower."
+              width={1102}
+              height={1393}
+              className="mx-auto h-full max-h-[60vh] w-auto object-contain drop-shadow-[0_24px_32px_rgb(59_46_34/0.22)] lg:max-h-full"
+            />
+          </div>
         )}
       </div>
     </div>

@@ -1,137 +1,208 @@
-import { useTranslation } from '../i18n/useTranslation'
-import { Canvas } from '@react-three/fiber'
-import { useMemo } from 'react'
-import { nextTilePreview } from '../game/game'
-import { TERRAIN_LABELS } from '../palette'
-import { TrayTile } from '../scene/TrayTile'
+import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
+import { upcomingTiles } from '../game/game'
+import { normalizeRotation, shapeOffsets } from '../game/tiles'
+import type { Tetromino } from '../game/tiles'
+import { TERRAIN_COLORS, TERRAIN_LABELS } from '../palette'
 import { useGameStore } from '../store/gameStore'
+import { useViewStore } from '../store/viewStore'
+import { RotateCcwIcon, RotateCwIcon } from './icons'
 import { useKeyHint } from './useKeyHint'
-import { lowSupply } from '../game/alerts'
 
-/** Large current tile, smaller queued tile, and the separated supply counter. */
+type Spin = { dir: 1 | -1; n: number }
+
+function RotateButton({
+  label,
+  dir,
+  spin,
+  onClick,
+  children,
+}: {
+  label: string
+  dir: 1 | -1
+  spin: Spin | null
+  onClick: () => void
+  children: ReactNode
+}) {
+  // Re-keying the icon restarts its spin animation on every turn in this direction.
+  const spinning = spin?.dir === dir
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="group grid size-9 shrink-0 place-items-center rounded-full text-ink/60 transition hover:bg-ink/6 hover:text-ink active:scale-90 sm:size-10"
+    >
+      <span
+        className={`grid transition-transform duration-300 ease-out ${
+          dir === 1 ? 'group-hover:rotate-[25deg]' : 'group-hover:-rotate-[25deg]'
+        }`}
+      >
+        <span
+          key={spinning ? spin.n : 'idle'}
+          className={spinning ? (dir === 1 ? 'animate-spin-cw' : 'animate-spin-ccw') : ''}
+        >
+          {children}
+        </span>
+      </span>
+    </button>
+  )
+}
+
+/**
+ * A flat drawing of a piece, one terrain square per cell, sized in `em` so each slot sets
+ * its scale with its font size. It turns with the main camera, plus `turns` quarter turns,
+ * so it sits the way it will on the board; both turns ease, like the ghost on the board.
+ */
+function PieceIcon({ piece, turns = 0 }: { piece: Tetromino; turns?: number }) {
+  const azimuth = useViewStore((s) => s.azimuth)
+  // Drawn unrotated in a square frame, so turning it never clips or shifts the frame.
+  const offsets = shapeOffsets(piece.shape)
+  const minQ = Math.min(...offsets.map((o) => o.q))
+  const minR = Math.min(...offsets.map((o) => o.r))
+  const width = Math.max(...offsets.map((o) => o.q)) - minQ + 1
+  const depth = Math.max(...offsets.map((o) => o.r)) - minR + 1
+  const size = Math.max(width, depth)
+  return (
+    <svg
+      viewBox={`0 0 ${size} ${size}`}
+      aria-hidden
+      className="block transition-transform duration-200 ease-out"
+      style={{
+        width: `${size}em`,
+        height: `${size}em`,
+        transform: `rotate(${azimuth + (turns * Math.PI) / 2}rad)`,
+      }}
+    >
+      <g transform={`translate(${(size - width) / 2} ${(size - depth) / 2})`}>
+        {offsets.map((o, i) => (
+          <rect
+            key={i}
+            x={o.q - minQ + 0.04}
+            y={o.r - minR + 0.04}
+            width={0.92}
+            height={0.92}
+            rx={0.16}
+            fill={TERRAIN_COLORS[piece.terrains[i]!]}
+          />
+        ))}
+      </g>
+    </svg>
+  )
+}
+
+function describe(piece: Tetromino): string {
+  return `${piece.shape} tetromino: ${piece.terrains.map((t) => TERRAIN_LABELS[t].toLowerCase()).join(', ')}`
+}
+
+/**
+ * Each upcoming slot is smaller and quieter than the one before it, so the line reads as a
+ * queue receding from the piece in hand without needing a label. Sizes are per square.
+ */
+const UPCOMING_SLOTS = [
+  'text-[7px] opacity-90 sm:text-[9px]',
+  'text-[5.5px] opacity-70 sm:text-[7px]',
+  'text-[4.5px] opacity-50 sm:text-[5.5px]',
+] as const
+
+/**
+ * The piece in hand between its rotate buttons, the next three pieces getting smaller as
+ * they wait their turn, and how many tetrominoes are left in the stack.
+ */
 export function TileTray() {
-  const { t } = useTranslation()
-
   const current = useGameStore((s) => s.current)
   const rotation = useGameStore((s) => s.rotation)
-  const multiplier = useGameStore((s) => s.currentMultiplier)
   const remaining = useGameStore((s) => s.remaining)
   const seed = useGameStore((s) => s.seed)
-  const placements = useGameStore((s) => s.placements)
-  const mode = useGameStore((s) => s.mode)
-  const queued = useGameStore((s) => s.queued)
-  const menuOpen = useGameStore((s) => s.menuOpen)
+  const upcoming = useMemo(() => upcomingTiles({ remaining, seed }), [remaining, seed])
   const rotate = useGameStore((s) => s.rotate)
-  const swap = useGameStore((s) => s.swapTiles)
-  const swapKey = useKeyHint('swap')
-  const next = useMemo(
-    () => nextTilePreview({ current, remaining, seed, placements, mode, queued }),
-    [current, remaining, seed, placements, mode, queued],
+  const [spin, setSpin] = useState<Spin | null>(null)
+  /** Quarter turns of the piece in hand, counted the short way round so it never spins back. */
+  const [turns, setTurns] = useState<number>(rotation)
+  /** Changes with each new piece in hand, so its icon appears at its own angle instead of spinning there. */
+  const [drawn, setDrawn] = useState(0)
+
+  // Spin the icons whenever the piece turns, whether by button or keyboard.
+  useEffect(
+    () =>
+      useGameStore.subscribe((s, prev) => {
+        if (s.current !== prev.current) {
+          setDrawn((n) => n + 1)
+          setTurns(s.rotation)
+          return
+        }
+        if (s.rotation === prev.rotation) return
+        const step = normalizeRotation(s.rotation - prev.rotation)
+        const dir = step === 1 ? 1 : -1
+        setSpin((old) => ({ dir, n: (old?.n ?? 0) + 1 }))
+        setTurns((old) => old + (step === 3 ? -1 : step))
+      }),
+    [],
   )
 
+  const cwKey = useKeyHint('rotateCw')
+  const ccwKey = useKeyHint('rotateCcw')
+
   if (!current) return null
-  const description = current.map((terrain) => t(TERRAIN_LABELS[terrain]).toLowerCase()).join(', ')
-  const nextDescription = next?.quadrants
-    .map((terrain) => t(TERRAIN_LABELS[terrain]).toLowerCase())
-    .join(', ')
 
   return (
-    <div className="card flex max-w-full flex-col items-center gap-1 px-3 py-3 sm:gap-2 sm:px-4">
-      <div className="flex flex-col items-center">
+    <div className="card flex h-14 items-center gap-4 pr-5 pl-2 sm:h-[4.6rem] sm:gap-6 sm:pr-7 sm:pl-3">
+      <div className="flex items-center gap-1">
+        <RotateButton
+          label={`Rotate counter-clockwise${ccwKey ? ` (${ccwKey})` : ''}`}
+          dir={-1}
+          spin={spin}
+          onClick={() => rotate(-1)}
+        >
+          <RotateCcwIcon className="size-[1.1rem] sm:size-5" />
+        </RotateButton>
+
         <button
           type="button"
-          onClick={(event) => {
-            const bounds = event.currentTarget.getBoundingClientRect()
-            rotate(event.detail !== 0 && event.clientX < bounds.left + bounds.width / 2 ? -1 : 1)
-          }}
-          title={t('Current tile: left half turns anticlockwise, right half clockwise.')}
-          aria-label={t(
-            'Current tile: {terrain}. Score ×{bonus}. Click left to turn anticlockwise, right to turn clockwise.',
-            {
-              terrain: description,
-              bonus: multiplier,
-            },
-          )}
-          className="relative size-[min(6rem,20dvh)] cursor-pointer min-[360px]:size-[min(7rem,20dvh)] sm:size-[min(8rem,22dvh)]"
+          onClick={() => rotate(1)}
+          title="Current tetromino (click to rotate)"
+          aria-label={`Current ${describe(current)}. Click to rotate.`}
+          className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-2xl bg-paper-deep/70 text-[9.5px] shadow-[inset_0_1px_2px_rgb(59_46_34/0.08)] transition active:scale-95 sm:size-[3.6rem] sm:text-[12px]"
         >
-          <Canvas
-            shadows="percentage"
-            dpr={[1, 2]}
-            gl={{ alpha: true, antialias: true }}
-            camera={{ fov: 26, near: 0.1, far: 20 }}
-            className="pointer-events-none"
-          >
-            <TrayTile
-              quadrants={current}
-              multiplier={multiplier}
-              rotation={rotation}
-              remaining={remaining}
-            />
-          </Canvas>
-          {multiplier > 1 && (
-            <span className="absolute right-0 bottom-0 rounded-full bg-paper px-2 py-0.5 text-xs font-bold text-ink">
-              ×{multiplier}
-            </span>
-          )}
+          <PieceIcon key={drawn} piece={current} turns={turns} />
         </button>
-        <span className="eyebrow mt-1">{t('Current')}</span>
+
+        <RotateButton
+          label={`Rotate clockwise${cwKey ? ` (${cwKey})` : ''}`}
+          dir={1}
+          spin={spin}
+          onClick={() => rotate(1)}
+        >
+          <RotateCwIcon className="size-[1.1rem] sm:size-5" />
+        </RotateButton>
       </div>
 
-      <div className="my-1 h-px w-1/2 bg-ink/10" aria-hidden />
-      <div className="flex flex-col items-center">
-        <button
-          type="button"
-          onClick={swap}
-          disabled={!next || menuOpen}
-          title={`${t('Swap current / next')}${swapKey ? ` (${swapKey})` : ''}`}
-          aria-label={
-            next
-              ? t('Next tile: {terrain}. Score ×{bonus}. Click to swap with the current tile.', {
-                  terrain: nextDescription!,
-                  bonus: next.multiplier,
-                })
-              : t('No next tile in the supply')
-          }
-          className="relative size-[min(4rem,14dvh)] rounded-lg transition hover:bg-ink/5 disabled:cursor-default disabled:hover:bg-transparent min-[360px]:size-[min(5rem,14dvh)]"
-        >
-          {next ? (
-            <Canvas
-              shadows="percentage"
-              dpr={[1, 2]}
-              gl={{ alpha: true, antialias: true }}
-              camera={{ fov: 26, near: 0.1, far: 20 }}
-              className="pointer-events-none"
+      {upcoming.length > 0 && (
+        <ol aria-label="Upcoming tetrominoes" className="flex items-center gap-2 sm:gap-2.5">
+          {upcoming.map((piece, i) => (
+            // Re-keyed on every placement so each slot slides in as the queue moves up.
+            // Fixed 4-square slots keep the line steady whatever the shapes are.
+            <li
+              key={`${i}-${remaining}`}
+              aria-label={describe(piece)}
+              className={`grid size-[4em] animate-queue place-items-center ${UPCOMING_SLOTS[i]}`}
+              style={{ animationDelay: `${i * 40}ms` }}
             >
-              <TrayTile
-                quadrants={next.quadrants}
-                multiplier={next.multiplier}
-                rotation={next.rotation ?? 0}
-                remaining={1}
-                animateDraw={false}
-              />
-            </Canvas>
-          ) : (
-            <div className="grid h-full place-items-center font-display text-2xl text-ink/30">
-              —
-            </div>
-          )}
-          {next && next.multiplier > 1 && (
-            <span className="absolute right-0 bottom-0 rounded-full bg-paper px-1.5 py-0.5 text-[0.65rem] font-bold text-ink">
-              ×{next.multiplier}
-            </span>
-          )}
-        </button>
-        <span className="eyebrow mt-1">{t('Next')}</span>
-      </div>
+              <PieceIcon piece={piece} />
+            </li>
+          ))}
+        </ol>
+      )}
 
-      <div className="mt-1 self-stretch border-t border-ink/10 pt-3 text-center flex flex-col justify-center">
-        <div className="eyebrow">{t('Tiles')}</div>
-        <div
-          className={`font-display text-[2rem] leading-tight font-semibold tabular-nums ${lowSupply(remaining) ? 'text-danger' : ''}`}
-          aria-label={t('Tiles remaining: {tiles}', { tiles: remaining })}
-        >
+      <div
+        className="flex flex-col justify-center"
+        aria-label={`${remaining} tetrominoes remaining`}
+      >
+        <span className="eyebrow">Remaining</span>
+        <span className="font-display text-2xl leading-none font-semibold tabular-nums sm:mt-0.5 sm:text-[2rem]">
           {remaining}
-        </div>
+        </span>
       </div>
     </div>
   )

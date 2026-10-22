@@ -1,231 +1,114 @@
 import { describe, expect, it } from 'vitest'
+import { pieceCount } from './board'
 import { coordKey } from './coords'
+import type { Coord } from './coords'
 import {
+  canPlaceCurrent,
   createGame,
-  currentQuadrants,
+  currentSquares,
   endReason,
   isGameOver,
-  nextTileQuadrants,
   placeCurrent,
   previewPlacement,
-  rotateCurrent,
+  resetBoard,
+  upcomingTiles,
+  VISIBLE_NEXT,
 } from './game'
-import { LEVEL_UP_TILES, levelGoal } from './levels'
-import { evaluatePlacement, placementCandidates } from './matching'
-import { withTile } from './board'
-import type { Quadrants } from './tiles'
-import type { GameState } from './game'
+import { placementCandidates } from './matching'
+
+/** The first open cell where the piece in hand fits. */
+function firstFit(game: ReturnType<typeof createGame>): Coord {
+  for (const c of placementCandidates(game.board)) if (canPlaceCurrent(game, c)) return c
+  throw new Error('expected somewhere to place the piece')
+}
 
 describe('game flow', () => {
-  it.each([1, 7, 42, 99, 12345])(
-    'previews the actual next draw without consuming it for seed %s',
-    (seed) => {
-      let game = createGame(seed, 10)
-      for (let i = 0; i < 4; i++) {
-        const savedSeed = game.seed
-        const next = nextTileQuadrants(game)
-        expect(next).not.toBeNull()
-        expect(nextTileQuadrants(game)).toEqual(next)
-        expect(game.seed).toBe(savedSeed)
-        const rotated = rotateCurrent(game, 1)
-        expect(nextTileQuadrants(rotated)).toEqual(next)
-        const target = placementCandidates(game.board)[0]!
-        game = placeCurrent(rotated, target)
-        expect(game.current).toEqual(next)
-      }
-    },
-  )
-
-  it('does not advertise a queued tile when the supply is on its last tile or empty', () => {
-    expect(nextTileQuadrants(createGame(42, 1))).toBeNull()
-    expect(nextTileQuadrants(createGame(42, 0))).toBeNull()
-  })
-
   it('is deterministic for a given seed', () => {
     expect(createGame(42)).toEqual(createGame(42))
   })
 
-  it('placing a tile consumes it, scores it and draws the next one', () => {
+  it('placing a piece consumes it, scores it and draws the next one', () => {
     const game = createGame(7, 5)
-    const target = placementCandidates(game.board)[0]
-    if (!target) throw new Error('expected a candidate square')
+    const target = firstFit(game)
 
     const preview = previewPlacement(game, target)
     const next = placeCurrent(game, target)
-    expect(next.current).toEqual(nextTileQuadrants(game))
 
     expect(preview).not.toBeNull()
-    expect(next.board[coordKey(target)]?.quadrants).toEqual(currentQuadrants(game))
+    for (const square of currentSquares(game, target)!)
+      expect(next.board[coordKey(square.coord)]?.terrain).toBe(square.terrain)
+    expect(pieceCount(next.board)).toBe(pieceCount(game.board) + 1)
     expect(next.score).toBe(game.score + (preview?.points ?? 0))
     expect(next.remaining).toBe(game.remaining - 1 + (preview?.bonusTiles ?? 0))
   })
 
   it('ignores invalid placements', () => {
     const game = createGame(1)
-    expect(placeCurrent(game, { q: 0, r: 0 })).toBe(game) // occupied
+    expect(placeCurrent(game, { q: 0, r: 0 })).toBe(game) // overlaps the starting piece
     expect(placeCurrent(game, { q: 9, r: 9 })).toBe(game) // detached
   })
 
   it('ends when the stack runs out', () => {
     let game = createGame(3, 3)
-    for (let i = 0; i < 100 && !isGameOver(game); i++) {
-      const target = placementCandidates(game.board)[0]
-      if (!target) break
-      game = placeCurrent(game, target)
-    }
+    for (let i = 0; i < 100 && !isGameOver(game); i++) game = placeCurrent(game, firstFit(game))
     expect(isGameOver(game)).toBe(true)
     expect(game.remaining).toBe(0)
   })
-})
 
-describe('starting board', () => {
-  it('is harmonious: every side touching the centre matches', () => {
-    for (const seed of [1, 2, 3, 99, 12345]) {
-      const { board } = createGame(seed)
-      const centre = board[coordKey({ q: 0, r: 0 })]
-      if (!centre) throw new Error('missing centre tile')
-      const ring = Object.fromEntries(
-        Object.entries(board).filter(([key]) => key !== coordKey(centre.coord)),
-      )
-      const result = evaluatePlacement(ring, centre.coord, centre.quadrants)
-      expect(result).toMatchObject({ neighbours: 4, perfect: true })
-    }
+  it('starts from a single tetromino at the origin', () => {
+    const { board } = createGame(5)
+    expect(pieceCount(board)).toBe(1)
+    expect(Object.keys(board)).toHaveLength(4)
+    expect(board[coordKey({ q: 0, r: 0 })]).toBeDefined()
   })
 })
 
-describe('score-based levels', () => {
-  it('starts on level 1 with the first goal and no countdown', () => {
-    const game = createGame(5)
-    expect(game).toMatchObject({ level: 1, levelScore: 0 })
-    expect(game).not.toHaveProperty('timeLeft')
-  })
-
-  it('asks for more points as levels go up', () => {
-    for (let level = 1; level < 20; level++) {
-      expect(levelGoal(level + 1)).toBeGreaterThan(levelGoal(level))
-    }
-  })
-
-  it('ends and refuses placements only once the tile supply is empty', () => {
-    expect(endReason(createGame(5))).toBeNull()
-    const out = createGame(5, 0)
-    expect(endReason(out)).toBe('tiles')
-    const target = placementCandidates(out.board)[0]
-    if (!target) throw new Error('expected a candidate square')
-    expect(placeCurrent(out, target)).toBe(out)
-  })
-
-  it('moves to the next level when a placement reaches the goal', () => {
-    const game = { ...createGame(7), levelScore: levelGoal(1) - 1 }
+describe('stack, queue and grid reset', () => {
+  const scoringTarget = (game: ReturnType<typeof createGame>) => {
     const target = placementCandidates(game.board).find(
       (c) => (previewPlacement(game, c)?.points ?? 0) > 0,
     )
     if (!target) throw new Error('expected a scoring square')
-    const preview = previewPlacement(game, target)
+    return target
+  }
 
-    const next = placeCurrent(game, target)
-    expect(next.level).toBe(2)
-    expect(next.levelScore).toBe(0)
-    expect(next.remaining).toBe(game.remaining - 1 + (preview?.bonusTiles ?? 0) + LEVEL_UP_TILES)
-    expect(next.lastPlacement?.leveledUp).toBe(true)
-  })
-
-  it('adds points to the level total without leveling up below the goal', () => {
+  it('has no clock: points add to the total and only an empty stack ends the game', () => {
     const game = createGame(7)
-    const target = placementCandidates(game.board).find(
-      (c) => (previewPlacement(game, c)?.points ?? 0) > 0,
-    )
-    if (!target) throw new Error('expected a scoring square')
-    const points = previewPlacement(game, target)?.points ?? 0
+    const target = scoringTarget(game)
+    const preview = previewPlacement(game, target)
     const next = placeCurrent(game, target)
-    expect(next).toMatchObject({ level: 1, levelScore: points })
-    expect(next.lastPlacement?.leveledUp).toBe(false)
-  })
-})
-
-describe('combo game flow', () => {
-  const grass: Quadrants = ['grass', 'grass', 'grass', 'grass']
-  const starting = () => ({
-    ...createGame(42),
-    board: withTile({}, { coord: { q: 0, r: 0 }, quadrants: grass }),
-    current: grass,
-    currentMultiplier: 1 as const,
+    expect(next.score).toBe(preview!.points)
+    expect(next.remaining).toBe(game.remaining - 1 + preview!.bonusTiles)
+    expect(isGameOver(next)).toBe(false)
+    expect(endReason(createGame(1, 0))).toBe('tiles')
   })
 
-  it('multiplies only the new tile and commits exactly the previewed gain', () => {
-    const game = { ...starting(), score: 100, combo: 2 }
-    const target = { q: 1, r: 0 }
-    const preview = previewPlacement(game, target)!
-    expect(preview).toMatchObject({ basePoints: 10, multiplier: 1.75, points: 17.5, combo: 3 })
-    expect(game.combo).toBe(2)
-    const next = placeCurrent(game, target)
-    expect(next).toMatchObject({
-      score: 117.5,
-      combo: 3,
-      levelScore: 17.5,
-      remaining: 29,
-    })
-    expect(next.lastPlacement).toMatchObject(preview)
-  })
-
-  it('recalculates the combo preview on rotation without advancing the streak', () => {
-    const game = {
-      ...starting(),
-      combo: 2,
-      current: ['forest', 'grass', 'grass', 'forest'] as Quadrants,
+  it('shows the next three tiles, which are exactly the ones drawn next', () => {
+    let game = createGame(11)
+    for (let i = 0; i < 10; i++) {
+      const upcoming = upcomingTiles(game)
+      expect(upcoming).toHaveLength(VISIBLE_NEXT)
+      game = placeCurrent(game, firstFit(game))
+      expect(game.current).toEqual(upcoming[0])
+      expect(upcomingTiles(game).slice(0, 2)).toEqual(upcoming.slice(1))
     }
-    const target = { q: 1, r: 0 }
-    expect(previewPlacement(game, target)).toMatchObject({ multiplier: 1, combo: 0, points: 0 })
-    const rotated = rotateCurrent(game, 2)
-    const preview = previewPlacement(rotated, target)!
-    expect(rotated.combo).toBe(2)
-    expect(preview).toMatchObject({ multiplier: 1.75, combo: 3, points: 17.5 })
-    expect(placeCurrent(rotated, target).lastPlacement).toMatchObject(preview)
   })
 
-  it('counts the multiplied gain towards the new level goal', () => {
-    const game = { ...starting(), combo: 7, levelScore: levelGoal(1) - 25 }
-    const next = placeCurrent(game, { q: 1, r: 0 })
-    expect(next.lastPlacement).toMatchObject({
-      basePoints: 10,
-      points: 30,
-      multiplier: 3,
-      leveledUp: true,
+  it('shows fewer upcoming tiles when the stack runs low', () => {
+    expect(upcomingTiles(createGame(3, 3))).toHaveLength(2)
+    expect(upcomingTiles(createGame(3, 1))).toHaveLength(0)
+  })
+
+  it('resets the grid to a starting island without touching the stack or score', () => {
+    const game = placeCurrent(createGame(7), scoringTarget(createGame(7)))
+    const reset = resetBoard(game)
+    expect(pieceCount(reset.board)).toBe(1)
+    expect(reset).toMatchObject({
+      current: game.current,
+      remaining: game.remaining,
+      score: game.score,
+      seed: game.seed,
     })
-    expect(next).toMatchObject({
-      level: 2,
-      levelScore: 0,
-      combo: 8,
-      remaining: 35,
-    })
-  })
-
-  it('keeps a successful streak through a level-up and restarts it after a mismatch', () => {
-    let game: GameState = starting()
-    for (let q = 1; q <= 8; q++)
-      game = placeCurrent({ ...game, current: grass, currentMultiplier: 1 }, { q, r: 0 })
-    expect(game).toMatchObject({ score: 170, combo: 8, level: 2, levelScore: 82.5 })
-    const broken = placeCurrent(
-      { ...game, current: ['water', 'water', 'water', 'water'], currentMultiplier: 1 },
-      { q: 9, r: 0 },
-    )
-    expect(broken).toMatchObject({ combo: 0, score: 170 })
-    expect(broken.lastPlacement).toMatchObject({ multiplier: 1, points: 0 })
-    const resumed = placeCurrent(
-      { ...broken, current: ['water', 'water', 'water', 'water'], currentMultiplier: 1 },
-      { q: 10, r: 0 },
-    )
-    expect(resumed.lastPlacement).toMatchObject({ multiplier: 1.25, points: 12.5, combo: 1 })
-  })
-
-  it('leaves the combo unchanged on invalid placement, empty supply and rotation', () => {
-    const game = { ...starting(), combo: 5 }
-    expect(placeCurrent(game, { q: 0, r: 0 })).toBe(game)
-    expect(placeCurrent(game, { q: 20, r: 0 })).toBe(game)
-    expect(rotateCurrent(game, 1).combo).toBe(5)
-    const out = { ...game, current: null, remaining: 0 }
-    expect(placeCurrent(out, { q: 1, r: 0 })).toBe(out)
-    expect(out.combo).toBe(5)
-    expect(createGame(42).combo).toBe(0)
+    expect(upcomingTiles(reset)).toEqual(upcomingTiles(game))
   })
 })

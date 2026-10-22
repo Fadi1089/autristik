@@ -1,18 +1,14 @@
-import { useTranslation } from '../i18n/useTranslation'
 import { useEffect } from 'react'
 import { ACTION_LABELS, ACTIONS, RESERVED_CODES } from '../input/bindings'
 import type { Action, KeySlot } from '../input/bindings'
 import { keyLabel } from '../input/keyLabels'
 import { useSettingsStore } from '../store/settingsStore'
-import { AudioSettings } from './AudioSettings'
-import { LanguageSettings } from './LanguageSettings'
-import type { Message } from '../i18n/messages'
 
 /** Codes that only modify other keys; binding them alone would be confusing. */
 const MODIFIERS = new Set(['MetaLeft', 'MetaRight', 'ContextMenu', 'OSLeft', 'OSRight'])
 
-const MOUSE: [input: Message, action: Message][] = [
-  ['Click / tap', 'Choose landing lane'],
+const MOUSE: [input: string, action: string][] = [
+  ['Click', 'Place tile'],
   ['Drag', 'Pan'],
   ['Scroll / pinch', 'Zoom'],
   ['Shift + scroll', 'Pivot'],
@@ -21,11 +17,8 @@ const MOUSE: [input: Message, action: Message][] = [
 ]
 
 function SlotButton({ action, slot }: { action: Action; slot: KeySlot }) {
-  const { t, language } = useTranslation()
-
   const code = useSettingsStore((s) => s.bindings[action][slot])
   const layout = useSettingsStore((s) => s.layout)
-  const dark = useSettingsStore((s) => s.theme === 'dark')
   const capturing = useSettingsStore((s) => s.capturing)
   const setCapturing = useSettingsStore((s) => s.setCapturing)
   const active = capturing?.action === action && capturing.slot === slot
@@ -34,35 +27,29 @@ function SlotButton({ action, slot }: { action: Action; slot: KeySlot }) {
     <button
       type="button"
       onClick={() => setCapturing(active ? null : { action, slot })}
-      aria-label={t('{action}, key {slot}: {key}. Press to change.', {
-        action: t(ACTION_LABELS[action]),
-        slot: slot + 1,
-        key: code ? keyLabel(code, layout, language) : t('unbound'),
-      })}
-      className={`min-h-8 w-full min-w-0 rounded-lg px-2 py-1 text-xs font-semibold break-words transition ${
+      aria-label={`${ACTION_LABELS[action]}, key ${slot + 1}: ${
+        code ? keyLabel(code, layout) : 'unbound'
+      }. Press to change.`}
+      className={`h-8 min-w-[4.5rem] rounded-lg px-2.5 text-xs font-semibold transition ${
         active
           ? 'bg-moss text-paper shadow-[inset_0_0_0_1px_rgb(0_0_0/0.1)]'
           : code
-            ? `bg-paper text-ink shadow-[inset_0_0_0_1px_rgb(59_46_34/0.14),0_2px_0_rgb(59_46_34/0.14)] ${dark ? 'hover:bg-ink/10' : 'hover:bg-white'}`
+            ? 'bg-paper text-ink shadow-[inset_0_0_0_1px_rgb(59_46_34/0.14),0_2px_0_rgb(59_46_34/0.14)] hover:bg-white'
             : 'text-ink/35 shadow-[inset_0_0_0_1px_rgb(59_46_34/0.12)] hover:text-ink/60'
       }`}
     >
-      {active ? t('Press a key') : code ? keyLabel(code, layout, language) : '—'}
+      {active ? 'Press a key' : code ? keyLabel(code, layout) : '—'}
     </button>
   )
 }
 
 /** Keyboard binding editor plus a reference list of mouse and touchpad controls. */
 export function KeySettings() {
-  const { t } = useTranslation()
-
   const capturing = useSettingsStore((s) => s.capturing)
   const bind = useSettingsStore((s) => s.bind)
   const unbind = useSettingsStore((s) => s.unbind)
   const setCapturing = useSettingsStore((s) => s.setCapturing)
   const resetBindings = useSettingsStore((s) => s.resetBindings)
-  const keyboardLayout = useSettingsStore((s) => s.keyboardLayout)
-  const setKeyboardLayout = useSettingsStore((s) => s.setKeyboardLayout)
 
   // While a slot is waiting, the next key press is the new binding. Capturing on window
   // ahead of everything else keeps Esc from also closing the menu.
@@ -86,61 +73,30 @@ export function KeySettings() {
   useEffect(() => () => setCapturing(null), [setCapturing])
 
   return (
-    <div className="min-w-0 space-y-6">
-      <LanguageSettings />
-      <AudioSettings />
+    <div className="space-y-6">
       <section>
         <div className="mb-3 flex items-baseline justify-between gap-4">
-          <h3 className="font-display text-lg font-semibold">{t('Keyboard')}</h3>
+          <h3 className="font-display text-lg font-semibold">Keyboard</h3>
           <button
             type="button"
             onClick={resetBindings}
             className="text-xs font-semibold text-ink/55 underline decoration-ink/20 underline-offset-4 hover:text-ink"
           >
-            {t('Reset to defaults')}
+            Reset to defaults
           </button>
         </div>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-ink/65">{t('Keyboard layout')}</span>
-          <div
-            role="group"
-            aria-label={t('Keyboard layout')}
-            className="flex rounded-lg bg-ink/6 p-1"
-          >
-            {(['azerty', 'qwerty'] as const).map((layout) => (
-              <button
-                key={layout}
-                type="button"
-                aria-pressed={keyboardLayout === layout}
-                onClick={() => setKeyboardLayout(layout)}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                  keyboardLayout === layout ? 'bg-moss text-paper' : 'text-ink/60 hover:text-ink'
-                }`}
-              >
-                {layout.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
         <p className="mb-3 text-xs text-ink/55">
-          {t(
-            'Pick a slot, then press a key. Escape cancels; Backspace or Delete clears. C or ! recenters the falling tile and its destination. Camera turn keys move to the next aligned side, one press per side.',
-          )}
+          Pick a slot, then press a key. <kbd>Esc</kbd> cancels, <kbd>Backspace</kbd> clears.
         </p>
-        <table className="w-full table-fixed text-sm">
-          <colgroup>
-            <col className="w-[50%]" />
-            <col className="w-[25%]" />
-            <col className="w-[25%]" />
-          </colgroup>
+        <table className="w-full text-sm">
           <tbody>
             {ACTIONS.map((action) => (
               <tr key={action} className="border-t border-ink/6 first:border-t-0">
                 <th
                   scope="row"
-                  className="py-1.5 pr-2 text-left font-normal break-words text-ink/80"
+                  className="py-1.5 pr-4 text-left font-normal whitespace-nowrap text-ink/80"
                 >
-                  {t(ACTION_LABELS[action])}
+                  {ACTION_LABELS[action]}
                 </th>
                 <td className="py-1.5 pr-1.5">
                   <SlotButton action={action} slot={0} />
@@ -151,12 +107,14 @@ export function KeySettings() {
               </tr>
             ))}
             <tr className="border-t border-ink/6">
-              <th scope="row" className="py-1.5 pr-2 text-left font-normal text-ink/80">
-                {t('Menu')}
+              <th
+                scope="row"
+                className="py-1.5 pr-4 text-left font-normal whitespace-nowrap text-ink/80"
+              >
+                Menu
               </th>
               <td className="py-1.5 pr-1.5" colSpan={2}>
-                <kbd>{t('Esc')}</kbd>{' '}
-                <span className="ml-1 text-xs text-ink/45">{t('always')}</span>
+                <kbd>Esc</kbd> <span className="ml-1 text-xs text-ink/45">always</span>
               </td>
             </tr>
           </tbody>
@@ -164,12 +122,12 @@ export function KeySettings() {
       </section>
 
       <section>
-        <h3 className="mb-3 font-display text-lg font-semibold">{t('Mouse and touchpad')}</h3>
-        <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-5 gap-y-1.5 text-sm">
+        <h3 className="mb-3 font-display text-lg font-semibold">Mouse and touchpad</h3>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-1.5 text-sm">
           {MOUSE.map(([input, action]) => (
             <div key={input} className="contents">
-              <dt className="text-ink/55">{t(input)}</dt>
-              <dd className="text-ink/80">{t(action)}</dd>
+              <dt className="text-ink/55">{input}</dt>
+              <dd className="text-ink/80">{action}</dd>
             </div>
           ))}
         </dl>

@@ -1,15 +1,27 @@
-import { lazy, Suspense } from 'react'
-import { GridStudy } from './exploration/GridStudy'
-
-// Keep the earlier prototype explicit, without mounting game mechanics in the grid study.
-const GameApp = lazy(() => import('./GameApp').then((module) => ({ default: module.GameApp })))
+import { Canvas } from '@react-three/fiber'
+import { Scene } from './scene/Scene'
+import { useGameStore } from './store/gameStore'
+import { GameOver } from './ui/GameOver'
+import { HUD } from './ui/HUD'
+import { Menu } from './ui/Menu'
+import { useKeyboardShortcuts } from './ui/useKeyboardShortcuts'
 
 export function App() {
-  return new URLSearchParams(window.location.search).get('view') === 'game' ? (
-    <Suspense fallback={null}>
-      <GameApp />
-    </Suspense>
-  ) : (
-    <GridStudy />
+  useKeyboardShortcuts()
+  const menuOpen = useGameStore((s) => s.menuOpen)
+
+  return (
+    <main className="relative h-full w-full touch-none">
+      <Canvas
+        shadows="percentage"
+        dpr={[1, 2]}
+        camera={{ position: [0, 6.5, 7], fov: 40, near: 0.1, far: 200 }}
+      >
+        <Scene />
+      </Canvas>
+      {!menuOpen && <HUD />}
+      <GameOver />
+      {menuOpen && <Menu />}
+    </main>
   )
 }

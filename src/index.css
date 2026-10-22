@@ -13,12 +13,12 @@
   --color-moss: #5f8f43;
   --color-moss-deep: #4c7535;
   --color-clay: #c4643c;
-  --color-danger: #bc453e;
 
   --animate-float-up: float-up 1.4s ease-out forwards;
   --animate-banner: banner 2.8s ease-out forwards;
   --animate-rise: rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-fade: fade 0.35s ease-out both;
+  --animate-queue: queue 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-spin-cw: spin-cw 0.5s cubic-bezier(0.3, 1.4, 0.5, 1);
   --animate-spin-ccw: spin-ccw 0.5s cubic-bezier(0.3, 1.4, 0.5, 1);
 
@@ -74,31 +74,18 @@
       transform: rotate(360deg);
     }
   }
+  /* An upcoming tetromino moving up the queue: it drifts in from the right. */
+  @keyframes queue {
+    from {
+      opacity: 0;
+      translate: 0.6rem 0;
+    }
+  }
   @keyframes fade {
     from {
       opacity: 0;
     }
   }
-}
-
-/* Theme variables also colour the HUD, menus and keyboard hints. Light stays unchanged. */
-:root {
-  --scene-background: #f3eadb;
-  --menu-shade: rgb(59 46 34 / 0.18);
-  color-scheme: light;
-}
-
-:root[data-theme='dark'] {
-  --color-paper: #26363e;
-  --color-paper-deep: #1d2b32;
-  --color-ink: #eee6d7;
-  --color-moss: #80aa68;
-  --color-moss-deep: #b6d59b;
-  --color-clay: #e5a37f;
-  --color-danger: #f08b83;
-  --scene-background: #19252b;
-  --menu-shade: rgb(3 10 15 / 0.5);
-  color-scheme: dark;
 }
 
 /* Fraunces with its soft, rounded terminals switched on. */
@@ -139,49 +126,13 @@
 }
 
 @layer base {
-  /* Theme-derived tracks and rounded thumbs for every scrollable menu or help panel. */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: color-mix(in oklab, var(--color-moss) 65%, var(--color-paper))
-      var(--color-paper-deep);
-  }
-
-  *::-webkit-scrollbar {
-    width: 9px;
-    height: 9px;
-  }
-
-  *::-webkit-scrollbar-track {
-    background: var(--color-paper-deep);
-    border-radius: 999px;
-    margin-block: 12px;
-  }
-
-  *::-webkit-scrollbar-thumb {
-    background: color-mix(in oklab, var(--color-moss) 65%, var(--color-paper));
-    border: 2px solid var(--color-paper-deep);
-    border-radius: 999px;
-  }
-
-  *::-webkit-scrollbar-thumb:hover {
-    background: var(--color-moss);
-  }
-
-  *::-webkit-scrollbar-button {
-    display: none;
-  }
-
-  *::-webkit-scrollbar-corner {
-    background: var(--color-paper-deep);
-  }
-
   html,
   body,
   #root {
     height: 100%;
     margin: 0;
     overflow: hidden;
-    background: var(--scene-background);
+    background: #f3eadb;
     overscroll-behavior: none;
     color: var(--color-ink);
     font-family: var(--font-sans);
@@ -205,9 +156,10 @@
     color: var(--color-ink);
   }
 
+  /* No focus outline anywhere; focused controls show their own state instead. */
+  :focus,
   :focus-visible {
-    outline: 2px solid var(--color-moss);
-    outline-offset: 3px;
+    outline: none;
   }
 
   @media (prefers-reduced-motion: reduce) {

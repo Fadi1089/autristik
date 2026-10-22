@@ -2,7 +2,6 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useRef } from 'react'
 import { Vector3 } from 'three'
 import type { DirectionalLight } from 'three'
-import { useSettingsStore } from '../store/settingsStore'
 
 /** Sun direction relative to whatever the camera is looking at. */
 const SUN_OFFSET = new Vector3(-7, 11, 3)
@@ -17,7 +16,6 @@ interface ControlsWithTarget {
  * frustum follow the camera target so shadows stay crisp wherever you pan.
  */
 export function Lights() {
-  const dark = useSettingsStore((s) => s.theme === 'dark')
   const sun = useRef<DirectionalLight>(null)
   const controls = useThree((s) => s.controls) as unknown as ControlsWithTarget | null
 
@@ -32,11 +30,11 @@ export function Lights() {
 
   return (
     <>
-      <hemisphereLight args={[dark ? '#d6e6f1' : '#fff4e0', dark ? '#3e5554' : '#b9a684', 1.4]} />
+      <hemisphereLight args={['#fff4e0', '#b9a684', 1.4]} />
       <directionalLight
         ref={sun}
-        intensity={dark ? 2 : 2.4}
-        color={dark ? '#e2ecff' : '#fff1d6'}
+        intensity={2.4}
+        color="#fff1d6"
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-SHADOW_EXTENT}
