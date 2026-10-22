@@ -4,9 +4,10 @@ import { TERRAIN_COLORS } from '../palette'
 import { useGameStore } from '../store/gameStore'
 import { useSettingsStore } from '../store/settingsStore'
 import villageArt from '../assets/menu-village.webp'
+import { GameSettings } from './GameSettings'
 import { KeySettings } from './KeySettings'
 
-type Panel = 'settings'
+type Panel = 'settings' | 'shortcuts'
 
 /** Four little squares that slide in next to the selected (focused or hovered) menu item. */
 function Bullet() {
@@ -158,6 +159,13 @@ export function Menu() {
             <MenuItem pressed={panel === 'settings'} onClick={() => toggle('settings')} delay={320}>
               Settings
             </MenuItem>
+            <MenuItem
+              pressed={panel === 'shortcuts'}
+              onClick={() => toggle('shortcuts')}
+              delay={370}
+            >
+              Shortcuts
+            </MenuItem>
           </ul>
         </section>
 
@@ -166,8 +174,8 @@ export function Menu() {
             key={panel}
             className="card animate-rise self-center p-6 sm:p-8 lg:max-h-full lg:overflow-y-auto"
           >
-            <h2 className="eyebrow mb-5">Settings</h2>
-            <KeySettings />
+            <h2 className="eyebrow mb-5">{panel === 'shortcuts' ? 'Shortcuts' : 'Settings'}</h2>
+            {panel === 'shortcuts' ? <KeySettings /> : <GameSettings />}
           </aside>
         ) : (
           <div

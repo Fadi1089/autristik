@@ -3,10 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { MathUtils } from 'three'
 import type { Group } from 'three'
-import { directionOffset } from '../game/coords'
-import { currentSquares, previewPlacement } from '../game/game'
+import { canPlaceCurrent, currentSquares } from '../game/game'
 import { normalizeRotation } from '../game/tiles'
-import type { Contact } from '../game/matching'
 import { SCENE_COLORS } from '../palette'
 import { useGameStore } from '../store/gameStore'
 import { useViewStore } from '../store/viewStore'
@@ -20,23 +18,9 @@ const SLIDE_EASING = 22
 /** How quickly the ghost turns to a new rotation; higher is snappier. */
 const SPIN_EASING = 18
 
-/** Marker on the edge between one of our squares and the board square it touches. */
-function ContactDot({ contact }: { contact: Contact }) {
-  // Squares are drawn relative to the anchor at the origin.
-  const [x, z] = coordToWorld(contact.coord)
-  const { q, r } = directionOffset(contact.direction)
-  const reach = TILE_SIZE / 2
-  return (
-    <mesh position={[x + q * reach, BASE_HEIGHT + 0.15, z + r * reach]}>
-      <sphereGeometry args={[0.04, 12, 8]} />
-      <meshBasicMaterial color={contact.matches ? SCENE_COLORS.match : SCENE_COLORS.mismatch} />
-    </mesh>
-  )
-}
-
 /**
  * Floating preview of the piece in hand over the hovered square (pointer or keyboard
- * cursor), with seam feedback. It turns red where the piece can't go.
+ * cursor). Biome colours stay visible even when the piece overlaps the board.
  * It slides from square to square rather than jumping, spins to each new rotation, and
  * appears in place when shown.
  */
@@ -46,27 +30,19 @@ export function Ghost() {
   const current = useGameStore((s) => s.current)
   const rotation = useGameStore((s) => s.rotation)
 
-  const { squares, preview } = useMemo(() => {
+  const { squares, placeable } = useMemo(() => {
     const hand = { board, current, rotation }
     // Drawn around the anchor; the sliding group carries the hovered position.
     const origin = { q: 0, r: 0 }
-    const placed = hover ? previewPlacement(hand, hover) : null
     return {
       // Unrotated: the spinning group turns it, so rotations can be animated.
       squares: currentSquares({ ...hand, rotation: 0 }, origin),
-      preview: placed && {
-        ...placed,
-        contacts: placed.contacts.map((c) => ({
-          ...c,
-          coord: { q: c.coord.q - hover!.q, r: c.coord.r - hover!.r },
-        })),
-      },
+      placeable: hover !== null && canPlaceCurrent(hand, hover),
     }
   }, [board, current, rotation, hover])
 
   const slide = useRef<Group>(null)
   const spin = useRef<Group>(null)
-  const dots = useRef<Group>(null)
   const ref = useRef<Group>(null)
   /** Quarter turns so far, counted the short way round, so the spin never goes the long way. */
   const turns = useRef(rotation)
@@ -102,8 +78,6 @@ export function Ghost() {
     if (spin.current) {
       const target = (-turns.current * Math.PI) / 2
       spin.current.rotation.y = MathUtils.damp(spin.current.rotation.y, target, SPIN_EASING, delta)
-      // The dots belong to the final orientation, so they wait for the spin to settle.
-      if (dots.current) dots.current.visible = Math.abs(spin.current.rotation.y - target) < 0.05
     }
     if (ref.current) ref.current.position.y = HOVER_LIFT + Math.sin(clock.elapsedTime * 3) * 0.02
     if (label.current) {
@@ -124,19 +98,28 @@ export function Ghost() {
     <group ref={slide} visible={hover !== null && squares !== null}>
       <group ref={ref}>
         <group ref={spin}>
-          {preview ? (
-            <PieceTile squares={squares ?? []} glow={0.12} />
-          ) : (
-            <PieceTile squares={squares ?? []} tint={SCENE_COLORS.mismatch} />
-          )}
-        </group>
-        <group ref={dots}>
-          {preview?.contacts.map((c) => (
-            <ContactDot key={`${c.coord.q},${c.coord.r}-${c.direction}`} contact={c} />
-          ))}
+          {squares?.map((square) => {
+            const [x, z] = coordToWorld(square.coord)
+            return (
+              <mesh
+                key={`${square.coord.q},${square.coord.r}`}
+                position={[x, BASE_HEIGHT - 0.004, z]}
+                renderOrder={1}
+              >
+                <planeGeometry args={[TILE_SIZE * 1.16, TILE_SIZE * 1.16]} />
+                <meshBasicMaterial
+                  color={placeable ? SCENE_COLORS.placementValid : SCENE_COLORS.placementInvalid}
+                  transparent
+                  opacity={placeable ? 0.16 : 0.28}
+                  depthWrite={false}
+                />
+              </mesh>
+            )
+          })}
+          <PieceTile squares={squares ?? []} glow={placeable ? 0.12 : 0.04} />
         </group>
       </group>
-      {preview && (
+      {placeable && (
         <group ref={label}>
           <Html pointerEvents="none" zIndexRange={[10, 0]}>
             <div className="hidden translate-x-1.5 -translate-y-full items-baseline gap-1 rounded-full border border-ink/8 bg-paper/55 px-2 py-0.5 whitespace-nowrap text-ink/80 backdrop-blur-[2px] pointer-coarse:inline-flex">

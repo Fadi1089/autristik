@@ -1,6 +1,48 @@
 import { useGameStore } from '../store/gameStore'
-import { MenuIcon, ResetGridIcon } from './icons'
+import { CAMERA_PIVOT_STEP, useViewStore } from '../store/viewStore'
+import { useKeyHint } from './useKeyHint'
+import { CameraLeftIcon, CameraRightIcon, MenuIcon, ResetGridIcon } from './icons'
 import { TileTray } from './TileTray'
+
+function CameraControls() {
+  const requestPivot = useViewStore((s) => s.requestPivot)
+  const leftKey = useKeyHint('pivotLeft')
+  const rightKey = useKeyHint('pivotRight')
+  const controls = [
+    {
+      label: `Rotate camera left${leftKey ? ` (${leftKey})` : ''}`,
+      key: leftKey,
+      Icon: CameraLeftIcon,
+      step: -CAMERA_PIVOT_STEP,
+    },
+    {
+      label: `Rotate camera right${rightKey ? ` (${rightKey})` : ''}`,
+      key: rightKey,
+      Icon: CameraRightIcon,
+      step: CAMERA_PIVOT_STEP,
+    },
+  ]
+
+  return (
+    <div className="card flex h-14 items-center gap-0.5 px-1 sm:gap-1 sm:px-1.5">
+      {controls.map(({ label, key, Icon, step }) => (
+        <button
+          key={label}
+          type="button"
+          title={label}
+          aria-label={label}
+          onClick={() => requestPivot(step)}
+          className="flex size-9 flex-col items-center justify-center gap-0.5 rounded-full text-ink/60 transition hover:bg-ink/6 hover:text-ink active:scale-90 sm:size-10"
+        >
+          <Icon className="size-4 sm:size-[1.1rem]" />
+          <span aria-hidden className="text-[8px] leading-none text-ink/50 sm:text-[9px]">
+            {key || '—'}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export function HUD() {
   const openMenu = useGameStore((s) => s.openMenu)
@@ -37,7 +79,8 @@ export function HUD() {
         </div>
       </header>
 
-      <footer className="flex justify-center">
+      <footer className="flex flex-col items-center gap-1 sm:flex-row sm:justify-center sm:gap-3">
+        <CameraControls />
         <TileTray />
       </footer>
     </div>

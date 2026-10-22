@@ -2,7 +2,6 @@ import { coordKey, DIRECTIONS, neighbour, parseCoordKey } from './coords'
 import type { Coord, Direction } from './coords'
 import { boardSquares, getSquare, isOccupied } from './board'
 import type { Board } from './board'
-import { SHAPE_REACH } from './tiles'
 import type { Square, Terrain } from './tiles'
 
 /** One edge where a square of the piece touches a square already on the board. */
@@ -49,7 +48,7 @@ export function evaluatePlacement(board: Board, squares: readonly Square[]): Pla
         })
     }
   }
-  const allMatch = contacts.every((c) => c.matches)
+  const allMatch = contacts.length > 0 && contacts.every((c) => c.matches)
   return {
     neighbours: contacts.length,
     contacts,
@@ -58,11 +57,12 @@ export function evaluatePlacement(board: Board, squares: readonly Square[]): Pla
   }
 }
 
-/** A piece fits when all its cells are empty and it touches the board (or starts it at the origin). */
+/**
+ * A piece can be placed anywhere on the grid, as long as it does not overlap
+ * any already placed square.
+ */
 export function canPlace(board: Board, squares: readonly Square[]): boolean {
-  if (squares.some((s) => isOccupied(board, s.coord))) return false
-  if (boardSquares(board).length === 0) return inPiece(squares, { q: 0, r: 0 })
-  return squares.some((s) => DIRECTIONS.some((d) => isOccupied(board, neighbour(s.coord, d))))
+  return !squares.some((s) => isOccupied(board, s.coord))
 }
 
 /** Every empty cell next to the board, in a stable order. */
@@ -78,18 +78,16 @@ export function placementCandidates(board: Board): Coord[] {
 }
 
 /**
- * Keeps a keyboard cursor (a piece's anchor) near the board: far enough out that any shape
- * can still be placed touching the board from any side, and no farther.
+ * Keeps a keyboard cursor (a piece's anchor) near enough to explore and place freely.
  */
 export function clampCursor(board: Board, c: Coord): Coord {
   const squares = boardSquares(board)
-  if (squares.length === 0) return c
-  const reach = SHAPE_REACH + 1
-  const qs = squares.map((s) => s.coord.q)
-  const rs = squares.map((s) => s.coord.r)
+  const qs = squares.length > 0 ? squares.map((s) => s.coord.q) : [0]
+  const rs = squares.length > 0 ? squares.map((s) => s.coord.r) : [0]
+  const reach = 25
   return {
-    q: Math.min(Math.max(...qs) + reach, Math.max(Math.min(...qs) - reach, c.q)),
-    r: Math.min(Math.max(...rs) + reach, Math.max(Math.min(...rs) - reach, c.r)),
+    q: Math.min(Math.max(20, ...qs) + reach, Math.max(-20, Math.min(...qs) - reach, c.q)),
+    r: Math.min(Math.max(20, ...rs) + reach, Math.max(-20, Math.min(...rs) - reach, c.r)),
   }
 }
 

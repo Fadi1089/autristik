@@ -9,8 +9,8 @@
 </p>
 
 A cozy tile-placement game in the spirit of Dorfromantik, played with tetrominoes. Each piece is
-four terrain squares laid out as an I, O, T, S, Z, J or L. You place pieces next to the board one
-at a time, and squares that match the square they touch score points.
+four terrain squares laid out as an I, O, T, S, Z, J or L. Place each piece anywhere on the grid
+without overlapping existing squares; touching the board is not required.
 
 Built with Vite, React, TypeScript, Three.js (via @react-three/fiber and drei), Zustand and
 Tailwind CSS v4. It deploys to GitLab Pages.
@@ -26,10 +26,9 @@ the ground, strongest at the centre of the view and fading towards the edges.
 - The game opens on the menu. Move between its items with the arrow keys or the mouse and press
   `Enter` to pick one. During play, `Esc` pauses into the menu and pressing it again resumes. The
   button in the top left opens the menu too.
-- Hover a cell, or move there with the keyboard, to see the piece in hand floating over it. It
-  slides from cell to cell and spins when you rotate it. Where the piece can't go (it would
-  overlap the board, or not touch it) it turns red. Dots on the edges show which squares match
-  (green) and which don't (red), and the label shows what the placement is worth.
+- Hover any cell, or move there with the keyboard, to see the piece in hand floating over it. It
+  slides from cell to cell and spins when you rotate it. A subtle outline beneath the piece shows
+  whether it can be placed; the biome colours remain visible when it overlaps the board.
 - Click, or press `Enter` / `Space`, to place it. Dragging the camera doesn't count as a click.
   Touch screens have no hover, so the first tap on a cell shows the preview and a second tap on
   the same cell places the piece. Tapping another cell moves the preview.
@@ -60,7 +59,10 @@ again only when it moves onto another cell.
 
 Keys are matched by physical position, so on AZERTY the movement keys are `Z` `Q` `S` `D`. In
 Chromium browsers the labels show what is printed on your keyboard. Every key except `Esc` can be
-changed under Menu > Settings (two keys per action, saved in the browser).
+changed under Menu > Shortcuts (two keys per action, saved in the browser). Menu > Settings lets
+you tune the relative chances of each biome count and the relative weights used to select biomes.
+The displayed normalized percentages show the effective biome-count odds and the relative biome
+selection weights; changes apply to pieces drawn next.
 
 Mouse and touchpad:
 

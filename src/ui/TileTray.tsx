@@ -15,12 +15,14 @@ function RotateButton({
   label,
   dir,
   spin,
+  shortcut,
   onClick,
   children,
 }: {
   label: string
   dir: 1 | -1
   spin: Spin | null
+  shortcut: string
   onClick: () => void
   children: ReactNode
 }) {
@@ -32,7 +34,7 @@ function RotateButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="group grid size-9 shrink-0 place-items-center rounded-full text-ink/60 transition hover:bg-ink/6 hover:text-ink active:scale-90 sm:size-10"
+      className="group flex size-9 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full text-ink/60 transition hover:bg-ink/6 hover:text-ink active:scale-90 sm:size-10"
     >
       <span
         className={`grid transition-transform duration-300 ease-out ${
@@ -45,6 +47,9 @@ function RotateButton({
         >
           {children}
         </span>
+      </span>
+      <span aria-hidden className="text-[8px] leading-none text-ink/50 sm:text-[9px]">
+        {shortcut || '—'}
       </span>
     </button>
   )
@@ -152,6 +157,7 @@ export function TileTray() {
           label={`Rotate counter-clockwise${ccwKey ? ` (${ccwKey})` : ''}`}
           dir={-1}
           spin={spin}
+          shortcut={ccwKey}
           onClick={() => rotate(-1)}
         >
           <RotateCcwIcon className="size-[1.1rem] sm:size-5" />
@@ -171,6 +177,7 @@ export function TileTray() {
           label={`Rotate clockwise${cwKey ? ` (${cwKey})` : ''}`}
           dir={1}
           spin={spin}
+          shortcut={cwKey}
           onClick={() => rotate(1)}
         >
           <RotateCwIcon className="size-[1.1rem] sm:size-5" />

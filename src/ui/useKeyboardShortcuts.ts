@@ -8,7 +8,7 @@ import type { ScreenDirection } from '../input/movement'
 import { worldToCoord } from '../scene/layout'
 import { useGameStore } from '../store/gameStore'
 import { useSettingsStore } from '../store/settingsStore'
-import { useViewStore } from '../store/viewStore'
+import { CAMERA_PIVOT_STEP, useViewStore } from '../store/viewStore'
 
 const MOVES: Partial<Record<Action, ScreenDirection>> = {
   moveUp: 'up',
@@ -17,8 +17,6 @@ const MOVES: Partial<Record<Action, ScreenDirection>> = {
   moveRight: 'right',
 }
 
-/** Radians of camera pivot per key press (or key repeat). */
-const PIVOT_STEP = Math.PI / 16
 const ZOOM_STEP = 0.14
 
 /**
@@ -75,10 +73,10 @@ export function useKeyboardShortcuts() {
           game.rotate(-1)
           break
         case 'pivotLeft':
-          view.requestPivot(-PIVOT_STEP)
+          view.requestPivot(-CAMERA_PIVOT_STEP)
           break
         case 'pivotRight':
-          view.requestPivot(PIVOT_STEP)
+          view.requestPivot(CAMERA_PIVOT_STEP)
           break
         case 'zoomIn':
           view.requestZoom(ZOOM_STEP)

@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 
+/** Camera pivot for one keyboard press or camera-button click. */
+export const CAMERA_PIVOT_STEP = Math.PI / 16
+
 interface ViewStore {
   /**
    * Camera heading around the board in radians. 0 means the camera sits south of its

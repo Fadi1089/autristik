@@ -4,18 +4,10 @@ import { Color, InstancedMesh, Matrix4, Quaternion, Vector3 } from 'three'
 import type { PlacedSquare } from '../game/board'
 import { boardSquares } from '../game/board'
 import type { Coord } from '../game/coords'
-import { placementCandidates } from '../game/matching'
 import { SCENE_COLORS, TERRAIN_COLORS } from '../palette'
 import { useGameStore } from '../store/gameStore'
-import { baseGeometry, candidateGeometry, squareGeometry } from './geometry'
-import {
-  BASE_HEIGHT,
-  BOXES_PER_CELL,
-  cellBoxes,
-  coordToWorld,
-  TERRAIN_HEIGHT,
-  TILE_SIZE,
-} from './layout'
+import { baseGeometry, squareGeometry } from './geometry'
+import { BASE_HEIGHT, BOXES_PER_CELL, cellBoxes, TERRAIN_HEIGHT, TILE_SIZE } from './layout'
 
 const DROP_HEIGHT = 0.6
 const DROP_SECONDS = 0.35
@@ -29,7 +21,6 @@ const matrix = new Matrix4()
 const position = new Vector3()
 const scale = new Vector3()
 const color = new Color()
-const ONE = new Vector3(1, 1, 1)
 const NO_ROTATION = new Quaternion()
 
 const HIDDEN = new Matrix4().makeScale(0, 0, 0)
@@ -73,7 +64,7 @@ function writeSquare(
   }
 }
 
-/** Placed squares (two InstancedMeshes) plus markers on every cell next to the board. */
+/** Placed squares rendered as two instanced meshes. */
 export function Board() {
   const board = useGameStore((s) => s.board)
   const lastPlacement = useGameStore((s) => s.lastPlacement)
@@ -86,13 +77,10 @@ export function Board() {
       cells.set(square.piece, [...(cells.get(square.piece) ?? []), square.coord])
     return cells
   }, [tiles])
-  const candidates = useMemo(() => placementCandidates(board), [board])
   const tileCapacity = capacityFor(tiles.length)
-  const candidateCapacity = capacityFor(candidates.length)
 
   const baseRef = useRef<InstancedMesh>(null)
   const squareRef = useRef<InstancedMesh>(null)
-  const candidateRef = useRef<InstancedMesh>(null)
   const drop = useRef<{ indices: number[]; elapsed: number } | null>(null)
 
   useLayoutEffect(() => {
@@ -115,18 +103,6 @@ export function Board() {
     )
     drop.current = indices.length ? { indices, elapsed: 0 } : null
   }, [tiles, pieces, tileCapacity, lastPlacement])
-
-  useLayoutEffect(() => {
-    const mesh = candidateRef.current
-    if (!mesh) return
-    candidates.forEach((c, i) => {
-      const [x, z] = coordToWorld(c)
-      mesh.setMatrixAt(i, matrix.compose(position.set(x, 0.004, z), NO_ROTATION, ONE))
-    })
-    mesh.count = candidates.length
-    mesh.instanceMatrix.needsUpdate = true
-    mesh.computeBoundingSphere()
-  }, [candidates, candidateCapacity])
 
   // Ease the most recently placed piece down onto the board.
   useFrame((_, delta) => {
@@ -166,18 +142,6 @@ export function Board() {
         receiveShadow
       >
         <meshStandardMaterial flatShading roughness={0.85} />
-      </instancedMesh>
-      <instancedMesh
-        key={`candidate-${candidateCapacity}`}
-        ref={candidateRef}
-        args={[candidateGeometry, undefined, candidateCapacity]}
-      >
-        <meshBasicMaterial
-          color={SCENE_COLORS.candidate}
-          transparent
-          opacity={0.55}
-          depthWrite={false}
-        />
       </instancedMesh>
     </group>
   )

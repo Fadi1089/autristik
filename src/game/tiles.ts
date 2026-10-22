@@ -114,36 +114,64 @@ export function pieceSquares(piece: Tetromino, rotation: Rotation, at: Coord): S
   }))
 }
 
-/**
- * Biome selection probabilities:
- * - Red: 30%
- * - Green: 30%
- * - Black: 17.5%
- * - Yellow: 17.5%
- * - Blue: 5%
- */
-export const BIOME_WEIGHTS: Readonly<Record<Biome, number>> = {
-  red: 0.3,
-  green: 0.3,
-  black: 0.175,
-  yellow: 0.175,
-  blue: 0.05,
+export interface BiomeCountWeights {
+  readonly 1: number
+  readonly 2: number
+  readonly 3: number
+  readonly 4: number
 }
 
+export interface BiomeProbabilities {
+  readonly biomeCounts: BiomeCountWeights
+  readonly biomeWeights: Readonly<Record<Biome, number>>
+}
+
+/**
+ * Default biome probabilities:
+ * - Counts: 45% 2 biomes, 25% 3 biomes, 15% 1 biome, 15% 4 biomes.
+ * - Selection: Red 30%, Green 30%, Black 17.5%, Yellow 17.5%, Blue 5%.
+ */
+export const DEFAULT_BIOME_PROBABILITIES: BiomeProbabilities = {
+  biomeCounts: {
+    1: 15,
+    2: 45,
+    3: 25,
+    4: 15,
+  },
+  biomeWeights: {
+    red: 30,
+    green: 30,
+    black: 17.5,
+    yellow: 17.5,
+    blue: 5,
+  },
+}
+
+export const BIOME_WEIGHTS = DEFAULT_BIOME_PROBABILITIES.biomeWeights
 export const TERRAIN_WEIGHTS = BIOME_WEIGHTS
 
 /**
  * Pick `count` distinct biomes without replacement from BIOMES using their selection weights.
  */
-export function pickDistinctBiomes(rng: Rng, count: number): Biome[] {
+export function pickDistinctBiomes(
+  rng: Rng,
+  count: number,
+  weights: Readonly<Record<Biome, number>> = DEFAULT_BIOME_PROBABILITIES.biomeWeights,
+): Biome[] {
   const pool = [...BIOMES]
   const chosen: Biome[] = []
   for (let i = 0; i < count && pool.length > 0; i++) {
-    const weights: Record<string, number> = {}
+    const activeWeights: Record<string, number> = {}
+    let sum = 0
     for (const b of pool) {
-      weights[b] = BIOME_WEIGHTS[b]
+      const w = Math.max(0, weights[b] ?? 0)
+      activeWeights[b] = w
+      sum += w
     }
-    const picked = rng.weighted(weights) as Biome
+    if (sum <= 0) {
+      for (const b of pool) activeWeights[b] = 1
+    }
+    const picked = rng.weighted(activeWeights) as Biome
     chosen.push(picked)
     const idx = pool.indexOf(picked)
     if (idx >= 0) pool.splice(idx, 1)
@@ -152,18 +180,23 @@ export function pickDistinctBiomes(rng: Rng, count: number): Biome[] {
 }
 
 /**
- * Number of biomes per tetromino (4 squares):
- * - 45% of having 2 biomes
- * - 25% of having 3 biomes
- * - 15% of having 4 biomes
- * - 15% of having 1 biome
+ * Number of biomes per tetromino (4 squares).
  */
-export function pickBiomeCount(rng: Rng): 1 | 2 | 3 | 4 {
-  const roll = rng.next()
-  if (roll < 0.15) return 1
-  if (roll < 0.6) return 2 // 0.15 + 0.45
-  if (roll < 0.85) return 3 // 0.60 + 0.25
-  return 4 // 1 - 0.85 = 0.15
+export function pickBiomeCount(
+  rng: Rng,
+  counts: BiomeCountWeights = DEFAULT_BIOME_PROBABILITIES.biomeCounts,
+): 1 | 2 | 3 | 4 {
+  const c1 = Math.max(0, counts[1] ?? 0)
+  const c2 = Math.max(0, counts[2] ?? 0)
+  const c3 = Math.max(0, counts[3] ?? 0)
+  const c4 = Math.max(0, counts[4] ?? 0)
+  const total = c1 + c2 + c3 + c4
+  if (total <= 0) return 2
+  const roll = rng.next() * total
+  if (roll < c1) return 1
+  if (roll < c1 + c2) return 2
+  if (roll < c1 + c2 + c3) return 3
+  return 4
 }
 
 function shuffle<T>(arr: T[], rng: Rng): T[] {
@@ -179,11 +212,14 @@ function shuffle<T>(arr: T[], rng: Rng): T[] {
 
 /**
  * Generates 4 squares for a tetromino according to the biome count distribution
- * (15% 1-biome, 45% 2-biomes, 25% 3-biomes, 15% 4-biomes) and biome weights.
+ * and biome weights.
  */
-export function randomTerrains(rng: Rng): Terrains {
-  const count = pickBiomeCount(rng)
-  const biomes = pickDistinctBiomes(rng, count)
+export function randomTerrains(rng: Rng, probs?: BiomeProbabilities): Terrains {
+  const counts = probs?.biomeCounts ?? DEFAULT_BIOME_PROBABILITIES.biomeCounts
+  const weights = probs?.biomeWeights ?? DEFAULT_BIOME_PROBABILITIES.biomeWeights
+
+  const count = pickBiomeCount(rng, counts)
+  const biomes = pickDistinctBiomes(rng, count, weights)
 
   switch (count) {
     case 1: {
@@ -208,7 +244,7 @@ export function randomTerrains(rng: Rng): Terrains {
 }
 
 /** Every shape is equally likely; biomes are drawn per the specified probabilities. */
-export function randomTetromino(rng: Rng): Tetromino {
+export function randomTetromino(rng: Rng, probs?: BiomeProbabilities): Tetromino {
   const shape = SHAPES[Math.floor(rng.next() * SHAPES.length)]!
-  return { shape, terrains: randomTerrains(rng) }
+  return { shape, terrains: randomTerrains(rng, probs) }
 }

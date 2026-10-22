@@ -4,6 +4,8 @@ import type { Coord, Direction } from '../game/coords'
 import { createGame, placeCurrent, resetBoard, rotateCurrent } from '../game/game'
 import type { GameState } from '../game/game'
 import { clampCursor } from '../game/matching'
+import type { BiomeProbabilities } from '../game/tiles'
+import { useSettingsStore } from './settingsStore'
 
 export interface GameStore extends GameState {
   /** Square under the pointer or the keyboard cursor; the ghost shows there when the piece fits. */
@@ -22,6 +24,7 @@ export interface GameStore extends GameState {
   /** Places the piece in hand on the hovered square, if it fits there. */
   placeAtHover(): void
   rotate(turns: number): void
+  setBiomeProbabilities(probabilities: BiomeProbabilities): void
   place(c: Coord): void
   restart(seed?: number): void
   /** Clears the placed tiles back to a starting island; the queue carries on. */
@@ -43,7 +46,7 @@ function initialSeed(): number {
 }
 
 export const useGameStore = create<GameStore>()((set) => ({
-  ...createGame(initialSeed()),
+  ...createGame(initialSeed(), useSettingsStore.getState().biomeProbabilities),
   hover: null,
   cursor: null,
   menuOpen: true,
@@ -75,6 +78,8 @@ export const useGameStore = create<GameStore>()((set) => ({
 
   rotate: (turns) => set((s) => (s.menuOpen ? s : { rotation: rotateCurrent(s, turns).rotation })),
 
+  setBiomeProbabilities: (biomeProbabilities) => set({ biomeProbabilities }),
+
   place: (c) =>
     set((s) => {
       if (s.menuOpen) return s
@@ -86,7 +91,7 @@ export const useGameStore = create<GameStore>()((set) => ({
 
   restart: (seed = randomSeed()) =>
     set({
-      ...createGame(seed),
+      ...createGame(seed, useSettingsStore.getState().biomeProbabilities),
       hover: null,
       cursor: null,
       menuOpen: false,

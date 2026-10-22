@@ -40,10 +40,12 @@ describe('game flow', () => {
     expect(next.current).not.toBeNull()
   })
 
-  it('ignores invalid placements', () => {
+  it('allows placements anywhere without overlap', () => {
     const game = createGame(1)
     expect(placeCurrent(game, { q: 0, r: 0 })).toBe(game) // overlaps the starting piece
-    expect(placeCurrent(game, { q: 9, r: 9 })).toBe(game) // detached
+    const detached = placeCurrent(game, { q: 9, r: 9 })
+    expect(detached).not.toBe(game)
+    expect(pieceCount(detached.board)).toBe(pieceCount(game.board) + 1)
   })
 
   it('starts from a single tetromino at the origin', () => {

@@ -36,6 +36,28 @@ export function RotateCcwIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function CameraLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 8a8 8 0 0 1 13.7-2.6L20 8" />
+      <path d="M20 4v4h-4" />
+      <path d="M20 16a8 8 0 0 1-13.7 2.6L4 16" />
+      <path d="M4 20v-4h4" />
+    </svg>
+  )
+}
+
+export function CameraRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M20 8A8 8 0 0 0 6.3 5.4L4 8" />
+      <path d="M4 4v4h4" />
+      <path d="M4 16a8 8 0 0 0 13.7 2.6L20 16" />
+      <path d="M20 20v-4h-4" />
+    </svg>
+  )
+}
+
 /** A broom sweeping the board clean, with a little dust: clear the placed tiles. */
 export function ResetGridIcon(props: SVGProps<SVGSVGElement>) {
   return (

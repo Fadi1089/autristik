@@ -25,7 +25,6 @@ export const SCENE_COLORS = {
   background: '#f3eadb',
   ground: '#e7dbc3',
   soil: '#9b7653',
-  candidate: '#fffaf0',
-  match: '#6fbf63',
-  mismatch: '#d9604a',
+  placementValid: '#6fbf63',
+  placementInvalid: '#d9604a',
 } as const

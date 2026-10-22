@@ -5,7 +5,7 @@ import { canPlace, evaluatePlacement } from './matching'
 import type { PlacementEvaluation } from './matching'
 import { createRng } from './random'
 import { normalizeRotation, pieceSquares, randomTetromino } from './tiles'
-import type { Rotation, Square, Tetromino } from './tiles'
+import type { BiomeProbabilities, Rotation, Square, Tetromino } from './tiles'
 
 export type PlacementPreview = PlacementEvaluation
 
@@ -26,28 +26,30 @@ export interface GameState {
   /** PRNG state used for the next draw. */
   readonly seed: number
   readonly lastPlacement: PlacementResult | null
+  readonly biomeProbabilities?: BiomeProbabilities
 }
 
-export function createGame(seed: number): GameState {
+export function createGame(seed: number, biomeProbabilities?: BiomeProbabilities): GameState {
   const rng = createRng(seed)
   const board = createStartingBoard(rng)
-  const current = randomTetromino(rng)
+  const current = randomTetromino(rng, biomeProbabilities)
   return {
     board,
     current,
     rotation: 0,
     seed: rng.state,
     lastPlacement: null,
+    biomeProbabilities,
   }
 }
 
 /** The tiles drawn after the one in hand, peeked from the same sequence without drawing them. */
 export function upcomingTiles(
-  state: Pick<GameState, 'seed'>,
+  state: Pick<GameState, 'seed'> & { readonly biomeProbabilities?: BiomeProbabilities },
   count: number = VISIBLE_NEXT,
 ): Tetromino[] {
   const rng = createRng(state.seed)
-  return Array.from({ length: count }, () => randomTetromino(rng))
+  return Array.from({ length: count }, () => randomTetromino(rng, state.biomeProbabilities))
 }
 
 /** Puts the board back to a starting island; the tile in hand carries on. */
@@ -94,7 +96,7 @@ export function placeCurrent(state: GameState, c: Coord): GameState {
   if (!squares || !preview) return state
 
   const rng = createRng(state.seed)
-  const current = randomTetromino(rng)
+  const current = randomTetromino(rng, state.biomeProbabilities)
 
   return {
     board: withPiece(state.board, squares),
@@ -102,6 +104,17 @@ export function placeCurrent(state: GameState, c: Coord): GameState {
     rotation: 0,
     seed: rng.state,
     lastPlacement: { ...preview, coord: c, squares },
+    biomeProbabilities: state.biomeProbabilities,
+  }
+}
+
+export function withBiomeProbabilities(
+  state: GameState,
+  biomeProbabilities: BiomeProbabilities,
+): GameState {
+  return {
+    ...state,
+    biomeProbabilities,
   }
 }
 

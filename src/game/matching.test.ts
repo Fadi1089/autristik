@@ -84,14 +84,14 @@ describe('biomes distribution and generation', () => {
     expect(BIOMES).toEqual(['black', 'red', 'green', 'yellow', 'blue'])
   })
 
-  it('has correct biome selection weights summing to 1', () => {
-    expect(BIOME_WEIGHTS.red).toBeCloseTo(0.3)
-    expect(BIOME_WEIGHTS.green).toBeCloseTo(0.3)
-    expect(BIOME_WEIGHTS.black).toBeCloseTo(0.175)
-    expect(BIOME_WEIGHTS.yellow).toBeCloseTo(0.175)
-    expect(BIOME_WEIGHTS.blue).toBeCloseTo(0.05)
+  it('has correct relative biome selection weights', () => {
+    expect(BIOME_WEIGHTS.red).toBeCloseTo(30)
+    expect(BIOME_WEIGHTS.green).toBeCloseTo(30)
+    expect(BIOME_WEIGHTS.black).toBeCloseTo(17.5)
+    expect(BIOME_WEIGHTS.yellow).toBeCloseTo(17.5)
+    expect(BIOME_WEIGHTS.blue).toBeCloseTo(5)
     const total = Object.values(BIOME_WEIGHTS).reduce((sum, w) => sum + w, 0)
-    expect(total).toBeCloseTo(1.0)
+    expect(total).toBeCloseTo(100)
   })
 
   it('generates biome counts according to specified probabilities (15%, 45%, 25%, 15%)', () => {
@@ -120,6 +120,16 @@ describe('biomes distribution and generation', () => {
       expect(distinct).toBeGreaterThanOrEqual(1)
       expect(distinct).toBeLessThanOrEqual(4)
     }
+  })
+
+  it('uses the configured biome-count and biome-selection weights', () => {
+    const probabilities = {
+      biomeCounts: { 1: 100, 2: 0, 3: 0, 4: 0 },
+      biomeWeights: { black: 0, red: 100, green: 0, yellow: 0, blue: 0 },
+    }
+    const rng = createRng(123)
+    for (let i = 0; i < 100; i++)
+      expect(randomTerrains(rng, probabilities)).toEqual(['red', 'red', 'red', 'red'])
   })
 })
 
@@ -188,17 +198,16 @@ describe('edge matching', () => {
 describe('placement rules', () => {
   const board = boardOf([[0, 0, 'green']])
 
-  it('needs every cell empty and at least one edge touching the board', () => {
+  it('only rejects cells that overlap the board', () => {
     expect(canPlace(board, [square(1, 0, 'green'), square(2, 0, 'green')])).toBe(true)
     expect(canPlace(board, [square(0, 0, 'green'), square(1, 0, 'green')])).toBe(false)
-    // Corner contact alone does not count.
-    expect(canPlace(board, [square(1, 1, 'green')])).toBe(false)
-    expect(canPlace(board, [square(5, 5, 'green')])).toBe(false)
+    expect(canPlace(board, [square(1, 1, 'green')])).toBe(true)
+    expect(canPlace(board, [square(5, 5, 'green')])).toBe(true)
   })
 
   it('starts an empty board at the origin', () => {
     expect(canPlace(EMPTY_BOARD, [square(0, 0, 'green')])).toBe(true)
-    expect(canPlace(EMPTY_BOARD, [square(1, 0, 'green')])).toBe(false)
+    expect(canPlace(EMPTY_BOARD, [square(1, 0, 'green')])).toBe(true)
   })
 
   it('keeps each placed piece distinct', () => {
@@ -238,7 +247,7 @@ describe('keyboard cursor bounds', () => {
 
   it('keeps the cursor from wandering far from the board', () => {
     const board = boardOf([[0, 0, 'green']])
-    expect(clampCursor(board, { q: 50, r: -50 })).toEqual({ q: 3, r: -3 })
+    expect(clampCursor(board, { q: 50, r: -50 })).toEqual({ q: 45, r: -20 })
   })
 })
 
