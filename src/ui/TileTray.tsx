@@ -145,7 +145,7 @@ export function TileTray() {
     [],
   )
 
-  const cwKey = useKeyHint('rotateCw')
+  const cwKey = useKeyHint('rotateCw', 'KeyE')
   const ccwKey = useKeyHint('rotateCcw')
 
   if (!current) return null

@@ -4,12 +4,18 @@ import { DEFAULT_BINDINGS, normalizeBindings, withBinding, withoutBinding } from
 import type { Action, Bindings, KeySlot } from '../input/bindings'
 import { KEYBOARD_LAYOUT_MAPS } from '../input/keyLabels'
 import type { KeyboardLayout, LayoutMap } from '../input/keyLabels'
+import { fallbackKeyboardLayout } from '../input/keyboardDetection'
 import { BIOMES, DEFAULT_BIOME_PROBABILITIES } from '../game/tiles'
 import type { Biome, BiomeCountWeights, BiomeProbabilities } from '../game/tiles'
+
+const initialKeyboardLayout = fallbackKeyboardLayout(
+  typeof navigator === 'undefined' ? '' : navigator.language,
+)
 
 interface SettingsStore {
   readonly bindings: Bindings
   readonly keyboardLayout: KeyboardLayout
+  readonly keyboardLayoutManual: boolean
   /** Printed key labels for the player's keyboard layout. */
   readonly layout: LayoutMap | null
   readonly biomeProbabilities: BiomeProbabilities
@@ -23,6 +29,7 @@ interface SettingsStore {
   setBiomeCountWeight(count: 1 | 2 | 3 | 4, value: number): void
   setBiomeWeight(biome: Biome, value: number): void
   setKeyboardLayout(keyboardLayout: KeyboardLayout): void
+  setDetectedKeyboardLayout(keyboardLayout: KeyboardLayout): void
   setCapturing(capturing: SettingsStore['capturing']): void
 }
 
@@ -75,10 +82,11 @@ function withBiomeWeight(
 
 export const useSettingsStore = create<SettingsStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       bindings: DEFAULT_BINDINGS,
-      keyboardLayout: 'qwerty',
-      layout: KEYBOARD_LAYOUT_MAPS.qwerty,
+      keyboardLayout: initialKeyboardLayout,
+      keyboardLayoutManual: false,
+      layout: KEYBOARD_LAYOUT_MAPS[initialKeyboardLayout],
       biomeProbabilities: DEFAULT_BIOME_PROBABILITIES,
       capturing: null,
 
@@ -103,7 +111,16 @@ export const useSettingsStore = create<SettingsStore>()(
           },
         })),
       setKeyboardLayout: (keyboardLayout) =>
-        set({ keyboardLayout, layout: KEYBOARD_LAYOUT_MAPS[keyboardLayout] }),
+        set({
+          keyboardLayout,
+          layout: KEYBOARD_LAYOUT_MAPS[keyboardLayout],
+          keyboardLayoutManual: true,
+        }),
+      setDetectedKeyboardLayout: (keyboardLayout) => {
+        const current = get()
+        if (current.keyboardLayoutManual || current.keyboardLayout === keyboardLayout) return
+        set({ keyboardLayout, layout: KEYBOARD_LAYOUT_MAPS[keyboardLayout] })
+      },
       setCapturing: (capturing) => set({ capturing }),
     }),
     {
@@ -113,17 +130,28 @@ export const useSettingsStore = create<SettingsStore>()(
       partialize: (s) => ({
         bindings: s.bindings,
         keyboardLayout: s.keyboardLayout,
+        keyboardLayoutManual: s.keyboardLayoutManual,
         biomeProbabilities: s.biomeProbabilities,
       }),
       merge: (persisted, current) => {
         const saved = persisted as
-          { bindings?: unknown; keyboardLayout?: unknown; biomeProbabilities?: unknown } | undefined
-        const keyboardLayout: KeyboardLayout =
-          saved?.keyboardLayout === 'azerty' ? 'azerty' : 'qwerty'
+          | {
+              bindings?: unknown
+              keyboardLayout?: unknown
+              keyboardLayoutManual?: unknown
+              biomeProbabilities?: unknown
+            }
+          | undefined
+        const savedLayout = saved?.keyboardLayout
+        const validLayout = savedLayout === 'azerty' || savedLayout === 'qwerty'
+        // Previous versions saved a layout without its source. Preserve those preferences.
+        const keyboardLayoutManual = validLayout && saved?.keyboardLayoutManual !== false
+        const keyboardLayout = keyboardLayoutManual ? savedLayout : current.keyboardLayout
         return {
           ...current,
           bindings: normalizeBindings(saved?.bindings),
           keyboardLayout,
+          keyboardLayoutManual,
           layout: KEYBOARD_LAYOUT_MAPS[keyboardLayout],
           biomeProbabilities: normalizeProbabilities(saved?.biomeProbabilities),
         }

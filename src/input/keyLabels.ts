@@ -88,11 +88,12 @@ export function keyLabel(code: string, layout: LayoutMap | null = null): string 
 
 /** Loads the keyboard layout map where the Keyboard API exists; resolves null elsewhere. */
 export async function loadLayoutMap(): Promise<LayoutMap | null> {
-  const keyboard = (
-    navigator as Navigator & { keyboard?: { getLayoutMap?: () => Promise<Map<string, string>> } }
-  ).keyboard
-  if (!keyboard?.getLayoutMap) return null
   try {
+    if (typeof navigator === 'undefined') return null
+    const keyboard = (
+      navigator as Navigator & { keyboard?: { getLayoutMap?: () => Promise<Map<string, string>> } }
+    ).keyboard
+    if (!keyboard?.getLayoutMap) return null
     return Object.fromEntries(await keyboard.getLayoutMap())
   } catch {
     return null

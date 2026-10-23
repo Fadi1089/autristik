@@ -4,8 +4,10 @@ import { useGameStore } from './store/gameStore'
 import { HUD } from './ui/HUD'
 import { Menu } from './ui/Menu'
 import { useKeyboardShortcuts } from './ui/useKeyboardShortcuts'
+import { useKeyboardLayoutDetection } from './ui/useKeyboardLayoutDetection'
 
 export function App() {
+  useKeyboardLayoutDetection()
   useKeyboardShortcuts()
   const menuOpen = useGameStore((s) => s.menuOpen)
 
