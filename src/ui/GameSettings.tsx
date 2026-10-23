@@ -95,8 +95,8 @@ export function GameSettings() {
         <p className="mb-3 text-xs leading-relaxed text-ink/55">
           Relative weights used when selecting biome types without replacement. These are not direct
           per-square percentages; squares are assigned according to the chosen biome count. If a
-          piece needs more distinct biomes than have nonzero weights, the remaining ones are chosen
-          uniformly so the selected biome count is preserved.
+          piece needs more distinct biomes than have nonzero weights, its biome count is capped at
+          the number available. A zero weight excludes that biome.
         </p>
         <div className="space-y-2">
           {BIOMES.map((biome: Biome) => (

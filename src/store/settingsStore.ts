@@ -52,11 +52,14 @@ function normalizeProbabilities(stored: unknown): BiomeProbabilities {
   for (const biome of BIOMES)
     biomeWeights[biome] = validWeight(saved.biomeWeights?.[biome], biomeWeights[biome])
 
-  if (Object.values(biomeCounts).every((weight) => weight === 0))
-    return { biomeCounts: DEFAULT_BIOME_PROBABILITIES.biomeCounts, biomeWeights }
-  if (Object.values(biomeWeights).every((weight) => weight === 0))
-    return { biomeCounts, biomeWeights: DEFAULT_BIOME_PROBABILITIES.biomeWeights }
-  return { biomeCounts, biomeWeights }
+  return {
+    biomeCounts: Object.values(biomeCounts).every((weight) => weight === 0)
+      ? DEFAULT_BIOME_PROBABILITIES.biomeCounts
+      : biomeCounts,
+    biomeWeights: Object.values(biomeWeights).every((weight) => weight === 0)
+      ? DEFAULT_BIOME_PROBABILITIES.biomeWeights
+      : biomeWeights,
+  }
 }
 
 function withBiomeCountWeight(

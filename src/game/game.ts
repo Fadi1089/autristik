@@ -31,7 +31,7 @@ export interface GameState {
 
 export function createGame(seed: number, biomeProbabilities?: BiomeProbabilities): GameState {
   const rng = createRng(seed)
-  const board = createStartingBoard(rng)
+  const board = createStartingBoard(rng, biomeProbabilities)
   const current = randomTetromino(rng, biomeProbabilities)
   return {
     board,
@@ -57,7 +57,7 @@ export function resetBoard(state: GameState): GameState {
   // A separate sequence for the island, so the upcoming tiles stay exactly as shown.
   return {
     ...state,
-    board: createStartingBoard(createRng(state.seed ^ 0x9e3779b9)),
+    board: createStartingBoard(createRng(state.seed ^ 0x9e3779b9), state.biomeProbabilities),
     lastPlacement: null,
   }
 }

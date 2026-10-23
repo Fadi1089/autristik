@@ -113,7 +113,7 @@ export function Menu() {
             className="animate-rise font-display text-[clamp(4rem,10vw,9rem)] leading-[0.82] font-semibold tracking-[-0.03em] text-ink"
             style={{ animationDelay: '60ms' }}
           >
-            Autristik
+            TrisTik
           </h1>
           <svg
             viewBox="0 0 320 18"

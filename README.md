@@ -1,4 +1,4 @@
-<h1 align="center">Autristik</h1>
+<h1 align="center">TrisTik</h1>
 
 <p align="center">
   <img src="src/assets/menu-village.webp" alt="A small village of tiles: fields, a pond with a waterfall, pine trees and a lookout tower" width="360">
@@ -61,8 +61,10 @@ Keys are matched by physical position, so on AZERTY the movement keys are `Z` `Q
 Chromium browsers the labels show what is printed on your keyboard. Every key except `Esc` can be
 changed under Menu > Shortcuts (two keys per action, saved in the browser). Menu > Settings lets
 you tune the relative chances of each biome count and the relative weights used to select biomes.
-The displayed normalized percentages show the effective biome-count odds and the relative biome
-selection weights; changes apply to pieces drawn next.
+The displayed normalized percentages show the requested biome-count odds and relative biome
+selection weights; changes apply to pieces drawn next, including the tray previews. A zero weight
+excludes a biome. If a piece requests more distinct biomes than are enabled, its count is capped
+at the number available. New games and grid resets use these settings for the starting island too.
 
 Mouse and touchpad:
 

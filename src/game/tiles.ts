@@ -151,25 +151,21 @@ export const BIOME_WEIGHTS = DEFAULT_BIOME_PROBABILITIES.biomeWeights
 export const TERRAIN_WEIGHTS = BIOME_WEIGHTS
 
 /**
- * Pick `count` distinct biomes without replacement from BIOMES using their selection weights.
+ * Pick up to `count` distinct biomes without replacement. Zero-weight biomes are excluded.
  */
 export function pickDistinctBiomes(
   rng: Rng,
   count: number,
   weights: Readonly<Record<Biome, number>> = DEFAULT_BIOME_PROBABILITIES.biomeWeights,
 ): Biome[] {
-  const pool = [...BIOMES]
+  const pool = BIOMES.filter((biome) => Number.isFinite(weights[biome]) && weights[biome] > 0)
+  // Settings prevent an all-zero configuration, but a malformed direct caller still gets a piece.
+  if (pool.length === 0) return pickDistinctBiomes(rng, count)
   const chosen: Biome[] = []
   for (let i = 0; i < count && pool.length > 0; i++) {
     const activeWeights: Record<string, number> = {}
-    let sum = 0
     for (const b of pool) {
-      const w = Math.max(0, weights[b] ?? 0)
-      activeWeights[b] = w
-      sum += w
-    }
-    if (sum <= 0) {
-      for (const b of pool) activeWeights[b] = 1
+      activeWeights[b] = weights[b]
     }
     const picked = rng.weighted(activeWeights) as Biome
     chosen.push(picked)
@@ -218,8 +214,9 @@ export function randomTerrains(rng: Rng, probs?: BiomeProbabilities): Terrains {
   const counts = probs?.biomeCounts ?? DEFAULT_BIOME_PROBABILITIES.biomeCounts
   const weights = probs?.biomeWeights ?? DEFAULT_BIOME_PROBABILITIES.biomeWeights
 
-  const count = pickBiomeCount(rng, counts)
-  const biomes = pickDistinctBiomes(rng, count, weights)
+  const requestedCount = pickBiomeCount(rng, counts)
+  const biomes = pickDistinctBiomes(rng, requestedCount, weights)
+  const count = biomes.length
 
   switch (count) {
     case 1: {
@@ -240,6 +237,8 @@ export function randomTerrains(rng: Rng, probs?: BiomeProbabilities): Terrains {
     case 4: {
       return shuffle(biomes, rng) as unknown as Terrains
     }
+    default:
+      throw new Error('A tetromino needs at least one available biome')
   }
 }
 

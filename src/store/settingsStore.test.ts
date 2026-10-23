@@ -67,3 +67,40 @@ describe('keyboard layout preferences', () => {
     expect(reloaded.getState().keyboardLayout).toBe('azerty')
   })
 })
+
+describe('biome probability preferences', () => {
+  it('keeps the last positive biome weight when zeroing the others', async () => {
+    const store = (await import('./settingsStore')).useSettingsStore
+    for (const biome of ['black', 'green', 'yellow', 'blue'] as const)
+      store.getState().setBiomeWeight(biome, 0)
+    store.getState().setBiomeWeight('red', 0)
+    expect(store.getState().biomeProbabilities.biomeWeights).toEqual({
+      black: 0,
+      red: 30,
+      green: 0,
+      yellow: 0,
+      blue: 0,
+    })
+  })
+
+  it('normalizes invalid saved weights and restores defaults for an all-zero group', async () => {
+    saved.set(
+      'autristik:settings',
+      JSON.stringify({
+        version: 2,
+        state: {
+          biomeProbabilities: {
+            biomeCounts: { 1: 0, 2: 0, 3: 0, 4: 0 },
+            biomeWeights: { black: 0, red: 0, green: 0, yellow: 0, blue: 0 },
+          },
+        },
+      }),
+    )
+    const store = (await import('./settingsStore')).useSettingsStore
+    expect(store.getState().biomeProbabilities).toEqual(
+      (await import('../game/tiles')).DEFAULT_BIOME_PROBABILITIES,
+    )
+    store.getState().setBiomeWeight('blue', Number.POSITIVE_INFINITY)
+    expect(store.getState().biomeProbabilities.biomeWeights.blue).toBe(5)
+  })
+})

@@ -104,6 +104,7 @@ export function Ghost() {
               <mesh
                 key={`${square.coord.q},${square.coord.r}`}
                 position={[x, BASE_HEIGHT - 0.004, z]}
+                rotation-x={-Math.PI / 2}
                 renderOrder={1}
               >
                 <planeGeometry args={[TILE_SIZE * 1.16, TILE_SIZE * 1.16]} />

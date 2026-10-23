@@ -2,7 +2,7 @@ import { coordKey } from './coords'
 import type { Coord } from './coords'
 import type { Rng } from './random'
 import { pieceSquares, randomTetromino } from './tiles'
-import type { Square } from './tiles'
+import type { BiomeProbabilities, Square } from './tiles'
 
 export interface PlacedSquare extends Square {
   /** The piece this square belongs to, so each placed tetromino stays distinct. */
@@ -40,6 +40,9 @@ export function pieceCount(board: Board): number {
 }
 
 /** A single random tetromino at the origin to build around. */
-export function createStartingBoard(rng: Rng): Board {
-  return withPiece(EMPTY_BOARD, pieceSquares(randomTetromino(rng), 0, { q: 0, r: 0 }))
+export function createStartingBoard(rng: Rng, biomeProbabilities?: BiomeProbabilities): Board {
+  return withPiece(
+    EMPTY_BOARD,
+    pieceSquares(randomTetromino(rng, biomeProbabilities), 0, { q: 0, r: 0 }),
+  )
 }

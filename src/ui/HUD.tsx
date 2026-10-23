@@ -24,7 +24,7 @@ function CameraControls() {
   ]
 
   return (
-    <div className="card flex h-14 items-center gap-0.5 px-1 sm:gap-1 sm:px-1.5">
+    <div className="card flex h-14 items-center gap-0.5 px-1 sm:h-[4.6rem] sm:gap-1 sm:px-1.5">
       {controls.map(({ label, key, Icon, step }) => (
         <button
           key={label}
@@ -32,9 +32,9 @@ function CameraControls() {
           title={label}
           aria-label={label}
           onClick={() => requestPivot(step)}
-          className="flex size-9 flex-col items-center justify-center gap-0.5 rounded-full text-ink/60 transition hover:bg-ink/6 hover:text-ink active:scale-90 sm:size-10"
+          className="group flex size-12 flex-col items-center justify-center gap-0.5 rounded-full text-ink/60 transition hover:bg-ink/6 hover:text-ink active:scale-90 sm:size-16"
         >
-          <Icon className="size-4 sm:size-[1.1rem]" />
+          <Icon className="hud-pictogram opacity-75 transition-opacity group-hover:opacity-100" />
           <span aria-hidden className="text-[8px] leading-none text-ink/50 sm:text-[9px]">
             {key || '—'}
           </span>
@@ -59,7 +59,7 @@ export function HUD() {
             title="Menu (Esc)"
             className="card grid size-14 place-items-center sm:size-[4.6rem] text-ink/80 transition hover:text-ink active:scale-95"
           >
-            <MenuIcon className="size-7 sm:size-9" />
+            <MenuIcon className="hud-pictogram" />
           </button>
           <button
             type="button"
@@ -74,7 +74,7 @@ export function HUD() {
             >
               Reset
             </span>
-            <ResetGridIcon className="size-6 origin-bottom-left transition-transform duration-300 ease-out group-hover:-rotate-12 sm:size-7" />
+            <ResetGridIcon className="hud-pictogram origin-bottom-left transition-transform duration-300 ease-out group-hover:-rotate-12" />
           </button>
         </div>
       </header>

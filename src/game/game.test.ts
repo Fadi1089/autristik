@@ -12,8 +12,15 @@ import {
   resetBoard,
   upcomingTiles,
   VISIBLE_NEXT,
+  withBiomeProbabilities,
 } from './game'
 import { placementCandidates } from './matching'
+import type { BiomeProbabilities } from './tiles'
+
+const RED_ONLY: BiomeProbabilities = {
+  biomeCounts: { 1: 0, 2: 0, 3: 0, 4: 100 },
+  biomeWeights: { black: 0, red: 100, green: 0, yellow: 0, blue: 0 },
+}
 
 /** The first open cell where the piece in hand fits. */
 function firstFit(game: ReturnType<typeof createGame>): Coord {
@@ -82,5 +89,32 @@ describe('queue and grid reset', () => {
       seed: game.seed,
     })
     expect(upcomingTiles(reset)).toEqual(upcomingTiles(game))
+  })
+
+  it('uses custom biome weights for the starting island, queue, placements and reset', () => {
+    let game = createGame(11, RED_ONLY)
+    expect(Object.values(game.board).every((square) => square.terrain === 'red')).toBe(true)
+    expect(game.current?.terrains).toEqual(['red', 'red', 'red', 'red'])
+    for (let i = 0; i < 10; i++) {
+      const upcoming = upcomingTiles(game)
+      expect(upcoming.every((piece) => piece.terrains.every((terrain) => terrain === 'red'))).toBe(
+        true,
+      )
+      game = placeCurrent(game, firstFit(game))
+      expect(game.current).toEqual(upcoming[0])
+    }
+    const reset = resetBoard(game)
+    expect(Object.values(reset.board).every((square) => square.terrain === 'red')).toBe(true)
+    expect(upcomingTiles(reset)).toEqual(upcomingTiles(game))
+  })
+
+  it('updates the queue prediction when biome settings change during a game', () => {
+    const before = createGame(23)
+    const game = withBiomeProbabilities(before, RED_ONLY)
+    const upcoming = upcomingTiles(game)
+    expect(upcoming.every((piece) => piece.terrains.every((terrain) => terrain === 'red'))).toBe(
+      true,
+    )
+    expect(placeCurrent(game, firstFit(game)).current).toEqual(upcoming[0])
   })
 })

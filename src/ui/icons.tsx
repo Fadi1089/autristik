@@ -1,4 +1,6 @@
-import type { SVGProps } from 'react'
+import type { ImgHTMLAttributes, SVGProps } from 'react'
+import cameraRotateLeft from '../assets/camera-rotate-left-144.png'
+import cameraRotateRight from '../assets/camera-rotate-right-144.png'
 
 const base: SVGProps<SVGSVGElement> = {
   viewBox: '0 0 24 24',
@@ -36,26 +38,12 @@ export function RotateCcwIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
-export function CameraLeftIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...base} {...props}>
-      <path d="M4 8a8 8 0 0 1 13.7-2.6L20 8" />
-      <path d="M20 4v4h-4" />
-      <path d="M20 16a8 8 0 0 1-13.7 2.6L4 16" />
-      <path d="M4 20v-4h4" />
-    </svg>
-  )
+export function CameraLeftIcon(props: ImgHTMLAttributes<HTMLImageElement>) {
+  return <img {...props} src={cameraRotateLeft} alt="" aria-hidden draggable={false} />
 }
 
-export function CameraRightIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...base} {...props}>
-      <path d="M20 8A8 8 0 0 0 6.3 5.4L4 8" />
-      <path d="M4 4v4h4" />
-      <path d="M4 16a8 8 0 0 0 13.7 2.6L20 16" />
-      <path d="M20 20v-4h-4" />
-    </svg>
-  )
+export function CameraRightIcon(props: ImgHTMLAttributes<HTMLImageElement>) {
+  return <img {...props} src={cameraRotateRight} alt="" aria-hidden draggable={false} />
 }
 
 /** A broom sweeping the board clean, with a little dust: clear the placed tiles. */

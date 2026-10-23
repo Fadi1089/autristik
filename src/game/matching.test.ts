@@ -15,6 +15,7 @@ import {
   BIOME_WEIGHTS,
   BIOMES,
   pickBiomeCount,
+  pickDistinctBiomes,
   pieceSquares,
   randomTerrains,
   randomTetromino,
@@ -130,6 +131,18 @@ describe('biomes distribution and generation', () => {
     const rng = createRng(123)
     for (let i = 0; i < 100; i++)
       expect(randomTerrains(rng, probabilities)).toEqual(['red', 'red', 'red', 'red'])
+  })
+
+  it('excludes zero-weight biomes even when the requested distinct count is too high', () => {
+    const probabilities = {
+      biomeCounts: { 1: 0, 2: 0, 3: 0, 4: 100 },
+      biomeWeights: { black: 0, red: 20, green: 80, yellow: 0, blue: 0 },
+    }
+    const rng = createRng(31)
+    for (let i = 0; i < 100; i++) {
+      expect(new Set(randomTerrains(rng, probabilities))).toEqual(new Set(['red', 'green']))
+    }
+    expect(pickDistinctBiomes(createRng(4), 4, probabilities.biomeWeights)).toHaveLength(2)
   })
 })
 

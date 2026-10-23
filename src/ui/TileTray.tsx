@@ -34,7 +34,7 @@ function RotateButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="group flex size-9 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full text-ink/60 transition hover:bg-ink/6 hover:text-ink active:scale-90 sm:size-10"
+      className="group flex size-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full text-ink/60 transition hover:bg-ink/6 hover:text-ink active:scale-90 sm:size-16"
     >
       <span
         className={`grid transition-transform duration-300 ease-out ${
@@ -119,7 +119,11 @@ export function TileTray() {
   const current = useGameStore((s) => s.current)
   const rotation = useGameStore((s) => s.rotation)
   const seed = useGameStore((s) => s.seed)
-  const upcoming = useMemo(() => upcomingTiles({ seed }), [seed])
+  const biomeProbabilities = useGameStore((s) => s.biomeProbabilities)
+  const upcoming = useMemo(
+    () => upcomingTiles({ seed, biomeProbabilities }),
+    [seed, biomeProbabilities],
+  )
   const rotate = useGameStore((s) => s.rotate)
   const [spin, setSpin] = useState<Spin | null>(null)
   /** Quarter turns of the piece in hand, counted the short way round so it never spins back. */
@@ -160,7 +164,7 @@ export function TileTray() {
           shortcut={ccwKey}
           onClick={() => rotate(-1)}
         >
-          <RotateCcwIcon className="size-[1.1rem] sm:size-5" />
+          <RotateCcwIcon className="hud-pictogram" />
         </RotateButton>
 
         <button
@@ -180,7 +184,7 @@ export function TileTray() {
           shortcut={cwKey}
           onClick={() => rotate(1)}
         >
-          <RotateCwIcon className="size-[1.1rem] sm:size-5" />
+          <RotateCwIcon className="hud-pictogram" />
         </RotateButton>
       </div>
 

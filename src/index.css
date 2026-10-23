@@ -125,6 +125,21 @@
   mix-blend-mode: multiply;
 }
 
+/* One readable size for the menu, reset, camera, and tile action pictograms. */
+.hud-pictogram {
+  display: block;
+  width: 1.75rem;
+  height: 1.75rem;
+  object-fit: contain;
+}
+
+@media (min-width: 40rem) {
+  .hud-pictogram {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+}
+
 @layer base {
   html,
   body,
