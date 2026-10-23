@@ -3,6 +3,7 @@ import { isGameOver } from '../game/game'
 import { nearestCandidate } from '../game/matching'
 import { actionForCode, REPEATABLE } from '../input/bindings'
 import type { Action } from '../input/bindings'
+import { keyCodeForLayout } from '../input/keyLabels'
 import { screenToWorldDirection } from '../input/movement'
 import type { ScreenDirection } from '../input/movement'
 import { worldToCoord } from '../scene/layout'
@@ -26,7 +27,7 @@ const ZOOM_STEP = 0.14
 export function useKeyboardShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return
       const settings = useSettingsStore.getState()
       if (settings.capturing) return // the settings panel is listening for a new key
 
@@ -39,7 +40,7 @@ export function useKeyboardShortcuts() {
       // Leave Enter, Space and friends to the menu buttons.
       if (game.menuOpen || isGameOver()) return
 
-      const action = actionForCode(settings.bindings, e.code)
+      const action = actionForCode(settings.bindings, keyCodeForLayout(e, settings.layout))
       if (!action) return
       e.preventDefault()
       if (e.repeat && !REPEATABLE.has(action)) return

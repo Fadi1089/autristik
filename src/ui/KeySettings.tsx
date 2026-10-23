@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { ACTION_LABELS, ACTIONS, RESERVED_CODES } from '../input/bindings'
 import type { Action, KeySlot } from '../input/bindings'
-import { keyLabel } from '../input/keyLabels'
+import { keyCodeForLayout, keyLabel } from '../input/keyLabels'
 import { useSettingsStore } from '../store/settingsStore'
 
 /** Codes that only modify other keys; binding them alone would be confusing. */
@@ -65,7 +65,11 @@ export function KeySettings() {
       else if (e.code === 'Backspace' || e.code === 'Delete')
         unbind(capturing.action, capturing.slot)
       else if (!MODIFIERS.has(e.code) && !RESERVED_CODES.has(e.code))
-        bind(capturing.action, capturing.slot, e.code)
+        bind(
+          capturing.action,
+          capturing.slot,
+          keyCodeForLayout(e, useSettingsStore.getState().layout),
+        )
     }
     window.addEventListener('keydown', onKey, { capture: true })
     return () => window.removeEventListener('keydown', onKey, { capture: true })

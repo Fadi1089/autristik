@@ -57,8 +57,10 @@ it starts on the open cell nearest the middle of the view. The cursor can go thr
 board on every side, which is enough to place any shape against any edge. The mouse takes over
 again only when it moves onto another cell.
 
-Keys are matched by physical position, so on AZERTY the movement keys are `Z` `Q` `S` `D`. In
-Chromium browsers the labels show what is printed on your keyboard. Every key except `Esc` can be
+Letter shortcuts follow the selected keyboard layout, so on AZERTY the movement keys are
+`Z` `Q` `S` `D`. The browser detects the layout where supported; otherwise the browser language
+provides a fallback. A layout can also be chosen under Shortcuts and stays fixed while playing.
+Every key except `Esc` can be
 changed under Menu > Shortcuts (two keys per action, saved in the browser). Menu > Settings lets
 you tune the relative chances of each biome count and the relative weights used to select biomes.
 The displayed normalized percentages show the requested biome-count odds and relative biome

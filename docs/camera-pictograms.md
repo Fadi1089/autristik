@@ -1,5 +1,7 @@
 # Camera rotation pictograms
 
+The right camera control now reuses the left PNG with a horizontal CSS reflection, so the two controls are exact mirror images. The original right PNG and prompt below are retained as generation provenance.
+
 The two transparent PNGs in `src/assets/` were generated with the built-in `image_gen.imagegen` tool, one call per direction, using `transparent_background: true`. The 1254 × 1254 outputs were resized to 144 × 144 with high quality bicubic interpolation for in-game use; the full resolution originals remain in the tool's generated images folder. The final PNGs retain alpha transparency.
 
 ## Left prompt

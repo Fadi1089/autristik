@@ -1,10 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  fallbackKeyboardLayout,
-  layoutFromKey,
-  layoutFromMap,
-  observeKeyboardLayout,
-} from './keyboardDetection'
+import { fallbackKeyboardLayout, layoutFromMap, observeKeyboardLayout } from './keyboardDetection'
 import { loadLayoutMap } from './keyLabels'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -22,23 +17,6 @@ describe('keyboard detection', () => {
     expect(layoutFromMap({ KeyQ: 'q', KeyW: 'w' })).toBe('qwerty')
     expect(layoutFromMap({})).toBeNull()
     expect(layoutFromMap({ KeyQ: "'", KeyW: ',' })).toBeNull()
-  })
-
-  it('identifies real letter keys but ignores modifiers, composition and unrelated keys', () => {
-    const key = {
-      code: 'KeyW',
-      key: 'Z',
-      ctrlKey: false,
-      altKey: false,
-      metaKey: false,
-      isComposing: false,
-    }
-    expect(layoutFromKey(key)).toBe('azerty')
-    expect(layoutFromKey({ ...key, key: 'w' })).toBe('qwerty')
-    expect(layoutFromKey({ ...key, ctrlKey: true })).toBeNull()
-    expect(layoutFromKey({ ...key, altKey: true })).toBeNull()
-    expect(layoutFromKey({ ...key, isComposing: true })).toBeNull()
-    expect(layoutFromKey({ ...key, code: 'ArrowUp', key: 'ArrowUp' })).toBeNull()
   })
 
   it('handles browsers without the API or with a denied request', async () => {
@@ -67,7 +45,7 @@ describe('keyboard detection', () => {
     stop()
   })
 
-  it('prefers a real keystroke over a late map and stops listening on cleanup', async () => {
+  it('does not reinterpret movement keys as a layout change before or after the browser map', async () => {
     const host = new EventTarget()
     vi.stubGlobal('window', host)
     let resolveMap!: (map: Map<string, string>) => void
@@ -81,27 +59,30 @@ describe('keyboard detection', () => {
     })
     const detected = vi.fn()
     const stop = observeKeyboardLayout(detected)
-    const event = () =>
+    const event = (key: string) =>
       Object.assign(new Event('keydown'), {
-        code: 'KeyW',
-        key: 'z',
+        code: `Key${key.toUpperCase()}`,
+        key,
         ctrlKey: false,
         altKey: false,
         metaKey: false,
         isComposing: false,
       })
-    host.dispatchEvent(event())
+    for (const key of 'zqsd') host.dispatchEvent(event(key))
+    expect(detected).not.toHaveBeenCalled()
     resolveMap(
       new Map([
-        ['KeyQ', 'q'],
-        ['KeyW', 'w'],
+        ['KeyQ', 'a'],
+        ['KeyW', 'z'],
       ]),
     )
     await Promise.resolve()
     await Promise.resolve()
     expect(detected.mock.calls).toEqual([['azerty']])
+    for (const key of 'zqsd') host.dispatchEvent(event(key))
+    expect(detected).toHaveBeenCalledTimes(1)
     stop()
-    host.dispatchEvent(event())
+    host.dispatchEvent(event('q'))
     expect(detected).toHaveBeenCalledTimes(1)
   })
 

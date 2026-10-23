@@ -63,6 +63,19 @@ export const KEYBOARD_LAYOUT_MAPS: Readonly<Record<KeyboardLayout, LayoutMap>> =
   },
 }
 
+/** Match the printed letter to the same layout used by shortcut hints and rebinding. */
+export function keyCodeForLayout(
+  event: Pick<KeyboardEvent, 'key' | 'code'>,
+  layout: LayoutMap | null,
+): string {
+  if (layout && /^[a-z]$/i.test(event.key)) {
+    const letter = event.key.toLowerCase()
+    const entry = Object.entries(layout).find(([, printed]) => printed.toLowerCase() === letter)
+    if (entry) return entry[0]
+  }
+  return event.code
+}
+
 /**
  * Human label for a KeyboardEvent.code. With a layout map letter keys show
  * what is printed on the player's keyboard, e.g. "Z" for KeyW on AZERTY, or "W" on QWERTY.

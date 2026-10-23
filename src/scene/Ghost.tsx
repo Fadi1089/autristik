@@ -1,15 +1,16 @@
 import { Html } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { MathUtils } from 'three'
 import type { Group } from 'three'
-import { canPlaceCurrent, currentSquares } from '../game/game'
-import { normalizeRotation } from '../game/tiles'
+import { canPlaceCurrent } from '../game/game'
+import { normalizeRotation, pieceSquares } from '../game/tiles'
 import { SCENE_COLORS } from '../palette'
 import { useGameStore } from '../store/gameStore'
 import { useViewStore } from '../store/viewStore'
 import { BASE_HEIGHT, coordToWorld, TILE_SIZE } from './layout'
 import { PieceTile } from './PieceTile'
+import { createGhostEnvelope } from './ghostEnvelope'
 
 const HOVER_LIFT = 0.1
 const LABEL_HEIGHT = BASE_HEIGHT + 0.3
@@ -30,16 +31,14 @@ export function Ghost() {
   const current = useGameStore((s) => s.current)
   const rotation = useGameStore((s) => s.rotation)
 
-  const { squares, placeable } = useMemo(() => {
-    const hand = { board, current, rotation }
-    // Drawn around the anchor; the sliding group carries the hovered position.
-    const origin = { q: 0, r: 0 }
-    return {
-      // Unrotated: the spinning group turns it, so rotations can be animated.
-      squares: currentSquares({ ...hand, rotation: 0 }, origin),
-      placeable: hover !== null && canPlaceCurrent(hand, hover),
-    }
-  }, [board, current, rotation, hover])
+  // Unrotated and anchored at the origin; the groups below animate its position and turn.
+  const squares = useMemo(
+    () => (current ? pieceSquares(current, 0, { q: 0, r: 0 }) : null),
+    [current],
+  )
+  const placeable = hover !== null && canPlaceCurrent({ board, current, rotation }, hover)
+  const envelope = useMemo(() => createGhostEnvelope(squares ?? []), [squares])
+  useEffect(() => () => envelope.dispose(), [envelope])
 
   const slide = useRef<Group>(null)
   const spin = useRef<Group>(null)
@@ -98,26 +97,15 @@ export function Ghost() {
     <group ref={slide} visible={hover !== null && squares !== null}>
       <group ref={ref}>
         <group ref={spin}>
-          {squares?.map((square) => {
-            const [x, z] = coordToWorld(square.coord)
-            return (
-              <mesh
-                key={`${square.coord.q},${square.coord.r}`}
-                position={[x, BASE_HEIGHT - 0.004, z]}
-                rotation-x={-Math.PI / 2}
-                renderOrder={1}
-              >
-                <planeGeometry args={[TILE_SIZE * 1.16, TILE_SIZE * 1.16]} />
-                <meshBasicMaterial
-                  color={placeable ? SCENE_COLORS.placementValid : SCENE_COLORS.placementInvalid}
-                  transparent
-                  opacity={placeable ? 0.16 : 0.28}
-                  depthWrite={false}
-                />
-              </mesh>
-            )
-          })}
           <PieceTile squares={squares ?? []} glow={placeable ? 0.12 : 0.04} />
+          <mesh geometry={envelope} renderOrder={2}>
+            <meshBasicMaterial
+              color={placeable ? SCENE_COLORS.placementValid : SCENE_COLORS.placementInvalid}
+              transparent
+              opacity={placeable ? 0.18 : 0.24}
+              depthWrite={false}
+            />
+          </mesh>
         </group>
       </group>
       {placeable && (

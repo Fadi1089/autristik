@@ -6,7 +6,7 @@ import {
   withBinding,
   withoutBinding,
 } from './bindings'
-import { KEYBOARD_LAYOUT_MAPS, keyLabel } from './keyLabels'
+import { KEYBOARD_LAYOUT_MAPS, keyCodeForLayout, keyLabel } from './keyLabels'
 
 describe('key bindings', () => {
   it('finds the action for a key, including secondary slots', () => {
@@ -43,6 +43,42 @@ describe('key bindings', () => {
 })
 
 describe('key labels and QWERTY/AZERTY layout maps', () => {
+  it('resolves AZERTY movement from printed letters, including browsers reporting letter-based codes', () => {
+    const layout = KEYBOARD_LAYOUT_MAPS.azerty
+    for (const [key, code, action] of [
+      ['z', 'KeyZ', 'moveUp'],
+      ['q', 'KeyQ', 'moveLeft'],
+      ['s', 'KeyS', 'moveDown'],
+      ['d', 'KeyD', 'moveRight'],
+      ['z', 'KeyW', 'moveUp'],
+      ['q', 'KeyA', 'moveLeft'],
+    ] as const)
+      expect(actionForCode(DEFAULT_BINDINGS, keyCodeForLayout({ key, code }, layout))).toBe(action)
+    expect(
+      actionForCode(DEFAULT_BINDINGS, keyCodeForLayout({ key: 'a', code: 'KeyA' }, layout)),
+    ).toBe('rotateCcw')
+    expect(
+      actionForCode(DEFAULT_BINDINGS, keyCodeForLayout({ key: 'w', code: 'KeyW' }, layout)),
+    ).toBe('pivotLeft')
+  })
+
+  it('preserves QWERTY actions, custom bindings, Shift letters and non-letter keys', () => {
+    const layout = KEYBOARD_LAYOUT_MAPS.qwerty
+    expect(
+      actionForCode(DEFAULT_BINDINGS, keyCodeForLayout({ key: 'q', code: 'KeyQ' }, layout)),
+    ).toBe('rotateCcw')
+    expect(keyCodeForLayout({ key: 'Z', code: 'KeyZ' }, KEYBOARD_LAYOUT_MAPS.azerty)).toBe('KeyW')
+    expect(keyCodeForLayout({ key: 'ArrowUp', code: 'ArrowUp' }, layout)).toBe('ArrowUp')
+    expect(keyCodeForLayout({ key: ' ', code: 'Space' }, layout)).toBe('Space')
+    const custom = withBinding(DEFAULT_BINDINGS, 'place', 1, 'KeyA')
+    expect(
+      actionForCode(
+        custom,
+        keyCodeForLayout({ key: 'q', code: 'KeyQ' }, KEYBOARD_LAYOUT_MAPS.azerty),
+      ),
+    ).toBe('place')
+  })
+
   it('names keys from their codes', () => {
     expect(keyLabel('KeyW')).toBe('W')
     expect(keyLabel('ArrowLeft')).toBe('←')

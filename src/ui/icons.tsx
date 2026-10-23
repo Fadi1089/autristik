@@ -1,6 +1,5 @@
 import type { ImgHTMLAttributes, SVGProps } from 'react'
 import cameraRotateLeft from '../assets/camera-rotate-left-144.png'
-import cameraRotateRight from '../assets/camera-rotate-right-144.png'
 
 const base: SVGProps<SVGSVGElement> = {
   viewBox: '0 0 24 24',
@@ -43,7 +42,16 @@ export function CameraLeftIcon(props: ImgHTMLAttributes<HTMLImageElement>) {
 }
 
 export function CameraRightIcon(props: ImgHTMLAttributes<HTMLImageElement>) {
-  return <img {...props} src={cameraRotateRight} alt="" aria-hidden draggable={false} />
+  return (
+    <img
+      {...props}
+      className={`${props.className ?? ''} -scale-x-100`}
+      src={cameraRotateLeft}
+      alt=""
+      aria-hidden
+      draggable={false}
+    />
+  )
 }
 
 /** A broom sweeping the board clean, with a little dust: clear the placed tiles. */
