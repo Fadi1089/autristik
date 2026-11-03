@@ -69,17 +69,82 @@ describe('keyboard layout preferences', () => {
 })
 
 describe('biome probability preferences', () => {
-  it('keeps the last positive biome weight when zeroing the others', async () => {
+  it('keeps as many biomes above 0 as the largest biome count', async () => {
     const store = (await import('./settingsStore')).useSettingsStore
+    // The defaults allow 4-biome pieces, so only one of the five biomes can go.
     for (const biome of ['black', 'green', 'yellow', 'blue'] as const)
       store.getState().setBiomeWeight(biome, 0)
-    store.getState().setBiomeWeight('red', 0)
+    expect(store.getState().biomeProbabilities.biomeWeights).toEqual({
+      black: 0,
+      red: 30,
+      green: 30,
+      yellow: 17.5,
+      blue: 5,
+    })
+  })
+
+  it('only raises a biome count once enough biomes are enabled', async () => {
+    const store = (await import('./settingsStore')).useSettingsStore
+    for (const count of [2, 3, 4] as const) store.getState().setBiomeCountWeight(count, 0)
+    for (const biome of ['black', 'green', 'yellow', 'blue'] as const)
+      store.getState().setBiomeWeight(biome, 0)
     expect(store.getState().biomeProbabilities.biomeWeights).toEqual({
       black: 0,
       red: 30,
       green: 0,
       yellow: 0,
       blue: 0,
+    })
+    store.getState().setBiomeCountWeight(2, 50)
+    expect(store.getState().biomeProbabilities.biomeCounts[2]).toBe(0)
+    store.getState().setBiomeWeight('green', 10)
+    store.getState().setBiomeCountWeight(2, 50)
+    store.getState().setBiomeCountWeight(3, 99)
+    expect(store.getState().biomeProbabilities.biomeCounts).toMatchObject({ 2: 50, 3: 0 })
+    store.getState().setBiomeWeight('blue', 9)
+    store.getState().setBiomeCountWeight(3, 99)
+    expect(store.getState().biomeProbabilities.biomeCounts[3]).toBe(99)
+  })
+
+  it('restores default biome weights when saved settings ask for more biomes than enabled', async () => {
+    saved.set(
+      'autristik:settings',
+      JSON.stringify({
+        version: 2,
+        state: {
+          biomeProbabilities: {
+            biomeCounts: { 1: 0, 2: 0, 3: 99, 4: 0 },
+            biomeWeights: { black: 0, red: 0, green: 0, yellow: 1, blue: 9 },
+          },
+        },
+      }),
+    )
+    const { DEFAULT_BIOME_PROBABILITIES } = await import('../game/tiles')
+    const store = (await import('./settingsStore')).useSettingsStore
+    expect(store.getState().biomeProbabilities).toEqual({
+      biomeCounts: { 1: 0, 2: 0, 3: 99, 4: 0 },
+      biomeWeights: DEFAULT_BIOME_PROBABILITIES.biomeWeights,
+    })
+  })
+
+  it('restores default biome weights when saved settings mix pieces with a single biome', async () => {
+    saved.set(
+      'autristik:settings',
+      JSON.stringify({
+        version: 2,
+        state: {
+          biomeProbabilities: {
+            biomeCounts: { 1: 0, 2: 100, 3: 0, 4: 0 },
+            biomeWeights: { black: 0, red: 100, green: 0, yellow: 0, blue: 0 },
+          },
+        },
+      }),
+    )
+    const { DEFAULT_BIOME_PROBABILITIES } = await import('../game/tiles')
+    const store = (await import('./settingsStore')).useSettingsStore
+    expect(store.getState().biomeProbabilities).toEqual({
+      biomeCounts: { 1: 0, 2: 100, 3: 0, 4: 0 },
+      biomeWeights: DEFAULT_BIOME_PROBABILITIES.biomeWeights,
     })
   })
 

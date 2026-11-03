@@ -3,10 +3,12 @@ import { EMPTY_BOARD, pieceCount, withPiece } from './board'
 import type { Board } from './board'
 import { coordKey } from './coords'
 import {
+  blueConflict,
   canPlace,
   clampCursor,
   evaluatePlacement,
   nearestCandidate,
+  placementAnchors,
   placementCandidates,
   terrainsMatch,
 } from './matching'
@@ -16,6 +18,8 @@ import {
   BIOMES,
   pickBiomeCount,
   pickDistinctBiomes,
+  validBiomeProbabilities,
+  DEFAULT_BIOME_PROBABILITIES,
   pieceSquares,
   randomTerrains,
   randomTetromino,
@@ -133,6 +137,42 @@ describe('biomes distribution and generation', () => {
       expect(randomTerrains(rng, probabilities)).toEqual(['red', 'red', 'red', 'red'])
   })
 
+  it('gives each picked biome a square and fills the rest by their normalized weights', () => {
+    const probabilities = {
+      biomeCounts: { 1: 0, 2: 100, 3: 0, 4: 0 },
+      biomeWeights: { black: 0, red: 30, green: 0, yellow: 0, blue: 5 },
+    }
+    const rng = createRng(77)
+    const samples = 20000
+    let reds = 0
+    for (let i = 0; i < samples; i++) {
+      const terrains = randomTerrains(rng, probabilities)
+      expect(new Set(terrains)).toEqual(new Set(['red', 'blue']))
+      reds += terrains.filter((t) => t === 'red').length
+    }
+    // One guaranteed red, plus two squares that are red 30 / 35 of the time.
+    expect(reds / samples).toBeCloseTo(1 + 2 * (30 / 35), 1)
+  })
+
+  it('fills the one free square of a 3-biome piece by the picked weights', () => {
+    const probabilities = {
+      biomeCounts: { 1: 0, 2: 0, 3: 100, 4: 0 },
+      biomeWeights: { black: 0, red: 60, green: 30, yellow: 10, blue: 0 },
+    }
+    const rng = createRng(5)
+    const samples = 20000
+    const extra = { red: 0, green: 0, yellow: 0 }
+    for (let i = 0; i < samples; i++) {
+      const terrains = randomTerrains(rng, probabilities)
+      expect(new Set(terrains)).toEqual(new Set(['red', 'green', 'yellow']))
+      const doubled = terrains.find((t, j) => terrains.indexOf(t) !== j) as keyof typeof extra
+      extra[doubled]++
+    }
+    expect(extra.red / samples).toBeCloseTo(0.6, 1)
+    expect(extra.green / samples).toBeCloseTo(0.3, 1)
+    expect(extra.yellow / samples).toBeCloseTo(0.1, 1)
+  })
+
   it('excludes zero-weight biomes even when the requested distinct count is too high', () => {
     const probabilities = {
       biomeCounts: { 1: 0, 2: 0, 3: 0, 4: 100 },
@@ -143,6 +183,29 @@ describe('biomes distribution and generation', () => {
       expect(new Set(randomTerrains(rng, probabilities))).toEqual(new Set(['red', 'green']))
     }
     expect(pickDistinctBiomes(createRng(4), 4, probabilities.biomeWeights)).toHaveLength(2)
+  })
+
+  it('only accepts settings with enough biomes for the largest biome count', () => {
+    const valid = (counts: [number, number, number, number], weights: number[]) =>
+      validBiomeProbabilities({
+        biomeCounts: { 1: counts[0], 2: counts[1], 3: counts[2], 4: counts[3] },
+        biomeWeights: {
+          black: weights[0] ?? 0,
+          red: weights[1] ?? 0,
+          green: weights[2] ?? 0,
+          yellow: weights[3] ?? 0,
+          blue: weights[4] ?? 0,
+        },
+      })
+    expect(valid([100, 0, 0, 0], [0, 100])).toBe(true)
+    expect(valid([0, 100, 0, 0], [0, 100])).toBe(false)
+    expect(valid([0, 100, 0, 0], [0, 100, 50])).toBe(true)
+    expect(valid([0, 0, 99, 0], [0, 0, 0, 1, 9])).toBe(false) // three asked, two available
+    expect(valid([0, 0, 99, 0], [0, 0, 5, 1, 9])).toBe(true)
+    expect(valid([10, 10, 10, 10], [1, 1, 1, 1])).toBe(true)
+    expect(valid([10, 10, 10, 10], [1, 1, 1])).toBe(false)
+    expect(valid([0, 0, 0, 0], [1, 1, 1, 1, 1])).toBe(false)
+    expect(validBiomeProbabilities(DEFAULT_BIOME_PROBABILITIES)).toBe(true)
   })
 })
 
@@ -211,11 +274,31 @@ describe('edge matching', () => {
 describe('placement rules', () => {
   const board = boardOf([[0, 0, 'green']])
 
-  it('only rejects cells that overlap the board', () => {
+  it('needs the piece to touch the board along an edge, without overlapping it', () => {
     expect(canPlace(board, [square(1, 0, 'green'), square(2, 0, 'green')])).toBe(true)
     expect(canPlace(board, [square(0, 0, 'green'), square(1, 0, 'green')])).toBe(false)
-    expect(canPlace(board, [square(1, 1, 'green')])).toBe(true)
-    expect(canPlace(board, [square(5, 5, 'green')])).toBe(true)
+    expect(canPlace(board, [square(1, 1, 'green')])).toBe(false) // corner only
+    expect(canPlace(board, [square(5, 5, 'green')])).toBe(false)
+  })
+
+  it('lets any biome touch any other except blue', () => {
+    expect(canPlace(board, [square(1, 0, 'red')])).toBe(true)
+    expect(canPlace(board, [square(1, 0, 'blue')])).toBe(false)
+    const water = boardOf([[0, 0, 'blue']])
+    expect(canPlace(water, [square(1, 0, 'blue')])).toBe(true)
+    expect(canPlace(water, [square(1, 0, 'yellow')])).toBe(false)
+  })
+
+  it('rejects a piece if any one of its touching edges pairs blue with another biome', () => {
+    const shore = boardOf([
+      [0, 0, 'blue'],
+      [1, 0, 'green'],
+    ])
+    expect(canPlace(shore, [square(0, 1, 'blue'), square(1, 1, 'green')])).toBe(true)
+    expect(canPlace(shore, [square(0, 1, 'blue'), square(1, 1, 'blue')])).toBe(false)
+    expect(canPlace(shore, [square(0, 1, 'green'), square(1, 1, 'green')])).toBe(false)
+    expect(blueConflict('blue', 'red')).toBe(true)
+    expect(blueConflict('red', 'green')).toBe(false)
   })
 
   it('starts an empty board at the origin', () => {
@@ -233,6 +316,41 @@ describe('placement rules', () => {
     expect(placementCandidates(board).map(coordKey).sort()).toEqual(
       ['0,-1', '1,0', '0,1', '-1,0'].sort(),
     )
+  })
+})
+
+describe('placementAnchors', () => {
+  const board = boardOf([
+    [0, 0, 'green'],
+    [1, 0, 'blue'],
+  ])
+  const pieces = SHAPES.map((shape) => ({
+    shape,
+    terrains: ['green', 'blue', 'red', 'green'] as const,
+  }))
+
+  it('lists exactly the anchors where the piece fits at that rotation', () => {
+    for (const piece of pieces)
+      for (const rotation of ROTATIONS) {
+        const expected: string[] = []
+        for (let r = -6; r <= 6; r++)
+          for (let q = -6; q <= 7; q++)
+            if (canPlace(board, pieceSquares(piece, rotation, { q, r })))
+              expected.push(coordKey({ q, r }))
+        const anchors = placementAnchors(board, piece, rotation).map(coordKey)
+        expect(anchors.sort(), `${piece.shape} ${rotation}`).toEqual(expected.sort())
+      }
+  })
+
+  it('changes as the piece turns', () => {
+    const I = pieces.find((p) => p.shape === 'I')!
+    expect(placementAnchors(board, I, 0)).not.toEqual(placementAnchors(board, I, 1))
+  })
+
+  it('finds nothing for an all-blue piece on a board without blue', () => {
+    const land = boardOf([[0, 0, 'green']])
+    const lake = { shape: 'O' as const, terrains: ['blue', 'blue', 'blue', 'blue'] as const }
+    for (const rotation of ROTATIONS) expect(placementAnchors(land, lake, rotation)).toEqual([])
   })
 })
 

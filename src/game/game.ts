@@ -1,11 +1,13 @@
 import { createStartingBoard, withPiece } from './board'
 import type { Board } from './board'
 import type { Coord } from './coords'
-import { canPlace, evaluatePlacement } from './matching'
+import { canPlace, evaluatePlacement, placementAnchors } from './matching'
 import type { PlacementEvaluation } from './matching'
 import { createRng } from './random'
 import { normalizeRotation, pieceSquares, randomTetromino } from './tiles'
 import type { BiomeProbabilities, Rotation, Square, Tetromino } from './tiles'
+
+const ROTATIONS: readonly Rotation[] = [0, 1, 2, 3]
 
 export type PlacementPreview = PlacementEvaluation
 
@@ -74,6 +76,53 @@ export function currentSquares(state: HandState, c: Coord): Square[] | null {
 export function canPlaceCurrent(state: HandState, c: Coord): boolean {
   const squares = currentSquares(state, c)
   return squares !== null && canPlace(state.board, squares)
+}
+
+/** Anchors per rotation, kept per board and piece: both are immutable, so it never goes stale. */
+const anchorCache = new WeakMap<Board, WeakMap<Tetromino, readonly (readonly Coord[])[]>>()
+
+/** Every anchor where the piece in hand fits, for each of its four rotations. */
+export function anchorsByRotation(state: HandState): readonly (readonly Coord[])[] {
+  const { board, current } = state
+  if (!current) return ROTATIONS.map(() => [])
+  let byPiece = anchorCache.get(board)
+  if (!byPiece) anchorCache.set(board, (byPiece = new WeakMap()))
+  let anchors = byPiece.get(current)
+  if (!anchors) {
+    anchors = ROTATIONS.map((rotation) => placementAnchors(board, current, rotation))
+    byPiece.set(current, anchors)
+  }
+  return anchors
+}
+
+/** Every anchor where the piece in hand fits at `rotation` (its current one by default). */
+export function currentAnchors(
+  state: HandState,
+  rotation: Rotation = state.rotation,
+): readonly Coord[] {
+  return anchorsByRotation(state)[rotation]!
+}
+
+/** The rotations at which the piece in hand fits with its anchor on `c`. */
+export function fittingRotations(state: HandState, c: Coord): Rotation[] {
+  return ROTATIONS.filter((rotation) => canPlaceCurrent({ ...state, rotation }, c))
+}
+
+/** The piece in hand fits nowhere, whichever way it turns, so it can only be skipped. */
+export function isStuck(state: HandState): boolean {
+  return state.current !== null && anchorsByRotation(state).every((a) => a.length === 0)
+}
+
+/** Sets the piece in hand aside and draws the next one; only allowed when it fits nowhere. */
+export function skipCurrent(state: GameState): GameState {
+  if (!isStuck(state)) return state
+  const rng = createRng(state.seed)
+  return {
+    ...state,
+    current: randomTetromino(rng, state.biomeProbabilities),
+    rotation: 0,
+    seed: rng.state,
+  }
 }
 
 export function rotateCurrent(state: GameState, turns: number): GameState {

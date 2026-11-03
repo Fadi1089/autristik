@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { TERRAIN_COLORS } from '../palette'
+import type { Biome } from '../game/tiles'
+import { SCENE_COLORS, TERRAIN_COLORS } from '../palette'
 import { useGameStore } from '../store/gameStore'
 import { useSettingsStore } from '../store/settingsStore'
 import villageArt from '../assets/menu-village.webp'
@@ -9,17 +10,49 @@ import { KeySettings } from './KeySettings'
 
 type Panel = 'settings' | 'shortcuts'
 
-/** Four little squares that slide in next to the selected (focused or hovered) menu item. */
+/** Each face of the menu cube: its four squares, and how it sits around the cube's centre. */
+const CUBE_FACES: readonly { squares: readonly Biome[]; transform: string; shade: number }[] = [
+  { squares: ['red', 'green', 'blue', 'yellow'], transform: 'rotateY(0deg)', shade: 1 },
+  { squares: ['green', 'yellow', 'red', 'black'], transform: 'rotateY(90deg)', shade: 0.86 },
+  { squares: ['yellow', 'blue', 'green', 'red'], transform: 'rotateY(180deg)', shade: 0.8 },
+  { squares: ['blue', 'red', 'yellow', 'green'], transform: 'rotateY(-90deg)', shade: 0.92 },
+  { squares: ['green', 'red', 'yellow', 'blue'], transform: 'rotateX(90deg)', shade: 1.1 },
+  { squares: ['black', 'yellow', 'red', 'green'], transform: 'rotateX(-90deg)', shade: 0.7 },
+]
+
+/**
+ * A little 3D cube of biome squares that slides in next to the selected (focused or hovered)
+ * menu item. It turns slowly and floats, unless the player prefers reduced motion.
+ */
 function Bullet() {
   return (
     <span
       aria-hidden
-      className="grid size-4 -translate-x-2 grid-cols-2 gap-px overflow-hidden rounded-[3px] opacity-0 transition duration-300 group-hover:translate-x-0 group-hover:opacity-100 group-focus:translate-x-0 group-focus:opacity-100 group-aria-pressed:translate-x-0 group-aria-pressed:opacity-100"
+      className="block size-4 -translate-x-2 opacity-0 transition duration-300 [perspective:5rem] group-hover:translate-x-0 group-hover:opacity-100 group-focus:translate-x-0 group-focus:opacity-100 group-aria-pressed:translate-x-0 group-aria-pressed:opacity-100"
     >
-      <span style={{ background: TERRAIN_COLORS.red }} />
-      <span style={{ background: TERRAIN_COLORS.green }} />
-      <span style={{ background: TERRAIN_COLORS.blue }} />
-      <span style={{ background: TERRAIN_COLORS.yellow }} />
+      <span className="block size-full [transform-style:preserve-3d] motion-safe:animate-cube-hover">
+        <span className="relative block size-full [transform:rotateX(-24deg)_rotateY(-30deg)] [transform-style:preserve-3d] motion-safe:animate-cube-spin">
+          {CUBE_FACES.map(({ squares, transform, shade }) => (
+            <span
+              key={transform}
+              className="absolute inset-0 grid grid-cols-2 gap-px rounded-[2px] p-px"
+              style={{
+                transform: `${transform} translateZ(0.5rem)`,
+                background: SCENE_COLORS.soil,
+                filter: `brightness(${shade})`,
+              }}
+            >
+              {squares.map((biome, i) => (
+                <span
+                  key={i}
+                  className="rounded-[1px]"
+                  style={{ background: TERRAIN_COLORS[biome] }}
+                />
+              ))}
+            </span>
+          ))}
+        </span>
+      </span>
     </span>
   )
 }

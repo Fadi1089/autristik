@@ -11,10 +11,14 @@ const base: SVGProps<SVGSVGElement> = {
   'aria-hidden': true,
 }
 
+/** Three dots in a circle (Lucide "circle-ellipsis"): open the menu. */
 export function MenuIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
-      <path d="M4 7h16M4 12h11M4 17h14" />
+      <circle cx="12" cy="12" r="10" />
+      <path d="M17 12h.01" />
+      <path d="M12 12h.01" />
+      <path d="M7 12h.01" />
     </svg>
   )
 }
@@ -54,15 +58,20 @@ export function CameraRightIcon(props: ImgHTMLAttributes<HTMLImageElement>) {
   )
 }
 
-/** A broom sweeping the board clean, with a little dust: clear the placed tiles. */
+/** A mop with sparkles (Lucide "mop-sparkles"): clear the placed tiles. */
 export function ResetGridIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
-      {/* Handle, then the head flaring out from its binding, with two bristle lines. */}
-      <path d="M21 3l-9 9" />
-      <path d="M10.5 10.5 3.7 14.3l6 6 3.8-6.8z" />
-      <path d="M11.5 11.5l-5.8 4.8M12.5 12.5l-4.8 5.8" />
-      <path d="M2.2 18.6h.01M4.6 21.9h.01" />
+      <path d="M10 22a3 3 0 01-3-3" />
+      <path d="M10 22c2.761 0 5-1.79 5-4-4.42 0-4.08-5-8.5-5a4.501 4.501 0 000 9z" />
+      <path d="M10 3H8" />
+      <path d="M12.5 11.5 22 2" />
+      <path d="M20 13v4" />
+      <path d="M22 15h-4" />
+      <path d="M4 5v4" />
+      <path d="M6 7H2" />
+      <path d="m6.98 13.02 2.665-2.664a1.21 1.21 0 011.71 0l2.29 2.288a1.21 1.21 0 010 1.712l-2.088 2.087" />
+      <path d="M9 2v2" />
     </svg>
   )
 }

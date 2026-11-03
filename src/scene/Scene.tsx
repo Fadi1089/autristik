@@ -6,6 +6,7 @@ import { GridLines } from './GridLines'
 import { Ground } from './Ground'
 import { Lights } from './Lights'
 import { PlacementDust } from './PlacementDust'
+import { PlacementHints } from './PlacementHints'
 
 export function Scene() {
   return (
@@ -16,6 +17,7 @@ export function Scene() {
       <CameraRig />
       <Ground />
       <GridLines />
+      <PlacementHints />
       <Board />
       <Ghost />
       <PlacementDust />

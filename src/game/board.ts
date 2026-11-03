@@ -18,6 +18,12 @@ export function getSquare(board: Board, c: Coord): PlacedSquare | undefined {
   return board[coordKey(c)]
 }
 
+/** Whether no piece has been placed yet, without listing the whole board. */
+export function isEmpty(board: Board): boolean {
+  for (const key in board) if (Object.hasOwn(board, key)) return false
+  return true
+}
+
 export function isOccupied(board: Board, c: Coord): boolean {
   return getSquare(board, c) !== undefined
 }
@@ -39,10 +45,16 @@ export function pieceCount(board: Board): number {
   return new Set(boardSquares(board).map((s) => s.piece)).size
 }
 
-/** A single random tetromino at the origin to build around. */
+/** Redraws of an all-blue starting piece before settling for it, e.g. when only blue is enabled. */
+const STARTING_REDRAWS = 20
+
+/**
+ * A single random tetromino at the origin to build around. It isn't all blue unless the
+ * settings leave no choice, since only blue could ever be laid against it.
+ */
 export function createStartingBoard(rng: Rng, biomeProbabilities?: BiomeProbabilities): Board {
-  return withPiece(
-    EMPTY_BOARD,
-    pieceSquares(randomTetromino(rng, biomeProbabilities), 0, { q: 0, r: 0 }),
-  )
+  let piece = randomTetromino(rng, biomeProbabilities)
+  for (let i = 0; i < STARTING_REDRAWS && piece.terrains.every((t) => t === 'blue'); i++)
+    piece = randomTetromino(rng, biomeProbabilities)
+  return withPiece(EMPTY_BOARD, pieceSquares(piece, 0, { q: 0, r: 0 }))
 }

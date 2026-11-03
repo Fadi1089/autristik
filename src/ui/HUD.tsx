@@ -2,7 +2,7 @@ import { useGameStore } from '../store/gameStore'
 import { CAMERA_PIVOT_STEP, useViewStore } from '../store/viewStore'
 import { useKeyHint } from './useKeyHint'
 import { CameraLeftIcon, CameraRightIcon, MenuIcon, ResetGridIcon } from './icons'
-import { TileTray } from './TileTray'
+import { StuckNotice, TileTray } from './TileTray'
 
 function CameraControls() {
   const requestPivot = useViewStore((s) => s.requestPivot)
@@ -79,9 +79,12 @@ export function HUD() {
         </div>
       </header>
 
-      <footer className="flex flex-col items-center gap-1 sm:flex-row sm:justify-center sm:gap-3">
-        <CameraControls />
-        <TileTray />
+      <footer className="flex flex-col items-center gap-2 sm:gap-3">
+        <StuckNotice />
+        <div className="flex flex-col items-center gap-1 sm:flex-row sm:justify-center sm:gap-3">
+          <CameraControls />
+          <TileTray />
+        </div>
       </footer>
     </div>
   )

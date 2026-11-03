@@ -5,8 +5,8 @@ import type { Action, Bindings, KeySlot } from '../input/bindings'
 import { KEYBOARD_LAYOUT_MAPS } from '../input/keyLabels'
 import type { KeyboardLayout, LayoutMap } from '../input/keyLabels'
 import { fallbackKeyboardLayout } from '../input/keyboardDetection'
-import { BIOMES, DEFAULT_BIOME_PROBABILITIES } from '../game/tiles'
-import type { Biome, BiomeCountWeights, BiomeProbabilities } from '../game/tiles'
+import { BIOMES, DEFAULT_BIOME_PROBABILITIES, validBiomeProbabilities } from '../game/tiles'
+import type { Biome, BiomeProbabilities } from '../game/tiles'
 
 const initialKeyboardLayout = fallbackKeyboardLayout(
   typeof navigator === 'undefined' ? '' : navigator.language,
@@ -52,7 +52,7 @@ function normalizeProbabilities(stored: unknown): BiomeProbabilities {
   for (const biome of BIOMES)
     biomeWeights[biome] = validWeight(saved.biomeWeights?.[biome], biomeWeights[biome])
 
-  return {
+  const normalized = {
     biomeCounts: Object.values(biomeCounts).every((weight) => weight === 0)
       ? DEFAULT_BIOME_PROBABILITIES.biomeCounts
       : biomeCounts,
@@ -60,27 +60,19 @@ function normalizeProbabilities(stored: unknown): BiomeProbabilities {
       ? DEFAULT_BIOME_PROBABILITIES.biomeWeights
       : biomeWeights,
   }
+  // Fewer biomes enabled than a piece may ask for: bring the default biome weights back.
+  return validBiomeProbabilities(normalized)
+    ? normalized
+    : { ...normalized, biomeWeights: DEFAULT_BIOME_PROBABILITIES.biomeWeights }
 }
 
-function withBiomeCountWeight(
-  weights: BiomeCountWeights,
-  count: 1 | 2 | 3 | 4,
-  value: number,
-): BiomeCountWeights {
-  const next: BiomeCountWeights = {
-    ...weights,
-    [count]: validWeight(value, weights[count]),
-  }
-  return Object.values(next).some((weight) => weight > 0) ? next : weights
-}
-
-function withBiomeWeight(
-  weights: Readonly<Record<Biome, number>>,
-  biome: Biome,
-  value: number,
-): Readonly<Record<Biome, number>> {
-  const next = { ...weights, [biome]: validWeight(value, weights[biome]) }
-  return Object.values(next).some((weight) => weight > 0) ? next : weights
+/** Applies a change to the odds, unless it would leave settings that can't draw every piece. */
+function withChange(
+  probabilities: BiomeProbabilities,
+  change: Partial<BiomeProbabilities>,
+): BiomeProbabilities {
+  const next = { ...probabilities, ...change }
+  return validBiomeProbabilities(next) ? next : probabilities
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -100,18 +92,16 @@ export const useSettingsStore = create<SettingsStore>()(
       resetBindings: () => set({ bindings: DEFAULT_BINDINGS, capturing: null }),
       resetBiomeProbabilities: () => set({ biomeProbabilities: DEFAULT_BIOME_PROBABILITIES }),
       setBiomeCountWeight: (count, value) =>
-        set((s) => ({
-          biomeProbabilities: {
-            ...s.biomeProbabilities,
-            biomeCounts: withBiomeCountWeight(s.biomeProbabilities.biomeCounts, count, value),
-          },
+        set(({ biomeProbabilities: p }) => ({
+          biomeProbabilities: withChange(p, {
+            biomeCounts: { ...p.biomeCounts, [count]: validWeight(value, p.biomeCounts[count]) },
+          }),
         })),
       setBiomeWeight: (biome, value) =>
-        set((s) => ({
-          biomeProbabilities: {
-            ...s.biomeProbabilities,
-            biomeWeights: withBiomeWeight(s.biomeProbabilities.biomeWeights, biome, value),
-          },
+        set(({ biomeProbabilities: p }) => ({
+          biomeProbabilities: withChange(p, {
+            biomeWeights: { ...p.biomeWeights, [biome]: validWeight(value, p.biomeWeights[biome]) },
+          }),
         })),
       setKeyboardLayout: (keyboardLayout) =>
         set({

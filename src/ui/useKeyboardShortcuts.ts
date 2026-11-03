@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import { isGameOver } from '../game/game'
-import { nearestCandidate } from '../game/matching'
+import { currentAnchors, isGameOver } from '../game/game'
+import { nearest, nearestCandidate } from '../game/matching'
 import { actionForCode, REPEATABLE } from '../input/bindings'
 import type { Action } from '../input/bindings'
 import { keyCodeForLayout } from '../input/keyLabels'
@@ -50,10 +50,12 @@ export function useKeyboardShortcuts() {
         const view = useViewStore.getState()
         if (!game.cursor) {
           // Take over from wherever the mouse left the ghost and move it at once; with no
-          // ghost yet, the first press drops it on the open square nearest the view's centre.
+          // ghost yet, the first press drops it where the piece fits nearest the view's centre.
           if (game.hover) game.setCursor(game.hover)
           else {
-            const start = nearestCandidate(game.board, worldToCoord(view.focusX, view.focusZ))
+            const centre = worldToCoord(view.focusX, view.focusZ)
+            const start =
+              nearest(currentAnchors(game), centre) ?? nearestCandidate(game.board, centre)
             if (start) game.setCursor(start)
             return
           }

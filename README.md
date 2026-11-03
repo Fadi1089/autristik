@@ -9,37 +9,71 @@
 </p>
 
 A cozy tile-placement game in the spirit of Dorfromantik, played with tetrominoes. Each piece is
-four terrain squares laid out as an I, O, T, S, Z, J or L. Place each piece anywhere on the grid
-without overlapping existing squares; touching the board is not required.
+four biome squares laid out as an I, O, T, S, Z, J or L. Every piece has to be laid against the
+pieces already on the board, and blue only ever borders blue.
 
 Built with Vite, React, TypeScript, Three.js (via @react-three/fiber and drei), Zustand and
 Tailwind CSS v4. It deploys to GitLab Pages.
 
 ## How to play
 
-A piece's squares are meadow, forest, field, water or village, one square per board cell. Each
-of the seven shapes is equally likely. The terrain is drawn the same way the old 2×2 tiles drew
-theirs, so most pieces lean towards one terrain. A placed piece is one low block: its squares meet
-flush, and a thin strip of ground separates it from its neighbours. Cell outlines are drawn on
-the ground, strongest at the centre of the view and fading towards the edges.
+There are five biomes: black, red, green, yellow and blue, one per board cell. Each of the seven
+shapes is equally likely. A piece first draws how many distinct biomes it has (by default 1: 15%,
+2: 45%, 3: 25%, 4: 15%), then picks that many different biomes by weight (red and green 30,
+black and yellow 17.5, blue 5). Each picked biome gets one square. The squares left over are
+filled from the picked biomes only, in proportion to their weights scaled to 100% among them:
+a red and blue piece fills each spare square with red 30/35 of the time and blue 5/35. Both
+sets of odds can be changed in the settings. A placed piece is one low block whose squares meet
+flush, with slightly rounded outer corners, and a thin strip of ground separates it from its
+neighbours. Cell outlines are drawn on the ground, strongest at the centre of the view and fading
+towards the edges.
+
+### Rules
+
+| Rule    | What it means                                                                        |
+| ------- | ------------------------------------------------------------------------------------ |
+| Contact | A piece must share at least one edge with a square already on the board.             |
+| Overlap | A piece can't cover a cell that is already taken.                                    |
+| Water   | Along every edge it shares with the board, blue may only touch blue, and vice versa. |
+
+The game starts with one random piece at the centre, which is the only piece placed without
+contact. It is never all blue, unless the settings allow nothing but blue, since only blue could
+ever be laid against it. Squares within the same piece can sit next to each other in any
+combination. Squares that only meet at a corner don't count as touching.
+
+There is no score, timer or end: the game keeps drawing pieces. Matching edges between pieces
+are still tracked internally (harmonious and perfect placements), but nothing rewards them yet.
+Add `?seed=123` to the URL to replay the same sequence of pieces.
+
+### Playing
 
 - The game opens on the menu. Move between its items with the arrow keys or the mouse and press
   `Enter` to pick one. During play, `Esc` pauses into the menu and pressing it again resumes. The
   button in the top left opens the menu too.
+- A flat green area on the ground covers every cell the piece in hand can reach at a spot where
+  it fits, at the angle it is turned to now. Its outline follows the piece's shape and rotation,
+  so turning the piece reshapes it. Hover a cell to see whether the piece fits with its anchor
+  there.
 - Hover any cell, or move there with the keyboard, to see the piece in hand floating over it. It
-  slides from cell to cell and spins when you rotate it. A subtle outline beneath the piece shows
-  whether it can be placed; the biome colours remain visible when it overlaps the board.
+  slides from cell to cell and spins when you rotate it. A translucent green shell around it
+  means it can go there; red means it can't.
 - Click, or press `Enter` / `Space`, to place it. Dragging the camera doesn't count as a click.
   Touch screens have no hover, so the first tap on a cell shows the preview and a second tap on
   the same cell places the piece. Tapping another cell moves the preview.
 - `R` or `E` rotates the piece clockwise and `Q` anticlockwise, around the cell under the
   pointer. The buttons beside the current piece do the same, and so does clicking it.
-- The tray at the bottom shows the current piece, the next three (each smaller than the one
-  before) and how many pieces remain. The icons turn with the camera, so they match the board.
-- The broom button next to the score resets the grid to a single starting piece. The stack, the
-  queue and the score carry on.
-- The `?` tab on the right edge slides out the terrain legend and key list when you hover it
-  (tap it on touch screens).
+- Next to the rotate buttons, the angle picker shows the piece at each of its four angles. An
+  angle is lit when it fits on the hovered cell, or anywhere on the board when no cell is hovered,
+  and greyed out otherwise. Click one to turn the piece straight to it. The O piece has the same
+  outline at every angle, so it has no angle picker; the green area shows where it fits.
+- If a piece fits nowhere at any angle, a notice above the tray offers to skip it and draw the
+  next one.
+- The tray at the bottom shows the current piece and the next three (each smaller than the one
+  before). The icons turn with the camera, so they match the board.
+- The Reset button next to the menu button clears the grid back to a single starting piece. The
+  piece in hand and the queue carry on.
+
+### Controls
 
 The game can be played with the keyboard alone. Default keys:
 
@@ -53,20 +87,22 @@ The game can be played with the keyboard alone. Default keys:
 | `Esc`                     | Menu and pause (can't be rebound)      |
 
 The first arrow press picks up the preview where the mouse left it. If there is no preview yet,
-it starts on the open cell nearest the middle of the view. The cursor can go three cells past the
-board on every side, which is enough to place any shape against any edge. The mouse takes over
+it starts on the cell nearest the middle of the view where the piece fits. The mouse takes over
 again only when it moves onto another cell.
 
 Letter shortcuts follow the selected keyboard layout, so on AZERTY the movement keys are
 `Z` `Q` `S` `D`. The browser detects the layout where supported; otherwise the browser language
 provides a fallback. A layout can also be chosen under Shortcuts and stays fixed while playing.
-Every key except `Esc` can be
-changed under Menu > Shortcuts (two keys per action, saved in the browser). Menu > Settings lets
-you tune the relative chances of each biome count and the relative weights used to select biomes.
-The displayed normalized percentages show the requested biome-count odds and relative biome
-selection weights; changes apply to pieces drawn next, including the tray previews. A zero weight
-excludes a biome. If a piece requests more distinct biomes than are enabled, its count is capped
-at the number available. New games and grid resets use these settings for the starting island too.
+Every key except `Esc` can be changed under Menu > Shortcuts (two keys per action, saved in the
+browser).
+
+Menu > Settings lets you tune the relative chances of each biome count and the relative weights
+used to pick biomes. The percentages shown are the normalized odds. Changes apply to pieces
+drawn next, including the tray previews. A zero weight excludes a biome. At least as many biomes
+must keep a weight above 0 as the largest biome count above 0, so a piece always gets the number
+of distinct biomes it asks for. For example, with 3-biome pieces enabled, the last three biomes
+can't be set to 0, and the 3-biome count stays at 0 while only two biomes are enabled. New games and
+grid resets use these settings for the starting piece too.
 
 Mouse and touchpad:
 
@@ -77,18 +113,6 @@ Mouse and touchpad:
 | Scroll wheel, pinch                     | Zoom                    |
 | Sideways touchpad scroll, Shift + wheel | Pivot around the board  |
 | Right-drag                              | Tilt (limited) and turn |
-
-Scoring:
-
-| Placement                                         | Reward                |
-| ------------------------------------------------- | --------------------- |
-| Each touching edge whose two squares match        | +5 points             |
-| Harmonious: 2+ touching edges, all matching       | +1 piece              |
-| Perfect: fills a gap exactly, every edge matching | +30 points, +2 pieces |
-
-Mismatches cost nothing. A piece must touch the board along at least one edge and can't overlap
-it. There is no timer and there are no levels: the game ends when the stack (30 pieces to start)
-is empty. Add `?seed=123` to the URL to replay the same sequence of pieces.
 
 ## Requirements
 
@@ -126,9 +150,11 @@ npm run test:watch  # watch mode
 ```
 
 Tests live next to the code (`src/**/*.test.ts`). They cover coordinates, the seven shapes and
-their rotations, equal shape odds, edge matching and scoring, placement rules, how far the
-keyboard cursor can go, the game flow, the upcoming pieces, the grid reset, the piece outlines
-drawn on the board, the landing dust and the time format.
+their rotations, biome draws and their settings, edge matching, the placement rules (contact,
+overlap and blue), where a piece fits at each angle, skipping a piece that fits nowhere, how far
+the keyboard cursor can go, the green placement area, the game flow, the upcoming pieces, the grid
+reset, key bindings and keyboard layouts, the piece outlines drawn on the board, the ghost's
+shell, the landing dust and the time format.
 
 ## Build
 
@@ -206,29 +232,32 @@ a value, set a `BASE_PATH` CI/CD variable in the project settings.
 src/
   game/      Pure TypeScript game logic. No React, Three or store imports (ESLint enforces this).
     coords.ts    Square axial coordinates, directions, neighbours
-    tiles.ts     Terrains, the seven tetromino shapes, rotation, random draws
-    board.ts     Board map (one terrain square per cell, tagged with its piece), starting piece
-    matching.ts  Edge matching, placement rules, keyboard cursor limits
-    scoring.ts   Points and bonus pieces
-    game.ts      Game state: place, rotate, draw, upcoming pieces, grid reset
+    tiles.ts     Biomes, the seven tetromino shapes, rotation, weighted random draws
+    board.ts     Board map (one biome square per cell, tagged with its piece), starting piece
+    matching.ts  Placement rules (contact, overlap, blue), where a piece fits, edge matching,
+                 keyboard cursor limits
+    game.ts      Game state: place, rotate, skip, draw, upcoming pieces, grid reset
     random.ts    Seedable PRNG so games are reproducible
-  input/     Pure keyboard logic: bindings and defaults, key labels, screen-relative movement
+  input/     Pure keyboard logic: bindings and defaults, key labels, layout detection,
+             screen-relative movement
   store/
     gameStore.ts      Game state plus hover, keyboard cursor and menu
     viewStore.ts      Camera angles and focus, plus keyboard pivot/zoom requests
-    settingsStore.ts  Key bindings, saved to localStorage
+    settingsStore.ts  Key bindings, keyboard layout and biome odds, saved to localStorage
   scene/     React Three Fiber components
-    layout.ts       Cell size, heights, and the boxes that draw a piece with its inset outline
-    Board.tsx       Placed pieces as two InstancedMeshes (soil, terrain), plus open-cell markers
-    PieceTile.tsx   A single non-instanced piece (used for the ghost)
-    Ghost.tsx       Preview of the piece in hand: slides, spins, red where it can't go
-    Ground.tsx      Ground plane; also the pointer target for picking cells
-    GridLines.tsx   Cell outlines that fade out from the centre of the view
+    layout.ts         Cell size, heights, and the boxes that draw a piece with its inset outline
+    Board.tsx         Placed pieces merged into one mesh, plus the one easing down after placing
+    pieceGeometry.ts  A piece's soil and biome blocks as one geometry, with rounded outer corners
+    PieceTile.tsx     A single piece on its own (used for the ghost)
+    Ghost.tsx, ghostEnvelope.ts  Preview of the piece in hand: slides, spins, green or red shell
+    PlacementHints.tsx, placementArea.ts  Green ground area the piece can cover where it fits
+    Ground.tsx        Ground plane; also the pointer target for picking cells
+    GridLines.tsx     Cell outlines that fade out from the centre of the view
     PlacementDust.tsx, dust.ts  Dust and specks when a piece lands
-    Lights.tsx      Hemisphere fill and a shadow-casting sun that follows the camera
-    CameraRig.tsx   MapControls with zoom and tilt limits, scroll pivot, clamped to the board
-  ui/        Tailwind overlay: HUD (menu, score, reset, piece tray), main menu, help drawer,
-             game-over screen and keyboard shortcuts
+    Lights.tsx        Hemisphere fill and a shadow-casting sun that follows the camera
+    CameraRig.tsx     MapControls with zoom and tilt limits, scroll pivot, clamped to the board
+  ui/        Tailwind overlay: HUD (menu, reset, camera buttons, piece tray with angle picker,
+             skip notice), main menu, biome settings and keyboard shortcuts
   palette.ts Colours shared by the scene and the HUD
 ```
 

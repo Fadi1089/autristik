@@ -1,8 +1,9 @@
 import { coordKey, DIRECTIONS, neighbour, parseCoordKey } from './coords'
 import type { Coord, Direction } from './coords'
-import { boardSquares, getSquare, isOccupied } from './board'
+import { boardSquares, getSquare, isEmpty, isOccupied } from './board'
 import type { Board } from './board'
-import type { Square, Terrain } from './tiles'
+import { pieceSquares, shapeOffsets } from './tiles'
+import type { Rotation, Square, Terrain, Tetromino } from './tiles'
 
 /** One edge where a square of the piece touches a square already on the board. */
 export interface Contact {
@@ -57,12 +58,46 @@ export function evaluatePlacement(board: Board, squares: readonly Square[]): Pla
   }
 }
 
+/** Blue only borders blue: a blue square and a square of any other biome can't share an edge. */
+export function blueConflict(a: Terrain, b: Terrain): boolean {
+  return (a === 'blue') !== (b === 'blue')
+}
+
 /**
- * A piece can be placed anywhere on the grid, as long as it does not overlap
- * any already placed square.
+ * A piece can't overlap the board and must touch it along at least one edge; only the
+ * first piece on an empty board goes anywhere. No touching edge may pair blue with another biome.
  */
 export function canPlace(board: Board, squares: readonly Square[]): boolean {
-  return !squares.some((s) => isOccupied(board, s.coord))
+  if (squares.some((s) => isOccupied(board, s.coord))) return false
+  let touches = false
+  for (const square of squares)
+    for (const direction of DIRECTIONS) {
+      const other = getSquare(board, neighbour(square.coord, direction))
+      if (!other) continue
+      if (blueConflict(square.terrain, other.terrain)) return false
+      touches = true
+    }
+  // Only a piece touching nothing needs the (whole-board) emptiness check.
+  return touches || isEmpty(board)
+}
+
+/**
+ * Every anchor where `piece` fits at `rotation`, in a stable order. A fitting piece touches
+ * the board, so one of its squares sits on an open cell next to it.
+ */
+export function placementAnchors(board: Board, piece: Tetromino, rotation: Rotation): Coord[] {
+  const offsets = shapeOffsets(piece.shape, rotation)
+  const tried = new Set<string>()
+  const anchors: Coord[] = []
+  for (const cell of placementCandidates(board))
+    for (const offset of offsets) {
+      const at = { q: cell.q - offset.q, r: cell.r - offset.r }
+      const key = coordKey(at)
+      if (tried.has(key)) continue
+      tried.add(key)
+      if (canPlace(board, pieceSquares(piece, rotation, at))) anchors.push(at)
+    }
+  return anchors.sort((a, b) => a.r - b.r || a.q - b.q)
 }
 
 /** Every empty cell next to the board, in a stable order. */
@@ -91,11 +126,11 @@ export function clampCursor(board: Board, c: Coord): Coord {
   }
 }
 
-/** The open cell closest to `c`, for dropping a keyboard cursor somewhere useful. */
-export function nearestCandidate(board: Board, c: Coord): Coord | null {
+/** The coordinate in `coords` closest to `c`, or null if there are none. */
+export function nearest(coords: readonly Coord[], c: Coord): Coord | null {
   let best: Coord | null = null
   let bestDistance = Infinity
-  for (const candidate of placementCandidates(board)) {
+  for (const candidate of coords) {
     const distance = (candidate.q - c.q) ** 2 + (candidate.r - c.r) ** 2
     if (distance < bestDistance) {
       best = candidate
@@ -103,4 +138,9 @@ export function nearestCandidate(board: Board, c: Coord): Coord | null {
     }
   }
   return best
+}
+
+/** The open cell closest to `c`, for dropping a keyboard cursor somewhere useful. */
+export function nearestCandidate(board: Board, c: Coord): Coord | null {
+  return nearest(placementCandidates(board), c)
 }

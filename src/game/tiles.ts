@@ -147,6 +147,30 @@ export const DEFAULT_BIOME_PROBABILITIES: BiomeProbabilities = {
   },
 }
 
+/** Biomes with a positive selection weight; the others are never drawn. */
+export function enabledBiomes(weights: Readonly<Record<Biome, number>>): Biome[] {
+  return BIOMES.filter((biome) => Number.isFinite(weights[biome]) && weights[biome] > 0)
+}
+
+/** The most distinct biomes a piece can be drawn with: the largest count with a positive weight. */
+export function largestBiomeCount(counts: BiomeCountWeights): 0 | 1 | 2 | 3 | 4 {
+  for (const count of [4, 3, 2, 1] as const) if (counts[count] > 0) return count
+  return 0
+}
+
+/**
+ * Settings that can always draw a piece exactly as asked: some biome count is enabled, and
+ * at least as many biomes are enabled as the largest biome count, so a piece asking for
+ * three distinct biomes always has three to pick from.
+ */
+export function validBiomeProbabilities({
+  biomeCounts,
+  biomeWeights,
+}: BiomeProbabilities): boolean {
+  const largest = largestBiomeCount(biomeCounts)
+  return largest > 0 && enabledBiomes(biomeWeights).length >= largest
+}
+
 export const BIOME_WEIGHTS = DEFAULT_BIOME_PROBABILITIES.biomeWeights
 export const TERRAIN_WEIGHTS = BIOME_WEIGHTS
 
@@ -158,7 +182,7 @@ export function pickDistinctBiomes(
   count: number,
   weights: Readonly<Record<Biome, number>> = DEFAULT_BIOME_PROBABILITIES.biomeWeights,
 ): Biome[] {
-  const pool = BIOMES.filter((biome) => Number.isFinite(weights[biome]) && weights[biome] > 0)
+  const pool = enabledBiomes(weights)
   // Settings prevent an all-zero configuration, but a malformed direct caller still gets a piece.
   if (pool.length === 0) return pickDistinctBiomes(rng, count)
   const chosen: Biome[] = []
@@ -207,39 +231,24 @@ function shuffle<T>(arr: T[], rng: Rng): T[] {
 }
 
 /**
- * Generates 4 squares for a tetromino according to the biome count distribution
- * and biome weights.
+ * Generates 4 squares for a tetromino: draws how many distinct biomes it has, picks them by
+ * weight, gives each one square, then fills the remaining squares from those same biomes in
+ * proportion to their weights (normalized over the picked biomes alone).
  */
 export function randomTerrains(rng: Rng, probs?: BiomeProbabilities): Terrains {
   const counts = probs?.biomeCounts ?? DEFAULT_BIOME_PROBABILITIES.biomeCounts
   const weights = probs?.biomeWeights ?? DEFAULT_BIOME_PROBABILITIES.biomeWeights
 
-  const requestedCount = pickBiomeCount(rng, counts)
-  const biomes = pickDistinctBiomes(rng, requestedCount, weights)
-  const count = biomes.length
+  const biomes = pickDistinctBiomes(rng, pickBiomeCount(rng, counts), weights)
+  if (biomes.length === 0) throw new Error('A tetromino needs at least one available biome')
+  // pickDistinctBiomes falls back to the defaults when every weight is zero; so does this.
+  const pickedWeights: Partial<Record<Biome, number>> = {}
+  for (const biome of biomes)
+    pickedWeights[biome] = weights[biome] > 0 ? weights[biome] : BIOME_WEIGHTS[biome]
 
-  switch (count) {
-    case 1: {
-      const b = biomes[0]!
-      return [b, b, b, b]
-    }
-    case 2: {
-      const [b1, b2] = biomes
-      const extra1 = rng.next() < 0.5 ? b1! : b2!
-      const extra2 = rng.next() < 0.5 ? b1! : b2!
-      return shuffle([b1!, b2!, extra1, extra2], rng) as unknown as Terrains
-    }
-    case 3: {
-      const [b1, b2, b3] = biomes
-      const dup = [b1!, b2!, b3!][Math.floor(rng.next() * 3)]!
-      return shuffle([b1!, b2!, b3!, dup], rng) as unknown as Terrains
-    }
-    case 4: {
-      return shuffle(biomes, rng) as unknown as Terrains
-    }
-    default:
-      throw new Error('A tetromino needs at least one available biome')
-  }
+  const squares: Biome[] = [...biomes]
+  while (squares.length < 4) squares.push(rng.weighted(pickedWeights as Record<Biome, number>))
+  return shuffle(squares, rng) as unknown as Terrains
 }
 
 /** Every shape is equally likely; biomes are drawn per the specified probabilities. */
