@@ -18,7 +18,7 @@ import {
   withBiomeProbabilities,
 } from './game'
 import type { GameState } from './game'
-import { withPiece } from './board'
+import { EMPTY_BOARD, withPiece } from './board'
 import type { BiomeProbabilities } from './tiles'
 
 const RED_ONLY: BiomeProbabilities = {
@@ -73,9 +73,11 @@ describe('game flow', () => {
   })
 
   it('skips a piece only when it fits nowhere', () => {
+    // Only blue can be laid against an all-blue board.
     const lake: GameState = {
       ...createGame(2, RED_ONLY),
-      current: { shape: 'O', terrains: ['blue', 'blue', 'blue', 'blue'] },
+      board: withPiece(EMPTY_BOARD, [{ coord: { q: 0, r: 0 }, terrain: 'blue' }]),
+      current: { shape: 'O', terrains: ['red', 'red', 'red', 'red'] },
     }
     expect(isStuck(lake)).toBe(true)
     const next = skipCurrent(lake)
@@ -84,7 +86,7 @@ describe('game flow', () => {
 
     const shore = {
       ...lake,
-      board: withPiece(lake.board, [{ coord: { q: 0, r: -1 }, terrain: 'blue' }]),
+      board: withPiece(lake.board, [{ coord: { q: 0, r: -1 }, terrain: 'red' }]),
     }
     expect(isStuck(shore)).toBe(false)
     expect(skipCurrent(shore)).toBe(shore)

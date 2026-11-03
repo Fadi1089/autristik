@@ -58,14 +58,17 @@ export function evaluatePlacement(board: Board, squares: readonly Square[]): Pla
   }
 }
 
-/** Blue only borders blue: a blue square and a square of any other biome can't share an edge. */
-export function blueConflict(a: Terrain, b: Terrain): boolean {
-  return (a === 'blue') !== (b === 'blue')
+/**
+ * Blue only takes blue next to it: a square of another biome can't be laid against a blue
+ * square already on the board. A blue square itself can be laid against any biome.
+ */
+export function blueConflict(placed: Terrain, placing: Terrain): boolean {
+  return placed === 'blue' && placing !== 'blue'
 }
 
 /**
  * A piece can't overlap the board and must touch it along at least one edge; only the
- * first piece on an empty board goes anywhere. No touching edge may pair blue with another biome.
+ * first piece on an empty board goes anywhere. Only blue may be laid against blue already on the board.
  */
 export function canPlace(board: Board, squares: readonly Square[]): boolean {
   if (squares.some((s) => isOccupied(board, s.coord))) return false
@@ -74,7 +77,7 @@ export function canPlace(board: Board, squares: readonly Square[]): boolean {
     for (const direction of DIRECTIONS) {
       const other = getSquare(board, neighbour(square.coord, direction))
       if (!other) continue
-      if (blueConflict(square.terrain, other.terrain)) return false
+      if (blueConflict(other.terrain, square.terrain)) return false
       touches = true
     }
   // Only a piece touching nothing needs the (whole-board) emptiness check.

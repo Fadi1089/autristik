@@ -10,7 +10,7 @@
 
 A cozy tile-placement game in the spirit of Dorfromantik, played with tetrominoes. Each piece is
 four biome squares laid out as an I, O, T, S, Z, J or L. Every piece has to be laid against the
-pieces already on the board, and blue only ever borders blue.
+pieces already on the board, and only blue can be laid against blue.
 
 Built with Vite, React, TypeScript, Three.js (via @react-three/fiber and drei), Zustand and
 Tailwind CSS v4. It deploys to GitLab Pages.
@@ -30,11 +30,11 @@ towards the edges.
 
 ### Rules
 
-| Rule    | What it means                                                                        |
-| ------- | ------------------------------------------------------------------------------------ |
-| Contact | A piece must share at least one edge with a square already on the board.             |
-| Overlap | A piece can't cover a cell that is already taken.                                    |
-| Water   | Along every edge it shares with the board, blue may only touch blue, and vice versa. |
+| Rule    | What it means                                                        |
+| ------- | -------------------------------------------------------------------- |
+| Contact | A piece must share at least one edge with a square on the board.     |
+| Overlap | A piece can't cover a cell that is already taken.                    |
+| Water   | Only blue can go against blue on the board; blue can go against all. |
 
 The game starts with one random piece at the centre, which is the only piece placed without
 contact. It is never all blue, unless the settings allow nothing but blue, since only blue could

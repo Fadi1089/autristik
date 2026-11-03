@@ -281,23 +281,25 @@ describe('placement rules', () => {
     expect(canPlace(board, [square(5, 5, 'green')])).toBe(false)
   })
 
-  it('lets any biome touch any other except blue', () => {
+  it('lays blue against any biome, but only blue against blue on the board', () => {
     expect(canPlace(board, [square(1, 0, 'red')])).toBe(true)
-    expect(canPlace(board, [square(1, 0, 'blue')])).toBe(false)
+    expect(canPlace(board, [square(1, 0, 'blue')])).toBe(true)
     const water = boardOf([[0, 0, 'blue']])
     expect(canPlace(water, [square(1, 0, 'blue')])).toBe(true)
     expect(canPlace(water, [square(1, 0, 'yellow')])).toBe(false)
   })
 
-  it('rejects a piece if any one of its touching edges pairs blue with another biome', () => {
+  it('rejects a piece if any of its non-blue squares touches blue on the board', () => {
     const shore = boardOf([
       [0, 0, 'blue'],
       [1, 0, 'green'],
     ])
     expect(canPlace(shore, [square(0, 1, 'blue'), square(1, 1, 'green')])).toBe(true)
-    expect(canPlace(shore, [square(0, 1, 'blue'), square(1, 1, 'blue')])).toBe(false)
+    expect(canPlace(shore, [square(0, 1, 'blue'), square(1, 1, 'blue')])).toBe(true)
     expect(canPlace(shore, [square(0, 1, 'green'), square(1, 1, 'green')])).toBe(false)
-    expect(blueConflict('blue', 'red')).toBe(true)
+    expect(blueConflict('blue', 'red')).toBe(true) // red laid against blue
+    expect(blueConflict('red', 'blue')).toBe(false) // blue laid against red
+    expect(blueConflict('blue', 'blue')).toBe(false)
     expect(blueConflict('red', 'green')).toBe(false)
   })
 
@@ -347,10 +349,12 @@ describe('placementAnchors', () => {
     expect(placementAnchors(board, I, 0)).not.toEqual(placementAnchors(board, I, 1))
   })
 
-  it('finds nothing for an all-blue piece on a board without blue', () => {
-    const land = boardOf([[0, 0, 'green']])
-    const lake = { shape: 'O' as const, terrains: ['blue', 'blue', 'blue', 'blue'] as const }
-    for (const rotation of ROTATIONS) expect(placementAnchors(land, lake, rotation)).toEqual([])
+  it('finds nothing for a piece without blue on an all-blue board', () => {
+    const lake = boardOf([[0, 0, 'blue']])
+    const field = { shape: 'O' as const, terrains: ['red', 'red', 'red', 'red'] as const }
+    for (const rotation of ROTATIONS) expect(placementAnchors(lake, field, rotation)).toEqual([])
+    const water = { shape: 'O' as const, terrains: ['blue', 'blue', 'blue', 'blue'] as const }
+    expect(placementAnchors(boardOf([[0, 0, 'green']]), water, 0)).not.toEqual([])
   })
 })
 

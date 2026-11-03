@@ -35,7 +35,8 @@ describe('placementArea', () => {
   })
 
   it('is empty when the piece fits nowhere', () => {
-    const lake: Tetromino = { shape: 'O', terrains: ['blue', 'blue', 'blue', 'blue'] }
-    expect(placementArea({ board, current: lake, rotation: 0 })).toEqual([])
+    const lake = withPiece(EMPTY_BOARD, [{ coord: { q: 0, r: 0 }, terrain: 'blue' }])
+    const field: Tetromino = { shape: 'O', terrains: ['red', 'red', 'red', 'red'] }
+    expect(placementArea({ board: lake, current: field, rotation: 0 })).toEqual([])
   })
 })
