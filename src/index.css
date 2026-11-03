@@ -13,6 +13,7 @@
   --color-moss: #5f8f43;
   --color-moss-deep: #4c7535;
   --color-clay: #c4643c;
+  --color-gold: #c08a12;
 
   --animate-float-up: float-up 1.4s ease-out forwards;
   --animate-banner: banner 2.8s ease-out forwards;
@@ -23,7 +24,25 @@
   --animate-spin-ccw: spin-ccw 0.5s cubic-bezier(0.3, 1.4, 0.5, 1);
   --animate-cube-spin: cube-spin 6s linear infinite;
   --animate-cube-hover: cube-hover 2.4s ease-in-out infinite;
+  --animate-cloud: cloud 3.4s cubic-bezier(0.2, 0.8, 0.3, 1) both;
 
+  @keyframes cloud {
+    0% {
+      opacity: 0;
+      transform: translateY(10px) scale(0.85);
+    }
+    12% {
+      opacity: 1;
+      transform: none;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-36px);
+    }
+  }
   @keyframes float-up {
     0% {
       opacity: 0;

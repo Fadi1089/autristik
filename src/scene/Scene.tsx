@@ -2,11 +2,13 @@ import { SCENE_COLORS } from '../palette'
 import { Board } from './Board'
 import { CameraRig } from './CameraRig'
 import { Ghost } from './Ghost'
+import { GoldFlash } from './GoldFlash'
 import { GridLines } from './GridLines'
 import { Ground } from './Ground'
 import { Lights } from './Lights'
 import { PlacementDust } from './PlacementDust'
 import { PlacementHints } from './PlacementHints'
+import { ScoreClouds } from './ScoreClouds'
 
 export function Scene() {
   return (
@@ -19,8 +21,10 @@ export function Scene() {
       <GridLines />
       <PlacementHints />
       <Board />
+      <GoldFlash />
       <Ghost />
       <PlacementDust />
+      <ScoreClouds />
     </>
   )
 }

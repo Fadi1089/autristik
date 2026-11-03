@@ -166,4 +166,17 @@ describe('queue and grid reset', () => {
     )
     expect(advance(game).current).toEqual(upcoming[0])
   })
+
+  it("adds each placement's points to the score, and a reset puts it back to 0", () => {
+    let game = createGame(11)
+    expect(game.score).toBe(0)
+    let total = 0
+    for (let i = 0; i < 8; i++) {
+      game = advance(game)
+      if (game.lastPlacement) total += game.lastPlacement.score.points
+    }
+    expect(game.score).toBe(total)
+    expect(game.score).toBeGreaterThanOrEqual(4)
+    expect(resetBoard(game).score).toBe(0)
+  })
 })

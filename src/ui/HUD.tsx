@@ -2,6 +2,7 @@ import { useGameStore } from '../store/gameStore'
 import { CAMERA_PIVOT_STEP, useViewStore } from '../store/viewStore'
 import { useKeyHint } from './useKeyHint'
 import { CameraLeftIcon, CameraRightIcon, MenuIcon, ResetGridIcon } from './icons'
+import { Score } from './Score'
 import { StuckNotice, TileTray } from './TileTray'
 
 function CameraControls() {
@@ -77,6 +78,7 @@ export function HUD() {
             <ResetGridIcon className="hud-pictogram origin-bottom-left transition-transform duration-300 ease-out group-hover:-rotate-12" />
           </button>
         </div>
+        <Score />
       </header>
 
       <footer className="flex flex-col items-center gap-2 sm:gap-3">

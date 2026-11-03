@@ -27,4 +27,6 @@ export const SCENE_COLORS = {
   soil: '#9b7653',
   placementValid: '#6fbf63',
   placementInvalid: '#d9604a',
+  /** The flash on a piece that just got surrounded by its own biomes. */
+  gold: '#ffd24a',
 } as const

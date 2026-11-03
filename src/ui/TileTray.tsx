@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { anchorsByRotation, upcomingTiles } from '../game/game'
-import { coordsEqual } from '../game/coords'
 import { normalizeRotation, shapeOffsets } from '../game/tiles'
 import type { Coord } from '../game/coords'
-import type { Rotation, Tetromino } from '../game/tiles'
+import type { Tetromino } from '../game/tiles'
 import { TERRAIN_COLORS, TERRAIN_LABELS } from '../palette'
 import { useGameStore } from '../store/gameStore'
 import { useViewStore } from '../store/viewStore'
@@ -103,60 +102,11 @@ function describe(piece: Tetromino): string {
   return `${piece.shape} tetromino: ${piece.terrains.map((t) => TERRAIN_LABELS[t].toLowerCase()).join(', ')}`
 }
 
-const ROTATIONS: readonly Rotation[] = [0, 1, 2, 3]
-
 /** Where the piece in hand fits, for each of its four rotations. */
 function useAnchorsByRotation(): readonly (readonly Coord[])[] {
   const board = useGameStore((s) => s.board)
   const current = useGameStore((s) => s.current)
   return anchorsByRotation({ board, current, rotation: 0 })
-}
-
-/**
- * The piece in hand at each of its four angles, lit where that angle fits: on the hovered
- * cell while there is one, anywhere on the board otherwise. Clicking one turns the piece
- * to it. The square looks the same at every angle, so it gets none and the green area on
- * the board shows where it goes.
- */
-function AnglePicker({
-  piece,
-  anchors,
-}: {
-  piece: Tetromino
-  anchors: readonly (readonly Coord[])[]
-}) {
-  const rotation = useGameStore((s) => s.rotation)
-  const hover = useGameStore((s) => s.hover)
-  const setRotation = useGameStore((s) => s.setRotation)
-  if (piece.shape === 'O') return null
-
-  const fits = ROTATIONS.map((r) =>
-    hover ? anchors[r]!.some((a) => coordsEqual(a, hover)) : anchors[r]!.length > 0,
-  )
-  const where = hover ? 'on this cell' : 'somewhere'
-  return (
-    <div
-      role="group"
-      aria-label={`Angles that fit ${where}`}
-      title={`Lit angles fit ${where}`}
-      className="ml-1 grid shrink-0 grid-cols-2 gap-0.5"
-    >
-      {ROTATIONS.map((r) => (
-        <button
-          key={r}
-          type="button"
-          aria-label={`Turn to ${r * 90}°${fits[r] ? '' : " (doesn't fit)"}`}
-          aria-pressed={r === rotation}
-          onClick={() => setRotation(r)}
-          className={`grid size-6 place-items-center rounded-md text-[4px] transition active:scale-90 sm:size-8 sm:text-[5.5px] ${
-            r === rotation ? 'bg-ink/8 ring-1 ring-ink/25' : 'hover:bg-ink/6'
-          } ${fits[r] ? '' : 'opacity-25 grayscale'}`}
-        >
-          <PieceIcon piece={piece} turns={r} />
-        </button>
-      ))}
-    </div>
-  )
 }
 
 /** Offers to skip the piece in hand when no angle of it fits anywhere on the board. */
@@ -203,7 +153,6 @@ export function TileTray() {
     [seed, biomeProbabilities],
   )
   const rotate = useGameStore((s) => s.rotate)
-  const anchors = useAnchorsByRotation()
   const [spin, setSpin] = useState<Spin | null>(null)
   /** Quarter turns of the piece in hand, counted the short way round so it never spins back. */
   const [turns, setTurns] = useState<number>(rotation)
@@ -265,8 +214,6 @@ export function TileTray() {
         >
           <RotateCwIcon className="hud-pictogram" />
         </RotateButton>
-
-        <AnglePicker piece={current} anchors={anchors} />
       </div>
 
       {upcoming.length > 0 && (

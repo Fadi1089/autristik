@@ -4,7 +4,7 @@ import type { Coord, Direction } from '../game/coords'
 import { createGame, placeCurrent, resetBoard, rotateCurrent, skipCurrent } from '../game/game'
 import type { GameState } from '../game/game'
 import { clampCursor } from '../game/matching'
-import type { BiomeProbabilities, Rotation } from '../game/tiles'
+import type { BiomeProbabilities } from '../game/tiles'
 import { useSettingsStore } from './settingsStore'
 
 export interface GameStore extends GameState {
@@ -24,8 +24,6 @@ export interface GameStore extends GameState {
   /** Places the piece in hand on the hovered square, if it fits there. */
   placeAtHover(): void
   rotate(turns: number): void
-  /** Turns the piece in hand straight to `rotation`. */
-  setRotation(rotation: Rotation): void
   /** Draws the next piece when the one in hand fits nowhere. */
   skip(): void
   setBiomeProbabilities(probabilities: BiomeProbabilities): void
@@ -81,8 +79,6 @@ export const useGameStore = create<GameStore>()((set) => ({
   },
 
   rotate: (turns) => set((s) => (s.menuOpen ? s : { rotation: rotateCurrent(s, turns).rotation })),
-
-  setRotation: (rotation) => set((s) => (s.menuOpen ? s : { rotation })),
 
   skip: () => set((s) => (s.menuOpen ? s : skipCurrent(s))),
 

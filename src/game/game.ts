@@ -4,6 +4,8 @@ import type { Coord } from './coords'
 import { canPlace, evaluatePlacement, placementAnchors } from './matching'
 import type { PlacementEvaluation } from './matching'
 import { createRng } from './random'
+import { scorePlacement } from './score'
+import type { PlacementScore } from './score'
 import { normalizeRotation, pieceSquares, randomTetromino } from './tiles'
 import type { BiomeProbabilities, Rotation, Square, Tetromino } from './tiles'
 
@@ -18,6 +20,7 @@ export interface PlacementResult extends PlacementPreview {
   /** The anchor square the piece was placed on. */
   readonly coord: Coord
   readonly squares: readonly Square[]
+  readonly score: PlacementScore
 }
 
 export interface GameState {
@@ -28,6 +31,8 @@ export interface GameState {
   /** PRNG state used for the next draw. */
   readonly seed: number
   readonly lastPlacement: PlacementResult | null
+  /** Points scored on the board as it stands; the starting piece scores nothing. */
+  readonly score: number
   readonly biomeProbabilities?: BiomeProbabilities
 }
 
@@ -41,6 +46,7 @@ export function createGame(seed: number, biomeProbabilities?: BiomeProbabilities
     rotation: 0,
     seed: rng.state,
     lastPlacement: null,
+    score: 0,
     biomeProbabilities,
   }
 }
@@ -54,13 +60,14 @@ export function upcomingTiles(
   return Array.from({ length: count }, () => randomTetromino(rng, state.biomeProbabilities))
 }
 
-/** Puts the board back to a starting island; the tile in hand carries on. */
+/** Puts the board back to a starting island and the score to 0; the tile in hand carries on. */
 export function resetBoard(state: GameState): GameState {
   // A separate sequence for the island, so the upcoming tiles stay exactly as shown.
   return {
     ...state,
     board: createStartingBoard(createRng(state.seed ^ 0x9e3779b9), state.biomeProbabilities),
     lastPlacement: null,
+    score: 0,
   }
 }
 
@@ -146,13 +153,16 @@ export function placeCurrent(state: GameState, c: Coord): GameState {
 
   const rng = createRng(state.seed)
   const current = randomTetromino(rng, state.biomeProbabilities)
+  const board = withPiece(state.board, squares)
+  const score = scorePlacement(state.board, board, squares)
 
   return {
-    board: withPiece(state.board, squares),
+    board,
     current,
     rotation: 0,
     seed: rng.state,
-    lastPlacement: { ...preview, coord: c, squares },
+    lastPlacement: { ...preview, coord: c, squares, score },
+    score: state.score + score.points,
     biomeProbabilities: state.biomeProbabilities,
   }
 }

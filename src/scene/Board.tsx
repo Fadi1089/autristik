@@ -9,7 +9,7 @@ import { useGameStore } from '../store/gameStore'
 import { pieceGeometry } from './pieceGeometry'
 
 const DROP_HEIGHT = 0.6
-const DROP_SECONDS = 0.35
+export const DROP_SECONDS = 0.35
 
 /** Each piece's geometry, kept while the piece stays on the board so each is only built once. */
 const pieceCache = new Map<string, BufferGeometry>()

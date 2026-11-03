@@ -41,9 +41,26 @@ contact. It is never all blue, unless the settings allow nothing but blue, since
 ever be laid against it. Squares within the same piece can sit next to each other in any
 combination. Squares that only meet at a corner don't count as touching.
 
-There is no score, timer or end: the game keeps drawing pieces. Matching edges between pieces
-are still tracked internally (harmonious and perfect placements), but nothing rewards them yet.
-Add `?seed=123` to the URL to replay the same sequence of pieces.
+There is no timer or end: the game keeps drawing pieces. Add `?seed=123` to the URL to replay
+the same sequence of pieces.
+
+### Score
+
+Each piece scores when it is placed:
+
+| Points | For                                                                 |
+| ------ | ------------------------------------------------------------------- |
+| 1      | Each piece laid down                                                |
+| 1      | Each edge where the piece meets its own biome on another piece      |
+| 10     | Each piece, this one or one already down, that it leaves surrounded |
+
+A piece is surrounded when every one of its outer edges meets a square of its own biome on another
+piece. The moment it scores its 10 the whole piece flashes gold, like a camera flash. It only scores
+once. Edges between squares of the same piece don't count. After each placement a little cloud
+floats up over the piece, listing its points line by line in the order of the table: "+1 placed",
+then "+2 two sides match" if any sides match, then a gold "+10 tetromino surrounded" if it
+surrounded a piece. The total sits in the top right. The starting piece scores nothing, and
+resetting the grid puts the score back to 0.
 
 ### Playing
 
@@ -62,10 +79,6 @@ Add `?seed=123` to the URL to replay the same sequence of pieces.
   the same cell places the piece. Tapping another cell moves the preview.
 - `R` or `E` rotates the piece clockwise and `Q` anticlockwise, around the cell under the
   pointer. The buttons beside the current piece do the same, and so does clicking it.
-- Next to the rotate buttons, the angle picker shows the piece at each of its four angles. An
-  angle is lit when it fits on the hovered cell, or anywhere on the board when no cell is hovered,
-  and greyed out otherwise. Click one to turn the piece straight to it. The O piece has the same
-  outline at every angle, so it has no angle picker; the green area shows where it fits.
 - If a piece fits nowhere at any angle, a notice above the tray offers to skip it and draw the
   next one.
 - The tray at the bottom shows the current piece and the next three (each smaller than the one
@@ -149,12 +162,12 @@ npm test            # single run
 npm run test:watch  # watch mode
 ```
 
-Tests live next to the code (`src/**/*.test.ts`). They cover coordinates, the seven shapes and
-their rotations, biome draws and their settings, edge matching, the placement rules (contact,
-overlap and blue), where a piece fits at each angle, skipping a piece that fits nowhere, how far
-the keyboard cursor can go, the green placement area, the game flow, the upcoming pieces, the grid
-reset, key bindings and keyboard layouts, the piece outlines drawn on the board, the ghost's
-shell, the landing dust and the time format.
+Tests live next to the code (`src/**/*.test.ts`). They cover coordinates, the seven shapes and their
+rotations, biome draws and their settings, edge matching, the placement rules (contact, overlap and
+blue), where a piece fits at each angle, skipping a piece that fits nowhere, how far the keyboard
+cursor can go, the green placement area, scoring, the game flow, the upcoming pieces, the grid
+reset, key bindings and keyboard layouts, the piece outlines drawn on the board, the ghost's shell,
+the landing dust and the time format.
 
 ## Build
 
@@ -237,6 +250,7 @@ src/
     matching.ts  Placement rules (contact, overlap, blue), where a piece fits, edge matching,
                  keyboard cursor limits
     game.ts      Game state: place, rotate, skip, draw, upcoming pieces, grid reset
+    score.ts     Points for a placement, and which pieces it surrounded
     random.ts    Seedable PRNG so games are reproducible
   input/     Pure keyboard logic: bindings and defaults, key labels, layout detection,
              screen-relative movement
@@ -254,10 +268,12 @@ src/
     Ground.tsx        Ground plane; also the pointer target for picking cells
     GridLines.tsx     Cell outlines that fade out from the centre of the view
     PlacementDust.tsx, dust.ts  Dust and specks when a piece lands
+    GoldFlash.tsx     A quick gold flash over a piece when surrounding it scores 10
+    ScoreClouds.tsx, scoreNotes.ts  A cloud listing what each placement scored, line by line
     Lights.tsx        Hemisphere fill and a shadow-casting sun that follows the camera
     CameraRig.tsx     MapControls with zoom and tilt limits, scroll pivot, clamped to the board
-  ui/        Tailwind overlay: HUD (menu, reset, camera buttons, piece tray with angle picker,
-             skip notice), main menu, biome settings and keyboard shortcuts
+  ui/        Tailwind overlay: HUD (menu, reset, score, camera buttons, piece tray, skip
+             notice), main menu, biome settings and keyboard shortcuts
   palette.ts Colours shared by the scene and the HUD
 ```
 
