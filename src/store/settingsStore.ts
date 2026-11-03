@@ -26,6 +26,8 @@ interface SettingsStore {
   unbind(action: Action, slot: KeySlot): void
   resetBindings(): void
   resetBiomeProbabilities(): void
+  /** Replaces all the odds at once, e.g. with a loaded game's; invalid odds are ignored. */
+  setBiomeProbabilities(probabilities: BiomeProbabilities): void
   setBiomeCountWeight(count: 1 | 2 | 3 | 4, value: number): void
   setBiomeWeight(biome: Biome, value: number): void
   setKeyboardLayout(keyboardLayout: KeyboardLayout): void
@@ -91,6 +93,8 @@ export const useSettingsStore = create<SettingsStore>()(
         set((s) => ({ bindings: withoutBinding(s.bindings, action, slot), capturing: null })),
       resetBindings: () => set({ bindings: DEFAULT_BINDINGS, capturing: null }),
       resetBiomeProbabilities: () => set({ biomeProbabilities: DEFAULT_BIOME_PROBABILITIES }),
+      setBiomeProbabilities: (probabilities) =>
+        set((s) => ({ biomeProbabilities: withChange(s.biomeProbabilities, probabilities) })),
       setBiomeCountWeight: (count, value) =>
         set(({ biomeProbabilities: p }) => ({
           biomeProbabilities: withChange(p, {

@@ -31,6 +31,8 @@ export interface GameStore extends GameState {
   restart(seed?: number): void
   /** Clears the placed tiles back to a starting island; the queue carries on. */
   resetGrid(): void
+  /** Carries on with a loaded game, and takes on its biome odds. */
+  loadGame(game: GameState): void
   openMenu(): void
   closeMenu(): void
   toggleMenu(): void
@@ -107,6 +109,13 @@ export const useGameStore = create<GameStore>()((set) => ({
       const next = resetBoard(s)
       return { ...next, hover: s.cursor }
     }),
+
+  loadGame: (game) => {
+    // The settings panel pushes its odds onto the game, so it must hold the loaded ones.
+    if (game.biomeProbabilities)
+      useSettingsStore.getState().setBiomeProbabilities(game.biomeProbabilities)
+    set({ ...game, hover: null, cursor: null, menuOpen: false, started: true })
+  },
 
   openMenu: () => set({ menuOpen: true, hover: null }),
   closeMenu: () => set({ menuOpen: false, started: true }),

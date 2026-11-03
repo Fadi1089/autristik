@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { shapeOffsets, SHAPES } from '../game/tiles'
 import type { Rotation } from '../game/tiles'
-import { cellBoxes, coordToWorld, PIECE_GAP, TILE_SIZE } from './layout'
+import { cellBoxes, coordToWorld, devicePointer, PIECE_GAP, TILE_SIZE } from './layout'
 import type { Footprint } from './layout'
 
 const ROTATIONS: readonly Rotation[] = [0, 1, 2, 3]
@@ -49,5 +49,22 @@ describe('piece boxes', () => {
       for (const c of shapeOffsets(shape))
         expect(cellBoxes(shapeOffsets(shape), c).length).toBeLessThanOrEqual(3)
     expect(cellBoxes([{ q: 0, r: 0 }], { q: 0, r: 0 })).toHaveLength(1)
+  })
+})
+
+describe('devicePointer', () => {
+  const rect = { left: 100, top: 50, width: 800, height: 600 }
+
+  it('maps the canvas corners and centre to device coordinates', () => {
+    expect(devicePointer(100, 50, rect)).toEqual([-1, 1])
+    expect(devicePointer(900, 650, rect)).toEqual([1, -1])
+    expect(devicePointer(500, 350, rect)).toEqual([0, 0])
+  })
+
+  it('measures from the canvas, not from where the event landed', () => {
+    // A pointer over a small label near the centre is still near the centre.
+    const [x, y] = devicePointer(510, 340, rect)
+    expect(x).toBeCloseTo(0.025)
+    expect(y).toBeCloseTo(1 / 30)
   })
 })

@@ -2,7 +2,7 @@ import { Html } from '@react-three/drei'
 import { useMemo } from 'react'
 import type { PlacementScore } from '../game/score'
 import { useGameStore } from '../store/gameStore'
-import { BASE_HEIGHT, coordToWorld } from './layout'
+import { BASE_HEIGHT, coordToWorld, PASS_THROUGH } from './layout'
 import { scoreLines } from './scoreNotes'
 
 /** Height the cloud starts from, just above the tallest biome. */
@@ -53,7 +53,7 @@ export function ScoreClouds() {
   if (menuOpen || !lastPlacement || !at) return null
   return (
     // Keyed on the placement, so each one starts its cloud afresh.
-    <Html key={at.join()} position={at} center pointerEvents="none" zIndexRange={[10, 0]}>
+    <Html key={at.join()} position={at} center style={PASS_THROUGH} zIndexRange={[10, 0]}>
       <Cloud score={lastPlacement.score} />
     </Html>
   )

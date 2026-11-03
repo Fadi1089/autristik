@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { parseSave, saveText } from '../game/save'
 import type { Biome } from '../game/tiles'
 import { SCENE_COLORS, TERRAIN_COLORS } from '../palette'
 import { useGameStore } from '../store/gameStore'
@@ -9,6 +10,25 @@ import { GameSettings } from './GameSettings'
 import { KeySettings } from './KeySettings'
 
 type Panel = 'settings' | 'shortcuts'
+
+/** A file name for a save, stamped with the local date and time: tristik-2026-11-03-1642.json. */
+function saveFileName(date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  return `tristik-${day}-${pad(date.getHours())}${pad(date.getMinutes())}.json`
+}
+
+/** Downloads the game in progress as a JSON save. */
+function downloadSave() {
+  const url = URL.createObjectURL(
+    new Blob([saveText(useGameStore.getState())], { type: 'application/json' }),
+  )
+  const link = document.createElement('a')
+  link.href = url
+  link.download = saveFileName()
+  link.click()
+  URL.revokeObjectURL(url)
+}
 
 /** Each face of the menu cube: its four squares, and how it sits around the cube's centre. */
 const CUBE_FACES: readonly { squares: readonly Biome[]; transform: string; shade: number }[] = [
@@ -100,6 +120,20 @@ export function Menu() {
   const started = useGameStore((s) => s.started)
   const closeMenu = useGameStore((s) => s.closeMenu)
   const restart = useGameStore((s) => s.restart)
+  const loadGame = useGameStore((s) => s.loadGame)
+  const fileInput = useRef<HTMLInputElement>(null)
+  /** Why the last file picked couldn't be loaded. */
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  const loadFile = async (file: File) => {
+    const result = parseSave(await file.text())
+    if (!result.ok) {
+      setLoadError(result.error)
+      return
+    }
+    setLoadError(null)
+    loadGame(result.game)
+  }
 
   const canResume = started
   const toggle = (next: Panel) => setPanel((p) => (p === next ? null : next))
@@ -189,17 +223,42 @@ export function Menu() {
                 New game
               </MenuItem>
             )}
-            <MenuItem pressed={panel === 'settings'} onClick={() => toggle('settings')} delay={320}>
+            {started && (
+              <MenuItem onClick={downloadSave} delay={320}>
+                Save game
+              </MenuItem>
+            )}
+            <MenuItem onClick={() => fileInput.current?.click()} delay={370}>
+              Load game
+            </MenuItem>
+            <MenuItem pressed={panel === 'settings'} onClick={() => toggle('settings')} delay={420}>
               Settings
             </MenuItem>
             <MenuItem
               pressed={panel === 'shortcuts'}
               onClick={() => toggle('shortcuts')}
-              delay={370}
+              delay={470}
             >
               Shortcuts
             </MenuItem>
           </ul>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0]
+              // Cleared, so picking the same file again still loads it.
+              e.currentTarget.value = ''
+              if (file) void loadFile(file)
+            }}
+          />
+          {loadError && (
+            <p role="alert" className="mt-4 max-w-md text-sm text-clay">
+              Couldn't load that save: {loadError}.
+            </p>
+          )}
         </section>
 
         {panel ? (

@@ -83,6 +83,21 @@ describe('biome probability preferences', () => {
     })
   })
 
+  it("takes on a loaded game's odds whole, but ignores odds it couldn't draw from", async () => {
+    const store = (await import('./settingsStore')).useSettingsStore
+    const twoBiomes = {
+      biomeCounts: { 1: 0, 2: 100, 3: 0, 4: 0 },
+      biomeWeights: { black: 0, red: 75, green: 25, yellow: 0, blue: 0 },
+    }
+    store.getState().setBiomeProbabilities(twoBiomes)
+    expect(store.getState().biomeProbabilities).toEqual(twoBiomes)
+    store.getState().setBiomeProbabilities({
+      ...twoBiomes,
+      biomeCounts: { 1: 0, 2: 0, 3: 100, 4: 0 },
+    })
+    expect(store.getState().biomeProbabilities).toEqual(twoBiomes)
+  })
+
   it('only raises a biome count once enough biomes are enabled', async () => {
     const store = (await import('./settingsStore')).useSettingsStore
     for (const count of [2, 3, 4] as const) store.getState().setBiomeCountWeight(count, 0)

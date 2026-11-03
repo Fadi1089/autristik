@@ -59,8 +59,8 @@ piece. The moment it scores its 10 the whole piece flashes gold, like a camera f
 once. Edges between squares of the same piece don't count. After each placement a little cloud
 floats up over the piece, listing its points line by line in the order of the table: "+1 placed",
 then "+2 two sides match" if any sides match, then a gold "+10 tetromino surrounded" if it
-surrounded a piece. The total sits in the top right. The starting piece scores nothing, and
-resetting the grid puts the score back to 0.
+surrounded a piece. The total sits in the top right. The starting piece counts for its base point,
+so a new game starts at 1, and resetting the grid puts the score back to 1.
 
 ### Playing
 
@@ -86,6 +86,39 @@ resetting the grid puts the score back to 0.
   before). The icons turn with the camera, so they match the board.
 - The Reset button next to the menu button clears the grid back to a single starting piece. The
   piece in hand and the queue carry on.
+
+### Saving and loading
+
+Save game in the menu downloads the game in progress as a JSON file, such as
+`tristik-2026-11-03-1642.json`. Load game picks such a file and carries on exactly where it was
+left: same board, piece in hand and angle, score, upcoming pieces and biome odds (which also go
+into Settings, so later pieces keep coming the same way). There is one game at a time: loading
+replaces the game in progress. A file that isn't a valid save is refused with the reason, and the
+game in progress stays as it was.
+
+A save holds `format` (`"tristik-save"`), `version` (1), an optional `note`, `score`, `seed` (the
+piece generator's state), `rotation`, `current` (the piece in hand: `shape` and its four
+`terrains`), `biomeProbabilities` and `board`, a list of squares (`q`, `r`, `terrain`, and the
+`piece` they belong to). Loading checks every field: each piece must have four joined squares, no
+two squares may share a cell, and the odds must be able to draw every piece they ask for.
+
+### Test saves
+
+[`saves/`](saves) holds one save per feature. Load one from the menu and follow its `note`; each
+claim in the notes is also checked automatically by `src/game/saves.test.ts`.
+
+| Save                                | What it shows                                                 |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `01-new-game.json`                  | A new game starts at 1 point; every later piece must touch    |
+| `02-water-blocks-other-biomes.json` | A piece without blue never goes against blue                  |
+| `03-water-goes-anywhere.json`       | An all-blue piece goes against any biome                      |
+| `04-stuck-piece.json`               | A piece that fits nowhere: the skip notice                    |
+| `05-angles.json`                    | Where a piece fits depends on its angle (a flat-only slot)    |
+| `06-matching-sides.json`            | +1 per side against the same biome on another piece           |
+| `07-surround-bonus.json`            | Closing in a piece: gold flash and +10                        |
+| `08-self-surround.json`             | A piece dropped into a matching hole surrounds itself         |
+| `09-two-biome-odds.json`            | Saved biome odds: two biomes per piece, red three times green |
+| `10-long-game.json`                 | Forty moves in: many pieces, and the same queue after loading |
 
 ### Controls
 
@@ -166,9 +199,10 @@ npm run test:watch  # watch mode
 Tests live next to the code (`src/**/*.test.ts`). They cover coordinates, the seven shapes and their
 rotations, biome draws and their settings, edge matching, the placement rules (contact, overlap and
 blue), where a piece fits at each angle, skipping a piece that fits nowhere, how far the keyboard
-cursor can go, the green placement area, scoring, the game flow, the upcoming pieces, the grid
-reset, key bindings and keyboard layouts, the piece outlines drawn on the board, the ghost's shell,
-the landing dust and the time format.
+cursor can go, the green placement area, scoring, saving and loading (and rejecting broken saves),
+every test save in `saves/`, the game flow, the upcoming pieces, the grid reset, key bindings and
+keyboard layouts, mapping the pointer onto the canvas, the piece outlines drawn on the board, the
+ghost's shell, the landing dust and the time format.
 
 ## Build
 
@@ -252,6 +286,7 @@ src/
                  keyboard cursor limits
     game.ts      Game state: place, rotate, skip, draw, upcoming pieces, grid reset
     score.ts     Points for a placement, and which pieces it surrounded
+    save.ts      Saving a game to JSON and loading it back, checking every field
     random.ts    Seedable PRNG so games are reproducible
   input/     Pure keyboard logic: bindings and defaults, key labels, layout detection,
              screen-relative movement
@@ -267,6 +302,7 @@ src/
     Ghost.tsx, ghostEnvelope.ts  Preview of the piece in hand: slides, spins, green or red shell
     PlacementHints.tsx, placementArea.ts  Green ground area the piece can cover where it fits
     Ground.tsx        Ground plane; also the pointer target for picking cells
+    canvasEvents.ts   Pointer events measured from the canvas, whatever element they land on
     GridLines.tsx     Cell outlines that fade out from the centre of the view
     PlacementDust.tsx, dust.ts  Dust and specks when a piece lands
     GoldFlash.tsx     A quick gold flash over a piece when surrounding it scores 10
@@ -274,8 +310,9 @@ src/
     Lights.tsx        Hemisphere fill and a shadow-casting sun that follows the camera
     CameraRig.tsx     MapControls with zoom and tilt limits, scroll pivot, clamped to the board
   ui/        Tailwind overlay: HUD (menu, reset, score, camera buttons, piece tray, skip
-             notice), main menu, biome settings and keyboard shortcuts
+             notice), main menu (with save and load), biome settings and keyboard shortcuts
   palette.ts Colours shared by the scene and the HUD
+saves/       Test saves, one per feature (see Test saves above)
 ```
 
 Grid convention: `q` grows east (+x) and `r` grows south (+z). A shape is a list of square

@@ -6,7 +6,7 @@ import { coordsEqual } from '../game/coords'
 import type { Coord } from '../game/coords'
 import { SCENE_COLORS } from '../palette'
 import { useGameStore } from '../store/gameStore'
-import { worldToCoord } from './layout'
+import { devicePointer, worldToCoord } from './layout'
 
 /** Pointer travel (px) above which a press counts as a camera drag, not a click. */
 const CLICK_TOLERANCE = 6
@@ -62,11 +62,9 @@ export function Ground() {
     const { cursor, menuOpen } = useGameStore.getState()
     // The keyboard cursor keeps the ghost while it is steering, even as the camera follows it.
     if (!at || cursor || menuOpen) return
-    const rect = gl.domElement.getBoundingClientRect()
-    pointer.set(
-      ((at.x - rect.left) / rect.width) * 2 - 1,
-      -((at.y - rect.top) / rect.height) * 2 + 1,
-    )
+    pointer.set(...devicePointer(at.x, at.y, gl.domElement.getBoundingClientRect()))
+    // The camera moved this frame, but its world matrix only catches up when it renders.
+    camera.updateMatrixWorld()
     raycaster.setFromCamera(pointer, camera)
     if (raycaster.ray.intersectPlane(GROUND_PLANE, hit)) hoverWithMouse(worldToCoord(hit.x, hit.z))
   })

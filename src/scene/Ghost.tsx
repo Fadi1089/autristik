@@ -8,7 +8,7 @@ import { normalizeRotation, pieceSquares } from '../game/tiles'
 import { SCENE_COLORS } from '../palette'
 import { useGameStore } from '../store/gameStore'
 import { useViewStore } from '../store/viewStore'
-import { BASE_HEIGHT, coordToWorld, TILE_SIZE } from './layout'
+import { BASE_HEIGHT, coordToWorld, PASS_THROUGH, TILE_SIZE } from './layout'
 import { PieceTile } from './PieceTile'
 import { createGhostEnvelope } from './ghostEnvelope'
 
@@ -110,7 +110,7 @@ export function Ghost() {
       </group>
       {placeable && (
         <group ref={label}>
-          <Html pointerEvents="none" zIndexRange={[10, 0]}>
+          <Html style={PASS_THROUGH} zIndexRange={[10, 0]}>
             <div className="hidden translate-x-1.5 -translate-y-full items-baseline gap-1 rounded-full border border-ink/8 bg-paper/55 px-2 py-0.5 whitespace-nowrap text-ink/80 backdrop-blur-[2px] pointer-coarse:inline-flex">
               {/* Touch screens place on a second tap, so say so there. */}
               <span className="text-[0.7rem] text-ink/60">tap again</span>

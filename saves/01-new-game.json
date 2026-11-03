@@ -1,0 +1,58 @@
+{
+  "format": "tristik-save",
+  "version": 1,
+  "note": "A new game: only the starting piece is down and the score is already 1, its base point. The green area only covers cells touching the board: every piece after the first must touch it.",
+  "score": 1,
+  "seed": 2903415588,
+  "rotation": 0,
+  "current": {
+    "shape": "I",
+    "terrains": [
+      "green",
+      "green",
+      "green",
+      "green"
+    ]
+  },
+  "biomeProbabilities": {
+    "biomeCounts": {
+      "1": 15,
+      "2": 45,
+      "3": 25,
+      "4": 15
+    },
+    "biomeWeights": {
+      "black": 17.5,
+      "red": 30,
+      "green": 30,
+      "yellow": 17.5,
+      "blue": 5
+    }
+  },
+  "board": [
+    {
+      "q": 0,
+      "r": 0,
+      "terrain": "red",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 0,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": -1,
+      "r": 1,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 0,
+      "r": 1,
+      "terrain": "green",
+      "piece": 0
+    }
+  ]
+}

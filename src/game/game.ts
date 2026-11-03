@@ -4,7 +4,7 @@ import type { Coord } from './coords'
 import { canPlace, evaluatePlacement, placementAnchors } from './matching'
 import type { PlacementEvaluation } from './matching'
 import { createRng } from './random'
-import { scorePlacement } from './score'
+import { PIECE_POINTS, scorePlacement } from './score'
 import type { PlacementScore } from './score'
 import { normalizeRotation, pieceSquares, randomTetromino } from './tiles'
 import type { BiomeProbabilities, Rotation, Square, Tetromino } from './tiles'
@@ -31,7 +31,7 @@ export interface GameState {
   /** PRNG state used for the next draw. */
   readonly seed: number
   readonly lastPlacement: PlacementResult | null
-  /** Points scored on the board as it stands; the starting piece scores nothing. */
+  /** Points scored on the board as it stands, starting with the starting piece's base point. */
   readonly score: number
   readonly biomeProbabilities?: BiomeProbabilities
 }
@@ -46,7 +46,7 @@ export function createGame(seed: number, biomeProbabilities?: BiomeProbabilities
     rotation: 0,
     seed: rng.state,
     lastPlacement: null,
-    score: 0,
+    score: PIECE_POINTS,
     biomeProbabilities,
   }
 }
@@ -60,14 +60,14 @@ export function upcomingTiles(
   return Array.from({ length: count }, () => randomTetromino(rng, state.biomeProbabilities))
 }
 
-/** Puts the board back to a starting island and the score to 0; the tile in hand carries on. */
+/** Puts the board back to a starting island and the score to its base point; the tile in hand carries on. */
 export function resetBoard(state: GameState): GameState {
   // A separate sequence for the island, so the upcoming tiles stay exactly as shown.
   return {
     ...state,
     board: createStartingBoard(createRng(state.seed ^ 0x9e3779b9), state.biomeProbabilities),
     lastPlacement: null,
-    score: 0,
+    score: PIECE_POINTS,
   }
 }
 

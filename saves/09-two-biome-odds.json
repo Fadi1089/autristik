@@ -1,0 +1,58 @@
+{
+  "format": "tristik-save",
+  "version": 1,
+  "note": "The biome odds only allow pieces of exactly two biomes, red and green, with red three times as likely. Every piece shows both colours, and red fills most of the spare squares. Loading it also puts these odds into Settings.",
+  "score": 1,
+  "seed": 2903415588,
+  "rotation": 0,
+  "current": {
+    "shape": "I",
+    "terrains": [
+      "red",
+      "red",
+      "red",
+      "green"
+    ]
+  },
+  "biomeProbabilities": {
+    "biomeCounts": {
+      "1": 0,
+      "2": 100,
+      "3": 0,
+      "4": 0
+    },
+    "biomeWeights": {
+      "black": 0,
+      "red": 75,
+      "green": 25,
+      "yellow": 0,
+      "blue": 0
+    }
+  },
+  "board": [
+    {
+      "q": 0,
+      "r": 0,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 0,
+      "terrain": "red",
+      "piece": 0
+    },
+    {
+      "q": -1,
+      "r": 1,
+      "terrain": "red",
+      "piece": 0
+    },
+    {
+      "q": 0,
+      "r": 1,
+      "terrain": "red",
+      "piece": 0
+    }
+  ]
+}

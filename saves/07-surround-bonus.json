@@ -1,0 +1,130 @@
+{
+  "format": "tristik-save",
+  "version": 1,
+  "note": "A green square is closed in on three sides by green pieces. Put the green square in hand on its open right side: the middle square flashes gold and the cloud reads +1 placed, +4 four sides match, +10 tetromino surrounded.",
+  "score": 12,
+  "seed": 2026,
+  "rotation": 0,
+  "current": {
+    "shape": "O",
+    "terrains": [
+      "green",
+      "green",
+      "green",
+      "green"
+    ]
+  },
+  "biomeProbabilities": {
+    "biomeCounts": {
+      "1": 15,
+      "2": 45,
+      "3": 25,
+      "4": 15
+    },
+    "biomeWeights": {
+      "black": 17.5,
+      "red": 30,
+      "green": 30,
+      "yellow": 17.5,
+      "blue": 5
+    }
+  },
+  "board": [
+    {
+      "q": 0,
+      "r": 0,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 0,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 0,
+      "r": 1,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 1,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": -1,
+      "r": -1,
+      "terrain": "green",
+      "piece": 1
+    },
+    {
+      "q": 0,
+      "r": -1,
+      "terrain": "green",
+      "piece": 1
+    },
+    {
+      "q": 1,
+      "r": -1,
+      "terrain": "green",
+      "piece": 1
+    },
+    {
+      "q": 2,
+      "r": -1,
+      "terrain": "green",
+      "piece": 1
+    },
+    {
+      "q": -1,
+      "r": 2,
+      "terrain": "green",
+      "piece": 2
+    },
+    {
+      "q": 0,
+      "r": 2,
+      "terrain": "green",
+      "piece": 2
+    },
+    {
+      "q": 1,
+      "r": 2,
+      "terrain": "green",
+      "piece": 2
+    },
+    {
+      "q": 2,
+      "r": 2,
+      "terrain": "green",
+      "piece": 2
+    },
+    {
+      "q": -2,
+      "r": 0,
+      "terrain": "green",
+      "piece": 3
+    },
+    {
+      "q": -1,
+      "r": 0,
+      "terrain": "green",
+      "piece": 3
+    },
+    {
+      "q": -2,
+      "r": 1,
+      "terrain": "green",
+      "piece": 3
+    },
+    {
+      "q": -1,
+      "r": 1,
+      "terrain": "green",
+      "piece": 3
+    }
+  ]
+}

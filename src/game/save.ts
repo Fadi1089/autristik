@@ -1,0 +1,218 @@
+import { coordKey, DIRECTIONS, neighbour } from './coords'
+import type { Board, PlacedSquare } from './board'
+import type { GameState } from './game'
+import { BIOMES, DEFAULT_BIOME_PROBABILITIES, SHAPES, validBiomeProbabilities } from './tiles'
+import type { BiomeProbabilities, Rotation, Terrain, Terrains, Tetromino } from './tiles'
+
+/** Marks a JSON file as a TrisTik save. */
+export const SAVE_FORMAT = 'tristik-save'
+export const SAVE_VERSION = 1
+
+/** One square on the board, flattened for JSON. */
+export interface SavedSquare {
+  readonly q: number
+  readonly r: number
+  readonly terrain: Terrain
+  /** The piece it belongs to; a piece's four squares share it. */
+  readonly piece: number
+}
+
+/** A whole game as JSON: everything needed to carry on exactly where it was left. */
+export interface SaveFile {
+  readonly format: typeof SAVE_FORMAT
+  readonly version: typeof SAVE_VERSION
+  /** Free text describing the save; ignored when loading. */
+  readonly note?: string
+  readonly score: number
+  /** State of the piece generator, so the same pieces keep coming. */
+  readonly seed: number
+  readonly rotation: Rotation
+  /** The piece in hand, unrotated. */
+  readonly current: Tetromino | null
+  readonly biomeProbabilities: BiomeProbabilities
+  readonly board: readonly SavedSquare[]
+}
+
+export type LoadResult =
+  | { readonly ok: true; readonly game: GameState; readonly note?: string }
+  | { readonly ok: false; readonly error: string }
+
+/** The odds with their keys in a fixed order, so a save's text depends only on the game. */
+function orderedProbabilities({
+  biomeCounts,
+  biomeWeights,
+}: BiomeProbabilities): BiomeProbabilities {
+  return {
+    biomeCounts: { 1: biomeCounts[1], 2: biomeCounts[2], 3: biomeCounts[3], 4: biomeCounts[4] },
+    biomeWeights: Object.fromEntries(
+      BIOMES.map((biome) => [biome, biomeWeights[biome]]),
+    ) as BiomeProbabilities['biomeWeights'],
+  }
+}
+
+/** The game as a save file. The last placement is not kept: it only drives effects. */
+export function toSave(state: GameState, note?: string): SaveFile {
+  return {
+    format: SAVE_FORMAT,
+    version: SAVE_VERSION,
+    ...(note === undefined ? {} : { note }),
+    score: state.score,
+    seed: state.seed,
+    rotation: state.rotation,
+    current: state.current,
+    biomeProbabilities: orderedProbabilities(
+      state.biomeProbabilities ?? DEFAULT_BIOME_PROBABILITIES,
+    ),
+    board: Object.values(state.board)
+      .map(({ coord, terrain, piece }) => ({ q: coord.q, r: coord.r, terrain, piece }))
+      .sort((a, b) => a.piece - b.piece || a.r - b.r || a.q - b.q),
+  }
+}
+
+class SaveError extends Error {}
+
+function fail(message: string): never {
+  throw new SaveError(message)
+}
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const isInteger = (value: unknown): value is number => Number.isSafeInteger(value)
+
+function readTerrain(value: unknown, where: string): Terrain {
+  if (!BIOMES.includes(value as Terrain))
+    fail(`${where} has an unknown biome: ${JSON.stringify(value)}`)
+  return value as Terrain
+}
+
+function readPiece(value: unknown): Tetromino | null {
+  if (value === null) return null
+  if (!isObject(value)) fail('the piece in hand must be an object or null')
+  if (!SHAPES.includes(value.shape as Tetromino['shape']))
+    fail(`the piece in hand has an unknown shape: ${JSON.stringify(value.shape)}`)
+  if (!Array.isArray(value.terrains) || value.terrains.length !== 4)
+    fail('the piece in hand needs four biomes')
+  const terrains = value.terrains.map((t, i) =>
+    readTerrain(t, `square ${i + 1} of the piece in hand`),
+  )
+  return { shape: value.shape as Tetromino['shape'], terrains: terrains as unknown as Terrains }
+}
+
+function readWeight(value: unknown, where: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100)
+    fail(`${where} must be a number from 0 to 100`)
+  return value
+}
+
+function readProbabilities(value: unknown): BiomeProbabilities {
+  if (value === undefined) return DEFAULT_BIOME_PROBABILITIES
+  if (!isObject(value) || !isObject(value.biomeCounts) || !isObject(value.biomeWeights))
+    fail('the biome odds need biomeCounts and biomeWeights')
+  const counts = value.biomeCounts
+  const weights = value.biomeWeights
+  const probabilities: BiomeProbabilities = {
+    biomeCounts: {
+      1: readWeight(counts[1], 'the odds of 1 biome'),
+      2: readWeight(counts[2], 'the odds of 2 biomes'),
+      3: readWeight(counts[3], 'the odds of 3 biomes'),
+      4: readWeight(counts[4], 'the odds of 4 biomes'),
+    },
+    biomeWeights: Object.fromEntries(
+      BIOMES.map((biome) => [biome, readWeight(weights[biome], `the ${biome} weight`)]),
+    ) as BiomeProbabilities['biomeWeights'],
+  }
+  if (!validBiomeProbabilities(probabilities))
+    fail('the biome odds ask for more biomes per piece than they allow')
+  return probabilities
+}
+
+/** Whether `squares` are joined along their edges into one piece. */
+function connected(squares: readonly PlacedSquare[]): boolean {
+  const keys = new Set(squares.map((s) => coordKey(s.coord)))
+  const seen = new Set([coordKey(squares[0]!.coord)])
+  const queue = [squares[0]!.coord]
+  while (queue.length > 0) {
+    const c = queue.pop()!
+    for (const d of DIRECTIONS) {
+      const key = coordKey(neighbour(c, d))
+      if (keys.has(key) && !seen.has(key)) {
+        seen.add(key)
+        queue.push(neighbour(c, d))
+      }
+    }
+  }
+  return seen.size === squares.length
+}
+
+function readBoard(value: unknown): Board {
+  if (!Array.isArray(value) || value.length === 0) fail('the board needs at least one piece')
+  const board: Record<string, PlacedSquare> = {}
+  const pieces = new Map<number, PlacedSquare[]>()
+  value.forEach((entry: unknown, i) => {
+    const where = `board square ${i + 1}`
+    if (!isObject(entry)) fail(`${where} must be an object`)
+    const { q, r, piece } = entry
+    if (!isInteger(q) || !isInteger(r)) fail(`${where} needs whole-number q and r`)
+    if (!isInteger(piece) || piece < 0) fail(`${where} needs a piece number of 0 or more`)
+    const key = coordKey({ q, r })
+    if (board[key]) fail(`two squares sit on the same cell (${q}, ${r})`)
+    const square: PlacedSquare = {
+      coord: { q, r },
+      terrain: readTerrain(entry.terrain, where),
+      piece,
+    }
+    board[key] = square
+    pieces.set(piece, [...(pieces.get(piece) ?? []), square])
+  })
+  for (const [id, squares] of pieces) {
+    if (squares.length !== 4) fail(`piece ${id} has ${squares.length} squares instead of 4`)
+    if (!connected(squares)) fail(`the squares of piece ${id} don't join up`)
+  }
+  return board
+}
+
+/** Reads a save file, checking everything a game relies on. */
+export function fromSave(data: unknown): LoadResult {
+  try {
+    if (!isObject(data) || data.format !== SAVE_FORMAT) fail('this is not a TrisTik save')
+    if (data.version !== SAVE_VERSION)
+      fail(`save version ${JSON.stringify(data.version)} isn't supported`)
+    if (!isInteger(data.score) || data.score < 0)
+      fail('the score must be a whole number of 0 or more')
+    if (!isInteger(data.seed) || data.seed < 0 || data.seed > 0xffffffff)
+      fail('the seed must be a whole number from 0 to 4294967295')
+    if (!isInteger(data.rotation) || data.rotation < 0 || data.rotation > 3)
+      fail('the rotation must be 0, 1, 2 or 3')
+    const board = readBoard(data.board)
+    const game: GameState = {
+      board,
+      current: readPiece(data.current),
+      rotation: data.rotation as Rotation,
+      seed: data.seed,
+      lastPlacement: null,
+      score: data.score,
+      biomeProbabilities: readProbabilities(data.biomeProbabilities),
+    }
+    return typeof data.note === 'string' ? { ok: true, game, note: data.note } : { ok: true, game }
+  } catch (error) {
+    if (error instanceof SaveError) return { ok: false, error: error.message }
+    throw error
+  }
+}
+
+/** Reads a save from JSON text. */
+export function parseSave(text: string): LoadResult {
+  let data: unknown
+  try {
+    data = JSON.parse(text)
+  } catch {
+    return { ok: false, error: "the file isn't valid JSON" }
+  }
+  return fromSave(data)
+}
+
+/** A save as pretty-printed JSON text. */
+export function saveText(state: GameState, note?: string): string {
+  return `${JSON.stringify(toSave(state, note), null, 2)}\n`
+}

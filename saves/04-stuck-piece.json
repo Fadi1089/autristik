@@ -1,0 +1,58 @@
+{
+  "format": "tristik-save",
+  "version": 1,
+  "note": "Only a blue square is down and the piece in hand has no blue, so it fits nowhere: there is no green area and a notice offers to skip it. Skipping draws the next piece.",
+  "score": 1,
+  "seed": 2026,
+  "rotation": 0,
+  "current": {
+    "shape": "T",
+    "terrains": [
+      "red",
+      "red",
+      "red",
+      "red"
+    ]
+  },
+  "biomeProbabilities": {
+    "biomeCounts": {
+      "1": 15,
+      "2": 45,
+      "3": 25,
+      "4": 15
+    },
+    "biomeWeights": {
+      "black": 17.5,
+      "red": 30,
+      "green": 30,
+      "yellow": 17.5,
+      "blue": 5
+    }
+  },
+  "board": [
+    {
+      "q": 0,
+      "r": 0,
+      "terrain": "blue",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 0,
+      "terrain": "blue",
+      "piece": 0
+    },
+    {
+      "q": 0,
+      "r": 1,
+      "terrain": "blue",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 1,
+      "terrain": "blue",
+      "piece": 0
+    }
+  ]
+}

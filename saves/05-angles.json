@@ -1,0 +1,106 @@
+{
+  "format": "tristik-save",
+  "version": 1,
+  "note": "A one-cell-wide slot runs between a yellow bar and a blue one, closed on the right. The blue bar in hand slides into it only lying flat: turn it upright and the slot drops out of the green area, which changes shape with every turn.",
+  "score": 4,
+  "seed": 2026,
+  "rotation": 0,
+  "current": {
+    "shape": "I",
+    "terrains": [
+      "blue",
+      "blue",
+      "blue",
+      "blue"
+    ]
+  },
+  "biomeProbabilities": {
+    "biomeCounts": {
+      "1": 15,
+      "2": 45,
+      "3": 25,
+      "4": 15
+    },
+    "biomeWeights": {
+      "black": 17.5,
+      "red": 30,
+      "green": 30,
+      "yellow": 17.5,
+      "blue": 5
+    }
+  },
+  "board": [
+    {
+      "q": -1,
+      "r": 0,
+      "terrain": "yellow",
+      "piece": 0
+    },
+    {
+      "q": 0,
+      "r": 0,
+      "terrain": "yellow",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 0,
+      "terrain": "yellow",
+      "piece": 0
+    },
+    {
+      "q": 2,
+      "r": 0,
+      "terrain": "yellow",
+      "piece": 0
+    },
+    {
+      "q": 3,
+      "r": -1,
+      "terrain": "blue",
+      "piece": 1
+    },
+    {
+      "q": 3,
+      "r": 0,
+      "terrain": "blue",
+      "piece": 1
+    },
+    {
+      "q": 3,
+      "r": 1,
+      "terrain": "blue",
+      "piece": 1
+    },
+    {
+      "q": 3,
+      "r": 2,
+      "terrain": "blue",
+      "piece": 1
+    },
+    {
+      "q": -1,
+      "r": 2,
+      "terrain": "blue",
+      "piece": 2
+    },
+    {
+      "q": 0,
+      "r": 2,
+      "terrain": "blue",
+      "piece": 2
+    },
+    {
+      "q": 1,
+      "r": 2,
+      "terrain": "blue",
+      "piece": 2
+    },
+    {
+      "q": 2,
+      "r": 2,
+      "terrain": "blue",
+      "piece": 2
+    }
+  ]
+}

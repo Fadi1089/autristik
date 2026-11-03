@@ -74,3 +74,25 @@ export function cellBoxes(piece: readonly Coord[], c: Coord): Footprint[] {
   }
   return boxes
 }
+
+/**
+ * Style for drei's Html labels, so they never catch the pointer. Its `pointerEvents` prop only
+ * applies in transform mode; otherwise a pointer moving over a label reaches the canvas's
+ * event handlers measured from the label's corner, and the hovered square jumps far away.
+ */
+export const PASS_THROUGH = { pointerEvents: 'none' } as const
+
+/**
+ * A point on screen (client pixels) as a pointer in normalized device coordinates for the
+ * canvas inside `rect`: -1 to 1 left to right, and 1 to -1 top to bottom.
+ */
+export function devicePointer(
+  clientX: number,
+  clientY: number,
+  rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>,
+): [x: number, y: number] {
+  return [
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1,
+  ]
+}
