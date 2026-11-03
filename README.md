@@ -72,8 +72,9 @@ resetting the grid puts the score back to 0.
   so turning the piece reshapes it. Hover a cell to see whether the piece fits with its anchor
   there.
 - Hover any cell, or move there with the keyboard, to see the piece in hand floating over it. It
-  slides from cell to cell and spins when you rotate it. A translucent green shell around it
-  means it can go there; red means it can't.
+  slides from cell to cell and spins when you rotate it. It stays under the mouse when the camera
+  pans, zooms or pivots. A translucent green shell around it means it can go there; red means it
+  can't.
 - Click, or press `Enter` / `Space`, to place it. Dragging the camera doesn't count as a click.
   Touch screens have no hover, so the first tap on a cell shows the preview and a second tap on
   the same cell places the piece. Tapping another cell moves the preview.

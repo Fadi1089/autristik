@@ -2,7 +2,6 @@ import { Html } from '@react-three/drei'
 import { useMemo } from 'react'
 import type { PlacementScore } from '../game/score'
 import { useGameStore } from '../store/gameStore'
-import { DROP_SECONDS } from './Board'
 import { BASE_HEIGHT, coordToWorld } from './layout'
 import { scoreLines } from './scoreNotes'
 
@@ -13,10 +12,7 @@ const LINE_SECONDS = 0.3
 
 function Cloud({ score }: { score: PlacementScore }) {
   return (
-    <div
-      className="relative animate-cloud whitespace-nowrap select-none"
-      style={{ animationDelay: `${DROP_SECONDS}s` }}
-    >
+    <div className="relative animate-cloud whitespace-nowrap select-none">
       {/* Two puffs on top of the box make it read as a little cloud. */}
       <span aria-hidden className="absolute -top-2 left-3 size-5 rounded-full bg-paper" />
       <span aria-hidden className="absolute -top-3 left-6 size-7 rounded-full bg-paper" />
@@ -25,7 +21,7 @@ function Cloud({ score }: { score: PlacementScore }) {
           <li
             key={line.reason}
             className="col-span-2 grid animate-fade grid-cols-subgrid items-baseline"
-            style={{ animationDelay: `${DROP_SECONDS + i * LINE_SECONDS}s` }}
+            style={{ animationDelay: `${i * LINE_SECONDS}s` }}
           >
             <span
               className={`text-right font-display text-base leading-none font-semibold tabular-nums ${
