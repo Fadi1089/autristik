@@ -7,8 +7,6 @@ import { scoreLines } from './scoreNotes'
 
 /** Height the cloud starts from, just above the tallest biome. */
 const CLOUD_HEIGHT = BASE_HEIGHT + 0.25
-/** Each line appears a little after the one above it, so the sum reads in order. */
-const LINE_SECONDS = 0.3
 
 function Cloud({ score }: { score: PlacementScore }) {
   return (
@@ -17,12 +15,8 @@ function Cloud({ score }: { score: PlacementScore }) {
       <span aria-hidden className="absolute -top-2 left-3 size-5 rounded-full bg-paper" />
       <span aria-hidden className="absolute -top-3 left-6 size-7 rounded-full bg-paper" />
       <ul className="relative grid grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5 rounded-2xl bg-paper px-3 py-1.5 shadow-[0_8px_18px_-8px_rgb(59_46_34/0.45)]">
-        {scoreLines(score).map((line, i) => (
-          <li
-            key={line.reason}
-            className="col-span-2 grid animate-fade grid-cols-subgrid items-baseline"
-            style={{ animationDelay: `${i * LINE_SECONDS}s` }}
-          >
+        {scoreLines(score).map((line) => (
+          <li key={line.reason} className="col-span-2 grid grid-cols-subgrid items-baseline">
             <span
               className={`text-right font-display text-base leading-none font-semibold tabular-nums ${
                 line.gold ? 'text-gold' : 'text-moss-deep'

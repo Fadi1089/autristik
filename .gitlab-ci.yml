@@ -12,6 +12,8 @@ stages:
 
 variables:
   npm_config_cache: '$CI_PROJECT_DIR/.npm'
+  # Retry fetching the repository, which the GitLab instance sometimes refuses with a 429.
+  GET_SOURCES_ATTEMPTS: 3
   # Branch that GitLab Pages is deployed from.
   PAGES_BRANCH: prod
 
