@@ -8,6 +8,7 @@ import { Ground } from './Ground'
 import { Lights } from './Lights'
 import { PlacementDust } from './PlacementDust'
 import { PlacementHints } from './PlacementHints'
+import { Roads } from './Roads'
 import { ScoreClouds } from './ScoreClouds'
 
 export function Scene() {
@@ -21,6 +22,7 @@ export function Scene() {
       <GridLines />
       <PlacementHints />
       <Board />
+      <Roads />
       <GoldFlash />
       <Ghost />
       <PlacementDust />

@@ -1,6 +1,7 @@
 import { coordKey, DIRECTIONS, neighbour } from './coords'
 import type { Board, PlacedSquare } from './board'
 import type { GameState } from './game'
+import { findCities, findRoutes, routeScore } from './routes'
 import { BIOMES, DEFAULT_BIOME_PROBABILITIES, SHAPES, validBiomeProbabilities } from './tiles'
 import type { BiomeProbabilities, Rotation, Terrain, Terrains, Tetromino } from './tiles'
 
@@ -185,12 +186,18 @@ export function fromSave(data: unknown): LoadResult {
     if (!isInteger(data.rotation) || data.rotation < 0 || data.rotation > 3)
       fail('the rotation must be 0, 1, 2 or 3')
     const board = readBoard(data.board)
+    const cities = findCities(board)
+    const routes = findRoutes(board, cities)
+    const routePoints = routeScore(routes)
     const game: GameState = {
       board,
       current: readPiece(data.current),
       rotation: data.rotation as Rotation,
       seed: data.seed,
       lastPlacement: null,
+      baseScore: data.score - routePoints,
+      routes,
+      cities,
       score: data.score,
       biomeProbabilities: readProbabilities(data.biomeProbabilities),
     }

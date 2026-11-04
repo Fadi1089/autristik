@@ -22,8 +22,9 @@ const files = import.meta.glob<string>('../../saves/*.json', {
 })
 
 function save(name: string): { game: GameState; text: string; note: string } {
-  const text = files[`../../saves/${name}.json`]
-  if (text === undefined) throw new Error(`missing save ${name}`)
+  const raw = files[`../../saves/${name}.json`]
+  if (raw === undefined) throw new Error(`missing save ${name}`)
+  const text = raw.replace(/\r\n/g, '\n')
   const result = parseSave(text)
   if (!result.ok) throw new Error(`${name}: ${result.error}`)
   return { game: result.game, text, note: result.note ?? '' }
