@@ -2,12 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { EMPTY_BOARD, withPiece } from './board'
 import type { Board } from './board'
 import { coord } from './coords'
-import {
-  findCities,
-  findRoutes,
-  routeScore,
-  routeTraversedCoords,
-} from './routes'
+import { findCities, findRoutes, routeScore, routeTraversedCoords } from './routes'
 import type { Square, Terrain } from './tiles'
 
 const sq = (q: number, r: number, terrain: Terrain): Square => ({ coord: coord(q, r), terrain })
