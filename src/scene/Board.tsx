@@ -7,32 +7,45 @@ import { boardSquares } from '../game/board'
 import { coordKey } from '../game/coords'
 import { useGameStore } from '../store/gameStore'
 import { pieceGeometry } from './pieceGeometry'
+import { pieceWater, waterMaterial, waterTime } from './pieceWater'
 
 const DROP_HEIGHT = 0.6
 export const DROP_SECONDS = 0.35
 
-/** Each piece's geometry, kept while the piece stays on the board so each is only built once. */
-const pieceCache = new Map<string, BufferGeometry>()
+/** A piece's blocks, and the water on its blue squares if it has any. */
+interface Built {
+  readonly blocks: BufferGeometry
+  readonly water: BufferGeometry | null
+}
 
-function geometryFor(squares: readonly PlacedSquare[]): BufferGeometry {
+/** Each piece's geometry, kept while the piece stays on the board so each is only built once. */
+const pieceCache = new Map<string, Built>()
+
+function geometryFor(squares: readonly PlacedSquare[]): Built {
   const key = squares.map((s) => `${coordKey(s.coord)}:${s.terrain}`).join(' ')
-  let geometry = pieceCache.get(key)
-  if (!geometry) pieceCache.set(key, (geometry = pieceGeometry(squares)))
-  return geometry
+  let built = pieceCache.get(key)
+  if (!built)
+    pieceCache.set(key, (built = { blocks: pieceGeometry(squares), water: pieceWater(squares) }))
+  return built
 }
 
 /** Frees the cached geometry of pieces that have left the board. */
-function prune(keep: ReadonlySet<BufferGeometry>) {
-  for (const [key, geometry] of pieceCache)
-    if (!keep.has(geometry)) {
-      geometry.dispose()
+function prune(keep: ReadonlySet<Built>) {
+  for (const [key, built] of pieceCache)
+    if (!keep.has(built)) {
+      built.blocks.dispose()
+      built.water?.dispose()
       pieceCache.delete(key)
     }
 }
 
+const merged = (geometries: readonly BufferGeometry[]) =>
+  geometries.length > 0 ? mergeGeometries([...geometries]) : null
+
 /**
  * Placed pieces, merged into one mesh: each a soil block topped by its biomes, with slightly
- * rounded outer corners. The piece just placed has its own mesh while it eases down.
+ * rounded outer corners, and live water on its blue squares. The piece just placed has its own
+ * meshes while it eases down, its water riding down with it.
  */
 export function Board() {
   const board = useGameStore((s) => s.board)
@@ -55,13 +68,20 @@ export function Board() {
   const geometry = useMemo(() => {
     const all = new Map([...pieces].map(([id, squares]) => [id, geometryFor(squares)]))
     prune(new Set(all.values()))
-    const settled = [...all].filter(([id]) => id !== dropping).map(([, g]) => g)
+    const settled = [...all].filter(([id]) => id !== dropping).map(([, built]) => built)
     return {
-      settled: settled.length > 0 ? mergeGeometries(settled) : null,
+      settled: merged(settled.map((built) => built.blocks)),
+      settledWater: merged(settled.flatMap((built) => (built.water ? [built.water] : []))),
       dropping: dropping === undefined ? null : (all.get(dropping) ?? null),
     }
   }, [pieces, dropping])
-  useEffect(() => () => geometry.settled?.dispose(), [geometry])
+  useEffect(
+    () => () => {
+      geometry.settled?.dispose()
+      geometry.settledWater?.dispose()
+    },
+    [geometry],
+  )
 
   const droppingRef = useRef<Mesh>(null)
   const drop = useRef<{ elapsed: number } | null>(null)
@@ -72,7 +92,8 @@ export function Board() {
   }, [geometry])
 
   // Ease the most recently placed piece down onto the board.
-  useFrame((_, delta) => {
+  useFrame(({ clock }, delta) => {
+    waterTime.value = clock.elapsedTime
     const anim = drop.current
     const mesh = droppingRef.current
     if (!anim || !mesh) return
@@ -89,9 +110,15 @@ export function Board() {
           <meshStandardMaterial vertexColors flatShading roughness={0.9} />
         </mesh>
       )}
+      {geometry.settledWater && (
+        <mesh geometry={geometry.settledWater} material={waterMaterial} receiveShadow />
+      )}
       {geometry.dropping && (
-        <mesh ref={droppingRef} geometry={geometry.dropping} castShadow receiveShadow>
+        <mesh ref={droppingRef} geometry={geometry.dropping.blocks} castShadow receiveShadow>
           <meshStandardMaterial vertexColors flatShading roughness={0.9} />
+          {geometry.dropping.water && (
+            <mesh geometry={geometry.dropping.water} material={waterMaterial} receiveShadow />
+          )}
         </mesh>
       )}
     </group>

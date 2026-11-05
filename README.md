@@ -12,6 +12,10 @@ A cozy tile-placement game in the spirit of Dorfromantik, played with tetrominoe
 four biome squares laid out as an I, O, T, S, Z, J or L. Every piece has to be laid against the
 pieces already on the board, and only blue can be laid against blue.
 
+A game starts from one tetromino in the middle of the board, with five to eight single black
+tiles scattered round it, four to seven squares out and well apart from one another, to build
+towards.
+
 Built with Vite, React, TypeScript, Three.js (via @react-three/fiber and drei), Zustand and
 Tailwind CSS v4. It deploys to GitLab Pages.
 
@@ -65,12 +69,35 @@ shortened" if a shorter road took over. The total sits in the top right, with th
 roads bring in now beside it ("+4 roads"). The starting piece counts for its base point, so a new
 game starts at 1, and resetting the grid puts the score back to 1.
 
+### Forests
+
+Every green square grows a small wood, five to eight trees crowding one another, and every red
+square an autumn one: the same trees, turned amber, rust, gold and crimson, with leaves drifting
+down from them. A new square's trees pop up once its piece has landed. Roads never cross green,
+but they may cross red: the trees keep clear of a road, and when a new road comes through an
+autumn wood, the trees in its way shiver, tip over and sink into the ground just ahead of its
+stones. Should the road move away again, they grow back.
+
+### Farms
+
+Every yellow square is farmland. Most are fields of wheat in rows, sown along one way or the
+other, ripe, pale, amber or still green at the stalk; some are pastures, where a few cattle,
+horses with a donkey, or deer graze with some wheat at the edge, and each part of the board keeps
+to one kind of herd; now and then one is a farmstead, a red silo with wheat round it. A road may
+cross one yellow square: what is in its way goes just ahead of its stones, the wheat cut down, the
+animals hopping off and the silo sinking into the ground.
+
 ### Cities and roads
 
 A city is a region of at least five black squares joined along their edges, from one piece or
-several, in any shape: a square, an L, a line. Two or three small houses pop up, scattered over each of
-its squares, once the piece that completes it has landed. Roads join cities by themselves as you play, drawn as a cream
-path lying on the squares they cross up to the edge of each city. A road:
+several, in any shape: a square, an L, a line. Two to four small houses and a few patches of grass pop up on each of
+its squares, scattered at random and turned every which way, once the piece that completes it
+has landed. They are painted from a handful of muted palettes; each part of the board leans
+towards one, so a city hangs together while its houses still differ. Roads join cities by themselves as you play, laid in stone
+on the squares they cross up to the edge of each city: a straight, a turn, a T or a cross on each
+square, turned to fit, so two roads sharing a square meet rather than lie on top of each other. A
+new road's stones pop up one after another, from its first city to its second, once the piece
+that made it has landed. A road:
 
 - only crosses squares on the board, moving from a square to one beside it (never diagonally);
 - never crosses blue or green;
@@ -128,8 +155,8 @@ end of a road don't count; a black square that isn't part of a city does.
   next one.
 - The tray at the bottom shows the current piece and the next three (each smaller than the one
   before). The icons turn with the camera, so they match the board.
-- The Reset button next to the menu button clears the grid back to a single starting piece. The
-  piece in hand and the queue carry on.
+- The Reset button next to the menu button clears the grid back to a starting piece and its
+  scattered black tiles. The piece in hand and the queue carry on.
 
 ### Saving and loading
 
@@ -195,7 +222,8 @@ drawn next, including the tray previews. A zero weight excludes a biome. At leas
 must keep a weight above 0 as the largest biome count above 0, so a piece always gets the number
 of distinct biomes it asks for. For example, with 3-biome pieces enabled, the last three biomes
 can't be set to 0, and the 3-biome count stays at 0 while only two biomes are enabled. New games and
-grid resets use these settings for the starting piece too.
+grid resets use these settings for the starting piece too; the single tiles round it are always
+black.
 
 Mouse and touchpad:
 
@@ -328,6 +356,7 @@ src/
     coords.ts    Square axial coordinates, directions, neighbours
     tiles.ts     Biomes, the seven tetromino shapes, rotation, weighted random draws
     board.ts     Board map (one biome square per cell, tagged with its piece), starting piece
+                 and the single black tiles round it
     matching.ts  Placement rules (contact, overlap, blue), where a piece fits, edge matching,
                  keyboard cursor limits
     game.ts      Game state: place, rotate, skip, draw, upcoming pieces, grid reset
@@ -354,16 +383,27 @@ src/
     PlacementDust.tsx, dust.ts  Dust and specks when a piece lands
     GoldFlash.tsx     A quick gold flash over a piece when surrounding it scores 10
     ScoreClouds.tsx, scoreNotes.ts  A cloud listing what each placement scored, line by line
-    Roads.tsx         Roads between cities, as a flat cream path on each square they cross
-    Cities.tsx        Small houses scattered over every city's squares, popping up as a city forms
-    useAfterDrop.ts   Holds roads and houses back until the piece just placed has landed
+    pieceWater.ts, waterSurface.ts  Live water on the blue squares, of placed pieces, the piece
+                      dropping and the ghost: rolling swells, fine ripples and faint light lines
+    Roads.tsx, roadPieces.ts  Roads between cities, a stone piece on each square they cross,
+                      whose stones pop up along the road
+    Cities.tsx        Houses and grass scattered over every city's squares, painted from the city palettes
+    Forests.tsx       Woods on the green squares, autumn woods and falling leaves on the red ones
+    Farms.tsx         Wheat fields, pastures and silos on the yellow squares
+    roadClearing.ts   Keeps trees and farms off the roads, and clears them just ahead of a new road
+    props.ts, PropMeshes.tsx  What the houses, grass and trees share: palettes, finding a spot
+                      for each, drawing them, and how they pop up and leave
+    useAfterDrop.ts   Holds roads, houses and trees back until the piece just placed has landed
     Lights.tsx        Hemisphere fill and a shadow-casting sun that follows the camera
     CameraRig.tsx     MapControls with zoom and tilt limits, scroll pivot, clamped to the board
   ui/        Tailwind overlay: HUD (menu, reset, score, camera buttons, piece tray, skip
              notice), main menu (with save and load), biome settings and keyboard shortcuts
   palette.ts Colours shared by the scene and the HUD
-  assets/models/fantasy-houses.glb  The city houses (see Credits)
-tools/       fantasy-houses-glb.py: Blender script that builds the houses GLB from the original kit
+  assets/models/  The city houses and grass, the trees, the farms and the road pieces, as GLB
+                  (see Credits)
+tools/       Blender scripts that build those GLBs from the original models:
+             fantasy-houses-glb.py, grass-glb.py, trees-glb.py, farm-glb.py, and road-glb.py, which makes
+             the turn, T and cross from the straight stone path in path-straight.glb
 saves/       Test saves, one per feature (see Test saves above)
 ```
 
@@ -376,7 +416,37 @@ requests to external font hosts.
 
 ## Credits
 
-The houses in the cities are
-["Fantasy Houses"](https://poly.pizza/m/AO4BeeUHLN) by burunduk, licensed under
-[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). They were recoloured from the game's
-palette, scaled and exported to GLB with `tools/fantasy-houses-glb.py`.
+The cities are built from two models from Poly Pizza, both licensed under
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/):
+
+- the houses are ["Fantasy Houses"](https://poly.pizza/m/AO4BeeUHLN) by burunduk, scaled and
+  exported to GLB with `tools/fantasy-houses-glb.py`;
+- the grass is ["grass yellowing"](https://poly.pizza/m/eFUpFgjCf0p) by Steve B, joined into one
+  mesh, scaled and exported to GLB with `tools/grass-glb.py`.
+
+Both are repainted in the game from its own palettes (`CITY_PALETTES` and `GRASS_PALETTES` in
+`src/palette.ts`).
+
+The forests are built from two more, also [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/):
+
+- ["Forest"](https://poly.pizza/m/79xo-C_-n1J) by Nathan Merrill, of which one leafy tree is kept;
+- ["Forest"](https://poly.pizza/m/2_fv3tn3NG_) by Poly by Google, split into its sixteen pines
+  and round-topped trees.
+
+`tools/trees-glb.py` turns both into one GLB of seventeen trees, repainted in the game from
+`FOREST_PALETTES` and `AUTUMN_PALETTES` in `src/palette.ts`.
+
+The farms are built from two models by Poly by Google, also
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/), ["Silo"](https://poly.pizza/m/8UPiiP129yz)
+and ["Field of wheat"](https://poly.pizza/m/eWhaaKNh755), and five animals by Quaternius in the
+public domain ([CC0](https://creativecommons.org/publicdomain/zero/1.0/)):
+["Cow"](https://poly.pizza/m/26zM1outCr), ["Bull"](https://poly.pizza/m/a8PIIYwF7r),
+["Horse"](https://poly.pizza/m/qvTrSG9pZF), ["Donkey"](https://poly.pizza/m/qmX6nhnvp7) and
+["Deer"](https://poly.pizza/m/T6Cs7tmMHJ). `tools/farm-glb.py` freezes each animal standing and
+grazing, and turns them all into one GLB; the wheat is repainted from `WHEAT_PALETTES` in
+`src/palette.ts`, and the rest keep their own colours.
+
+The roads are built from ["Path Straight"](https://poly.pizza/m/ZuRHRsKWoz) by Quaternius, in
+the public domain ([CC0](https://creativecommons.org/publicdomain/zero/1.0/)), kept as
+`tools/path-straight.glb`. `tools/road-glb.py` bends it into the turn and builds the T and the
+cross from it. Their stones are painted from `ROAD_STONES` in `src/palette.ts`.

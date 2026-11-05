@@ -3,6 +3,8 @@ import { SCENE_COLORS } from '../palette'
 import { Board } from './Board'
 import { CameraRig } from './CameraRig'
 import { Cities } from './Cities'
+import { Farms } from './Farms'
+import { Forests } from './Forests'
 import { Ghost } from './Ghost'
 import { GoldFlash } from './GoldFlash'
 import { GridLines } from './GridLines'
@@ -25,9 +27,15 @@ export function Scene() {
       <PlacementHints />
       <Board />
       <Roads />
-      {/* The houses load a model; the rest of the scene doesn't wait for it. */}
+      {/* The houses, trees and farms load models; the rest of the scene doesn't wait for them. */}
       <Suspense fallback={null}>
         <Cities />
+      </Suspense>
+      <Suspense fallback={null}>
+        <Forests />
+      </Suspense>
+      <Suspense fallback={null}>
+        <Farms />
       </Suspense>
       <GoldFlash />
       <Ghost />

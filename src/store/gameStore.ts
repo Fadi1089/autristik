@@ -127,3 +127,8 @@ if (import.meta.env.DEV) {
   // Handy for poking at the game from the browser console.
   ;(window as unknown as { gameStore: typeof useGameStore }).gameStore = useGameStore
 }
+
+// A hot update to the store, or to the game code under it, would leave parts of the page on an
+// old copy of the store and the rest on the new one: a button then changes a game the board no
+// longer shows. Reload the whole page instead.
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload())

@@ -1,0 +1,115 @@
+--- a/src/scene/GridLines.tsx	2026-10-29 17:46:35.529270477 +0100
++++ b/src/scene/GridLines.tsx	2026-10-29 17:46:35.531004683 +0100
+@@ -1,7 +1,8 @@
+ import { useFrame } from '@react-three/fiber'
+-import { useMemo, useRef } from 'react'
++import { useMemo } from 'react'
+ import { Color, Vector2 } from 'three'
+-import type { ShaderMaterial } from 'three'
++import { MeshBasicNodeMaterial } from 'three/webgpu'
++import { abs, distance, float, fract, fwidth, max, min, positionWorld, smoothstep, uniform, vec2 } from 'three/tsl'
+ import { useViewStore } from '../store/viewStore'
+ import { TILE_SIZE } from './layout'
+ 
+@@ -12,78 +13,40 @@
+ /** Fraction of the camera distance over which the lines fade out from the view centre. */
+ const FADE_RADIUS = 0.75
+ 
+-const vertexShader = /* glsl */ `
+-  varying vec2 world;
+-  void main() {
+-    vec4 position4 = modelMatrix * vec4(position, 1.0);
+-    world = position4.xz;
+-    gl_Position = projectionMatrix * viewMatrix * position4;
+-  }
+-`
+-
+-// Cell edges sit half a cell from each cell centre; fwidth keeps lines one pixel-ish wide
+-// at any zoom. The lines fade smoothly with distance from where the camera looks.
+-const fragmentShader = /* glsl */ `
+-  varying vec2 world;
+-  uniform vec2 centre;
+-  uniform float radius;
+-  uniform float cellSize;
+-  uniform vec3 color;
+-  uniform float maxOpacity;
+-  void main() {
+-    vec2 coord = world / cellSize + 0.5;
+-    vec2 width = max(fwidth(coord), vec2(0.00001));
+-    vec2 edge = abs(fract(coord - 0.5) - 0.5) / width;
+-    float line = 1.0 - smoothstep(0.0, 1.2, min(edge.x, edge.y));
+-    float fade = 1.0 - smoothstep(0.0, radius, distance(world, centre));
+-    float alpha = line * fade * fade * maxOpacity;
+-    if (alpha < 0.002) discard;
+-    gl_FragColor = vec4(color, alpha);
+-    #include <colorspace_fragment>
+-  }
+-`
+-
+ /**
+  * Cell outlines on the ground, clearest around the centre of the view and fading out
+- * towards the edges. Placed pieces stand on top and hide the lines beneath them.
++ * towards the edges. Same maths as the old GLSL version, written in TSL so it runs on
++ * WebGPU (and still on WebGL 2 through the fallback).
+  */
+ export function GridLines() {
+-  const uniforms = useMemo(
+-    () => ({
+-      centre: { value: new Vector2() },
+-      radius: { value: 10 },
+-      cellSize: { value: TILE_SIZE },
+-      color: { value: new Color(LINE_COLOR) },
+-      maxOpacity: { value: MAX_OPACITY },
+-    }),
+-    [],
+-  )
+-  const material = useRef<ShaderMaterial>(null)
++  const { material, centre, radius } = useMemo(() => {
++    const centre = uniform(new Vector2())
++    const radius = uniform(10)
++
++    const world = positionWorld.xz
++    const coord = world.div(TILE_SIZE).add(0.5)
++    const width = max(fwidth(coord), vec2(0.00001))
++    const edge = abs(fract(coord.sub(0.5)).sub(0.5)).div(width)
++    const line = float(1).sub(smoothstep(0, 1.2, min(edge.x, edge.y)))
++    const fade = float(1).sub(smoothstep(0, radius, distance(world, centre)))
++
++    const material = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false })
++    material.colorNode = uniform(new Color(LINE_COLOR))
++    material.opacityNode = line.mul(fade).mul(fade).mul(MAX_OPACITY)
++    material.alphaTest = 0.002
++    return { material, centre, radius }
++  }, [])
+ 
+   useFrame(({ camera }) => {
+-    const live = material.current?.uniforms
+-    if (!live) return
+     const { focusX, focusZ } = useViewStore.getState()
+-    ;(live.centre!.value as Vector2).set(focusX, focusZ)
+-    const distance = Math.hypot(
+-      camera.position.x - focusX,
+-      camera.position.y,
+-      camera.position.z - focusZ,
+-    )
+-    live.radius!.value = distance * FADE_RADIUS
++    centre.value.set(focusX, focusZ)
++    const d = Math.hypot(camera.position.x - focusX, camera.position.y, camera.position.z - focusZ)
++    radius.value = d * FADE_RADIUS
+   })
+ 
+   return (
+-    <mesh rotation-x={-Math.PI / 2} position-y={0.001} renderOrder={1}>
++    <mesh rotation-x={-Math.PI / 2} position-y={0.001} renderOrder={1} material={material}>
+       <planeGeometry args={[400, 400]} />
+-      <shaderMaterial
+-        ref={material}
+-        uniforms={uniforms}
+-        vertexShader={vertexShader}
+-        fragmentShader={fragmentShader}
+-        transparent
+-        depthWrite={false}
+-      />
+     </mesh>
+   )
+ }

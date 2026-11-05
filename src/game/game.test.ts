@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { pieceCount } from './board'
+import type { Board } from './board'
+import {
+  pieceCount,
+  STARTING_TILE_APART,
+  STARTING_TILE_FARTHEST,
+  STARTING_TILE_NEAREST,
+  STARTING_TILES_MAX,
+  STARTING_TILES_MIN,
+} from './board'
 import { coordKey } from './coords'
 import type { Coord } from './coords'
 import {
@@ -92,23 +100,46 @@ describe('game flow', () => {
     expect(skipCurrent(shore)).toBe(shore)
   })
 
-  it('starts from a single tetromino at the origin', () => {
+  it('starts from a tetromino at the origin and at least five single tiles round it', () => {
     const { board } = createGame(5)
-    expect(pieceCount(board)).toBe(1)
-    expect(Object.keys(board)).toHaveLength(4)
+    const tiles = pieceCount(board) - 1
+    expect(tiles).toBeGreaterThanOrEqual(STARTING_TILES_MIN)
+    expect(tiles).toBeLessThanOrEqual(STARTING_TILES_MAX)
+    expect(Object.keys(board)).toHaveLength(4 + tiles)
     expect(board[coordKey({ q: 0, r: 0 })]).toBeDefined()
   })
 
+  it('scatters the single tiles in black, a little way out, well apart', () => {
+    const steps = (a: Coord, b: Coord) => Math.max(Math.abs(a.q - b.q), Math.abs(a.r - b.r))
+    for (let seed = 0; seed < 50; seed++) {
+      const squares = Object.values(createGame(seed).board)
+      const start = squares.filter((s) => s.piece === 0)
+      const tiles = squares.filter((s) => s.piece !== 0)
+      expect(tiles.length).toBeGreaterThanOrEqual(STARTING_TILES_MIN)
+      expect(tiles.length).toBeLessThanOrEqual(STARTING_TILES_MAX)
+      for (const tile of tiles) {
+        expect(tile.terrain).toBe('black')
+        const away = Math.min(...start.map((s) => steps(s.coord, tile.coord)))
+        expect(away).toBeGreaterThanOrEqual(STARTING_TILE_NEAREST)
+        expect(away).toBeLessThanOrEqual(STARTING_TILE_FARTHEST)
+        for (const other of tiles)
+          if (other !== tile)
+            expect(steps(other.coord, tile.coord)).toBeGreaterThanOrEqual(STARTING_TILE_APART)
+      }
+    }
+  })
+
   it('never starts on an all-blue piece unless only blue is enabled', () => {
+    // The starting tetromino, without the black tiles round it.
+    const tetromino = (game: { board: Board }) =>
+      Object.values(game.board).filter((s) => s.piece === 0)
     for (let seed = 0; seed < 200; seed++)
-      expect(Object.values(createGame(seed).board).some((s) => s.terrain !== 'blue')).toBe(true)
+      expect(tetromino(createGame(seed)).some((s) => s.terrain !== 'blue')).toBe(true)
     const BLUE_ONLY: BiomeProbabilities = {
       biomeCounts: { 1: 100, 2: 0, 3: 0, 4: 0 },
       biomeWeights: { black: 0, red: 0, green: 0, yellow: 0, blue: 100 },
     }
-    expect(Object.values(createGame(1, BLUE_ONLY).board).every((s) => s.terrain === 'blue')).toBe(
-      true,
-    )
+    expect(tetromino(createGame(1, BLUE_ONLY)).every((s) => s.terrain === 'blue')).toBe(true)
   })
 
   it('is not game over in standard play', () => {
@@ -132,7 +163,7 @@ describe('queue and grid reset', () => {
   it('resets the grid to a starting island without touching the upcoming pieces', () => {
     const game = advance(createGame(7))
     const reset = resetBoard(game)
-    expect(pieceCount(reset.board)).toBe(1)
+    expect(pieceCount(reset.board) - 1).toBeGreaterThanOrEqual(STARTING_TILES_MIN)
     expect(reset).toMatchObject({
       current: game.current,
       seed: game.seed,
@@ -142,7 +173,9 @@ describe('queue and grid reset', () => {
 
   it('uses custom biome weights for the starting island, queue, placements and reset', () => {
     let game = createGame(11, RED_ONLY)
-    expect(Object.values(game.board).every((square) => square.terrain === 'red')).toBe(true)
+    // The starting tetromino; the single tiles round it are always black.
+    const tetromino = Object.values(game.board).filter((square) => square.piece === 0)
+    expect(tetromino.every((square) => square.terrain === 'red')).toBe(true)
     expect(game.current?.terrains).toEqual(['red', 'red', 'red', 'red'])
     for (let i = 0; i < 10; i++) {
       const upcoming = upcomingTiles(game)
@@ -153,7 +186,8 @@ describe('queue and grid reset', () => {
       expect(game.current).toEqual(upcoming[0])
     }
     const reset = resetBoard(game)
-    expect(Object.values(reset.board).every((square) => square.terrain === 'red')).toBe(true)
+    const island = Object.values(reset.board).filter((square) => square.piece === 0)
+    expect(island.every((square) => square.terrain === 'red')).toBe(true)
     expect(upcomingTiles(reset)).toEqual(upcomingTiles(game))
   })
 

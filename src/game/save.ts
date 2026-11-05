@@ -167,7 +167,9 @@ function readBoard(value: unknown): Board {
     pieces.set(piece, [...(pieces.get(piece) ?? []), square])
   })
   for (const [id, squares] of pieces) {
-    if (squares.length !== 4) fail(`piece ${id} has ${squares.length} squares instead of 4`)
+    // A tetromino, or one of the single tiles a board starts with.
+    if (squares.length !== 4 && squares.length !== 1)
+      fail(`piece ${id} has ${squares.length} squares instead of 4 (or 1, for a single tile)`)
     if (!connected(squares)) fail(`the squares of piece ${id} don't join up`)
   }
   return board

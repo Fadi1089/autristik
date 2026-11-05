@@ -38,3 +38,6 @@ export const useViewStore = create<ViewStore>()((set) => ({
   requestPivot: (radians) => set((s) => ({ pivotRequest: s.pivotRequest + radians })),
   requestZoom: (amount) => set((s) => ({ zoomRequest: s.zoomRequest + amount })),
 }))
+
+// As for the game store: a hot update would split the page across two copies of the view.
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload())

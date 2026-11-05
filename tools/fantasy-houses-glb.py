@@ -1,9 +1,11 @@
-"""Turns the Fantasy Houses kit into one small GLB of ten houses, coloured from the game's palette.
+"""Turns the Fantasy Houses kit into one small GLB of ten houses, ready to be coloured in the game.
 
 "Fantasy Houses" by burunduk, https://poly.pizza/m/AO4BeeUHLN, CC BY 3.0. The kit's colours live
-in a palette image that doesn't ship with it, so each face is coloured by which swatch of that
-palette its UVs point at: walls, roofs, stone and wood. Each house ends up centred on its
-footprint, standing on the ground, with its widest side 1 long.
+in a palette image that doesn't ship with it, so each face is sorted by which swatch of that
+palette its UVs point at into a part: wall, roof, stone or wood. The part is stored in the red
+channel of the vertex colours, as part / 3 (wall 0, roof 1/3, stone 2/3, wood 1); the game
+paints each part from one of its city palettes (CITY_PALETTES in src/palette.ts). Each house
+ends up centred on its footprint, standing on the ground, with its widest side 1 long.
 
     blender -b --factory-startup --python tools/fantasy-houses-glb.py -- \
         "Fantasy houses Scatch.fbx" src/assets/models/fantasy-houses.glb
@@ -13,18 +15,11 @@ args = sys.argv[sys.argv.index('--') + 1:]
 path, out = args
 
 HOUSES = ['Box159', 'Box163', 'Box172', 'Box179', 'Box239', 'Box244', 'Box261', 'Box267', 'Box298', 'Object040']
-WALL, STONE, WOOD = '#f1e3c6', '#b8a68d', '#7a5134'
-ROOFS = ['#c4643c', '#5f6b7a', '#a8452f']
+WALL, ROOF, STONE, WOOD = 0, 1, 2, 3
 
-def linear(hex_colour):
-    def channel(c):
-        c = int(hex_colour[c:c + 2], 16) / 255
-        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-    return (channel(1), channel(3), channel(5), 1.0)
-
-def role(u, v, roof):
+def part(u, v):
     if u > 0.7: return WALL
-    if u > 0.38: return roof
+    if u > 0.38: return ROOF
     if v > 0.2: return STONE
     return WOOD
 
@@ -43,11 +38,10 @@ for i, name in enumerate(HOUSES):
     m = o.data
     uv = m.uv_layers[0].data
     colours = m.color_attributes.new('Color', 'FLOAT_COLOR', 'CORNER')
-    roof = ROOFS[i % len(ROOFS)]
     for p in m.polygons:
         u = sum(uv[l].uv.x for l in p.loop_indices) / p.loop_total
         v = sum(uv[l].uv.y for l in p.loop_indices) / p.loop_total
-        c = linear(role(u, v, roof))
+        c = (part(u, v) / 3, 0.0, 0.0, 1.0)
         for l in p.loop_indices: colours.data[l].color = c
     m.color_attributes.active_color = colours
     # Centred on its footprint, standing on the ground, its widest side 1 long.

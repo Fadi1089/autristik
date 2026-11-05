@@ -10,7 +10,7 @@ import type { Footprint } from './layout'
 
 /** Radius of a piece's rounded outer corners, seen from above. */
 export const CORNER_RADIUS = 0.035
-const CORNER_SEGMENTS = 6
+export const CORNER_SEGMENTS = 6
 
 /** The four sides of a cell. */
 const SIDES = [
@@ -171,27 +171,38 @@ function block(shape: Shape, bottom: number, top: number, paint: string): Buffer
 }
 
 /**
+ * A piece's outline seen from above, and the outline of each of its biome regions, pulled in
+ * from neighbouring pieces, with the piece's outer corners slightly rounded.
+ */
+export function pieceShapes(squares: readonly Square[]): {
+  outline: Shape
+  regions: { terrain: Terrain; shape: Shape }[]
+} {
+  const cells = squares.map((s) => s.coord)
+  const outline = footprintOutline(cells.flatMap((c) => cellBoxes(cells, c)))
+  const rounded = outerCorners(outline)
+  return {
+    outline: roundedShape(outline, rounded),
+    regions: terrainRegions(squares).map(({ terrain, cells: own }) => ({
+      terrain,
+      shape: roundedShape(footprintOutline(own.flatMap((c) => cellBoxes(cells, c))), rounded),
+    })),
+  }
+}
+
+/**
  * A whole piece as one geometry with per-vertex colours: its soil block, then a block per
  * biome region on top at that biome's height. Every layer follows the same outline, pulled
  * in from neighbouring pieces, and the piece's outer corners are slightly rounded all the way
  * up, so the sides stay flush.
  */
 export function pieceGeometry(squares: readonly Square[]): BufferGeometry {
-  const cells = squares.map((s) => s.coord)
-  const outline = footprintOutline(cells.flatMap((c) => cellBoxes(cells, c)))
-  const rounded = outerCorners(outline)
+  const { outline, regions } = pieceShapes(squares)
   const layers = [
-    block(roundedShape(outline, rounded), 0, BASE_HEIGHT, SCENE_COLORS.soil),
-    ...terrainRegions(squares).map((region) => {
-      const boxes = region.cells.flatMap((c) => cellBoxes(cells, c))
-      const top = BASE_HEIGHT + TERRAIN_HEIGHT[region.terrain]
-      return block(
-        roundedShape(footprintOutline(boxes), rounded),
-        BASE_HEIGHT,
-        top,
-        TERRAIN_COLORS[region.terrain],
-      )
-    }),
+    block(outline, 0, BASE_HEIGHT, SCENE_COLORS.soil),
+    ...regions.map(({ terrain, shape }) =>
+      block(shape, BASE_HEIGHT, BASE_HEIGHT + TERRAIN_HEIGHT[terrain], TERRAIN_COLORS[terrain]),
+    ),
   ]
   const merged = mergeGeometries(layers)
   for (const layer of layers) layer.dispose()

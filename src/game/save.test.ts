@@ -8,6 +8,7 @@ import {
   upcomingTiles,
 } from './game'
 import type { GameState } from './game'
+import { pieceCount } from './board'
 import { fromSave, parseSave, saveText, toSave } from './save'
 
 /** Places the piece in hand wherever it first fits, or skips it if it fits nowhere. */
@@ -116,9 +117,15 @@ describe('rejecting broken saves', () => {
     expect(fromSave(data).ok).toBe(true)
   })
 
-  it('saves a fresh game with the starting piece and its base point', () => {
-    const save = toSave(createGame(1))
-    expect(save.board).toHaveLength(4)
+  it('saves a fresh game with the starting piece, its single tiles and its base point', () => {
+    const game = createGame(1)
+    const save = toSave(game)
+    // The tetromino's four squares, and one for each single tile.
+    expect(save.board).toHaveLength(4 + pieceCount(game.board) - 1)
     expect(save.score).toBe(1)
+  })
+
+  it('loads a fresh game back, single tiles and all', () => {
+    expect(fromSave(toSave(createGame(1))).ok).toBe(true)
   })
 })
