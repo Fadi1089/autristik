@@ -46,21 +46,65 @@ the same sequence of pieces.
 
 ### Score
 
-Each piece scores when it is placed:
+Each piece scores when it is placed, and roads score for as long as they stand:
 
 | Points | For                                                                 |
 | ------ | ------------------------------------------------------------------- |
 | 1      | Each piece laid down                                                |
 | 1      | Each edge where the piece meets its own biome on another piece      |
 | 10     | Each piece, this one or one already down, that it leaves surrounded |
+| 1      | Each square a road crosses, while the road stands                   |
 
 A piece is surrounded when every one of its outer edges meets a square of its own biome on another
 piece. The moment it scores its 10 the whole piece flashes gold, like a camera flash. It only scores
 once. Edges between squares of the same piece don't count. After each placement a little cloud
 floats up over the piece, listing its points line by line in the order of the table: "+1 placed",
 then "+2 two sides match" if any sides match, then a gold "+10 tetromino surrounded" if it
-surrounded a piece. The total sits in the top right. The starting piece counts for its base point,
-so a new game starts at 1, and resetting the grid puts the score back to 1.
+surrounded a piece, then "+4 road squares" if it made a road longer or new, or "−2 road
+shortened" if a shorter road took over. The total sits in the top right, with the points the
+roads bring in now beside it ("+4 roads"). The starting piece counts for its base point, so a new
+game starts at 1, and resetting the grid puts the score back to 1.
+
+### Cities and roads
+
+A city is a region of at least five black squares joined along their edges, from one piece or
+several, in any shape: a square, an L, a line. Two or three small houses pop up, scattered over each of
+its squares, once the piece that completes it has landed. Roads join cities by themselves as you play, drawn as a cream
+path lying on the squares they cross up to the edge of each city. A road:
+
+- only crosses squares on the board, moving from a square to one beside it (never diagonally);
+- never crosses blue or green;
+- crosses at most one yellow square (zero is fine);
+- is the shortest way between its two cities that keeps to those rules.
+
+Two cities with no such way between them have no road, and neither does a board with fewer than
+two cities. Roads are worked out again after every placement, so a piece that opens a shorter way
+moves the road onto it, and the score follows: it counts the squares the roads cross now, not
+the ones they used to. A shorter road can therefore lower the score.
+
+How a road is found (`src/game/routes.ts`):
+
+1. **Cities.** A flood fill over the black squares groups them into regions; the ones with five
+   or more squares are cities.
+2. **Shortest road between two cities.** An A* search starts from every square of the first city
+   at once. It always extends the path whose steps so far plus the fewest steps that could be
+   left (the straight-line grid distance to the nearest square of the second city, ignoring what
+   is in the way) is smallest, so it heads towards the second city instead of spreading out in
+   every direction. That estimate never overestimates, so the first time the search reaches the
+   second city, its path is a shortest one. The yellow limit is what makes this more than a plain
+   search: the search keeps track of each square together with how many yellow squares it took
+   to get there (0 or 1). Reaching a square with no yellow used and reaching it after a yellow
+   are two different positions, so a slightly longer way with no yellow isn't thrown away just
+   because a shorter one already spent the only yellow. A step onto a second yellow, onto blue
+   or green, or off the board is never taken.
+3. **Which cities to join.** Every pair of cities gets its shortest road, if it has one. The roads
+   are then taken shortest first, and a road is kept only if it joins two cities not already
+   linked by the roads kept so far (Kruskal's algorithm, which gives a minimum spanning tree). So
+   every city that can be reached is connected, with the fewest road squares in total and no
+   road that just repeats a link that already exists. There is no limit on the number of roads.
+
+Each square counts once, even where two roads share it. The cities' own black squares at either
+end of a road don't count; a black square that isn't part of a city does.
 
 ### Playing
 
@@ -119,6 +163,8 @@ claim in the notes is also checked automatically by `src/game/saves.test.ts`.
 | `08-self-surround.json`             | A piece dropped into a matching hole surrounds itself         |
 | `09-two-biome-odds.json`            | Saved biome odds: two biomes per piece, red three times green |
 | `10-long-game.json`                 | Forty moves in: many pieces, and the same queue after loading |
+| `11-roads.json`                     | Two cities with no road, until a piece fills the gap: +4      |
+| `12-shortest-road.json`             | A shorter road through one yellow takes over: −2              |
 
 ### Controls
 
@@ -286,6 +332,7 @@ src/
                  keyboard cursor limits
     game.ts      Game state: place, rotate, skip, draw, upcoming pieces, grid reset
     score.ts     Points for a placement, and which pieces it surrounded
+    routes.ts    Cities (five or more black squares) and the shortest roads joining them
     save.ts      Saving a game to JSON and loading it back, checking every field
     random.ts    Seedable PRNG so games are reproducible
   input/     Pure keyboard logic: bindings and defaults, key labels, layout detection,
@@ -307,11 +354,16 @@ src/
     PlacementDust.tsx, dust.ts  Dust and specks when a piece lands
     GoldFlash.tsx     A quick gold flash over a piece when surrounding it scores 10
     ScoreClouds.tsx, scoreNotes.ts  A cloud listing what each placement scored, line by line
+    Roads.tsx         Roads between cities, as a flat cream path on each square they cross
+    Cities.tsx        Small houses scattered over every city's squares, popping up as a city forms
+    useAfterDrop.ts   Holds roads and houses back until the piece just placed has landed
     Lights.tsx        Hemisphere fill and a shadow-casting sun that follows the camera
     CameraRig.tsx     MapControls with zoom and tilt limits, scroll pivot, clamped to the board
   ui/        Tailwind overlay: HUD (menu, reset, score, camera buttons, piece tray, skip
              notice), main menu (with save and load), biome settings and keyboard shortcuts
   palette.ts Colours shared by the scene and the HUD
+  assets/models/fantasy-houses.glb  The city houses (see Credits)
+tools/       fantasy-houses-glb.py: Blender script that builds the houses GLB from the original kit
 saves/       Test saves, one per feature (see Test saves above)
 ```
 
@@ -321,3 +373,10 @@ maps an offset `(q, r)` to `(-r, q)`, so north becomes east and the piece turns 
 
 Fonts (Fraunces and Figtree) are bundled from `@fontsource-variable`, so the built site makes no
 requests to external font hosts.
+
+## Credits
+
+The houses in the cities are
+["Fantasy Houses"](https://poly.pizza/m/AO4BeeUHLN) by burunduk, licensed under
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). They were recoloured from the game's
+palette, scaled and exported to GLB with `tools/fantasy-houses-glb.py`.

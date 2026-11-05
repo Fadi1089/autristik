@@ -4,8 +4,8 @@ import type { Coord } from './coords'
 import { canPlace, evaluatePlacement, placementAnchors } from './matching'
 import type { PlacementEvaluation } from './matching'
 import { createRng } from './random'
-import { findCities, findRoutes, routeScore } from './routes'
-import type { City, Route } from './routes'
+import { findRoutes, routeScore } from './routes'
+import type { Route } from './routes'
 import { PIECE_POINTS, scorePlacement } from './score'
 import type { PlacementScore } from './score'
 import { normalizeRotation, pieceSquares, randomTetromino } from './tiles'
@@ -23,6 +23,8 @@ export interface PlacementResult extends PlacementPreview {
   readonly coord: Coord
   readonly squares: readonly Square[]
   readonly score: PlacementScore
+  /** How much the road points changed: new roads add squares, a shorter road takes some away. */
+  readonly roadPoints: number
 }
 
 export interface GameState {
@@ -33,14 +35,10 @@ export interface GameState {
   /** PRNG state used for the next draw. */
   readonly seed: number
   readonly lastPlacement: PlacementResult | null
-  /** Points scored on the board as it stands, including pieces placed and active routes. */
+  /** Points scored on the board as it stands: every placement, plus the squares roads cross now. */
   readonly score: number
-  /** Accumulated points from piece placement (base + matching sides + surrounded bonuses). */
-  readonly baseScore?: number
-  /** Active shortest routes connecting black cities (size >= 5). */
-  readonly routes?: readonly Route[]
-  /** Black regions with at least 5 contiguous squares. */
-  readonly cities?: readonly City[]
+  /** The roads joining the cities on the board as it stands. */
+  readonly routes: readonly Route[]
   readonly biomeProbabilities?: BiomeProbabilities
 }
 
@@ -48,20 +46,15 @@ export function createGame(seed: number, biomeProbabilities?: BiomeProbabilities
   const rng = createRng(seed)
   const board = createStartingBoard(rng, biomeProbabilities)
   const current = randomTetromino(rng, biomeProbabilities)
-  const cities = findCities(board)
-  const routes = findRoutes(board, cities)
-  const routePoints = routeScore(routes)
-  const baseScore = PIECE_POINTS
+  const routes = findRoutes(board)
   return {
     board,
     current,
     rotation: 0,
     seed: rng.state,
     lastPlacement: null,
-    baseScore,
+    score: PIECE_POINTS + routeScore(routes),
     routes,
-    cities,
-    score: baseScore + routePoints,
     biomeProbabilities,
   }
 }
@@ -79,18 +72,13 @@ export function upcomingTiles(
 export function resetBoard(state: GameState): GameState {
   // A separate sequence for the island, so the upcoming tiles stay exactly as shown.
   const board = createStartingBoard(createRng(state.seed ^ 0x9e3779b9), state.biomeProbabilities)
-  const cities = findCities(board)
-  const routes = findRoutes(board, cities)
-  const routePoints = routeScore(routes)
-  const baseScore = PIECE_POINTS
+  const routes = findRoutes(board)
   return {
     ...state,
     board,
     lastPlacement: null,
-    baseScore,
+    score: PIECE_POINTS + routeScore(routes),
     routes,
-    cities,
-    score: baseScore + routePoints,
   }
 }
 
@@ -179,21 +167,17 @@ export function placeCurrent(state: GameState, c: Coord): GameState {
   const board = withPiece(state.board, squares)
   const score = scorePlacement(state.board, board, squares)
 
-  const baseScore = (state.baseScore ?? state.score) + score.points
-  const cities = findCities(board)
-  const routes = findRoutes(board, cities)
-  const routePoints = routeScore(routes)
+  const routes = findRoutes(board)
+  const roadPoints = routeScore(routes) - routeScore(state.routes)
 
   return {
     board,
     current,
     rotation: 0,
     seed: rng.state,
-    lastPlacement: { ...preview, coord: c, squares, score },
-    baseScore,
+    lastPlacement: { ...preview, coord: c, squares, score, roadPoints },
+    score: state.score + score.points + roadPoints,
     routes,
-    cities,
-    score: baseScore + routePoints,
     biomeProbabilities: state.biomeProbabilities,
   }
 }

@@ -1,6 +1,8 @@
+import { Suspense } from 'react'
 import { SCENE_COLORS } from '../palette'
 import { Board } from './Board'
 import { CameraRig } from './CameraRig'
+import { Cities } from './Cities'
 import { Ghost } from './Ghost'
 import { GoldFlash } from './GoldFlash'
 import { GridLines } from './GridLines'
@@ -23,6 +25,10 @@ export function Scene() {
       <PlacementHints />
       <Board />
       <Roads />
+      {/* The houses load a model; the rest of the scene doesn't wait for it. */}
+      <Suspense fallback={null}>
+        <Cities />
+      </Suspense>
       <GoldFlash />
       <Ghost />
       <PlacementDust />

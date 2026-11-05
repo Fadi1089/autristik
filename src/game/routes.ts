@@ -75,9 +75,76 @@ export function findCities(board: Board): City[] {
   return cities
 }
 
-interface BfsState {
-  coord: Coord
-  yellows: number
+/** A position in the search: a square, and how many yellow squares it took to get there. */
+interface SearchState {
+  readonly coord: Coord
+  /** Yellow squares crossed so far: 0 or 1. */
+  readonly yellows: number
+  /** Steps taken from city A. */
+  readonly steps: number
+  /** Steps taken plus the fewest steps that could be left: what the search orders by. */
+  readonly estimate: number
+  /** Order it was found in, so ties break the same way every time. */
+  readonly order: number
+  readonly parent: SearchState | null
+}
+
+/**
+ * Fewest steps from `c` to any square of `city` if nothing were in the way (Manhattan
+ * distance). It never overestimates, and drops by at most 1 per step, so A* still finds a
+ * shortest path and never has to revisit a position.
+ */
+function stepsAtLeast(c: Coord, city: City): number {
+  let best = Infinity
+  for (const target of city.coords)
+    best = Math.min(best, Math.abs(target.q - c.q) + Math.abs(target.r - c.r))
+  return best
+}
+
+/** Whether `a` comes out of the queue before `b`: lowest estimate first, then first found. */
+const before = (a: SearchState, b: SearchState): boolean =>
+  a.estimate < b.estimate || (a.estimate === b.estimate && a.order < b.order)
+
+/** A binary min-heap of search states, ordered by `before`. */
+class SearchQueue {
+  private readonly heap: SearchState[] = []
+
+  get size(): number {
+    return this.heap.length
+  }
+
+  push(state: SearchState): void {
+    const heap = this.heap
+    heap.push(state)
+    let i = heap.length - 1
+    while (i > 0) {
+      const parent = (i - 1) >> 1
+      if (!before(heap[i]!, heap[parent]!)) break
+      ;[heap[i], heap[parent]] = [heap[parent]!, heap[i]!]
+      i = parent
+    }
+  }
+
+  pop(): SearchState {
+    const heap = this.heap
+    const top = heap[0]!
+    const last = heap.pop()!
+    if (heap.length > 0) {
+      heap[0] = last
+      let i = 0
+      for (;;) {
+        const left = 2 * i + 1
+        const right = left + 1
+        let smallest = i
+        if (left < heap.length && before(heap[left]!, heap[smallest]!)) smallest = left
+        if (right < heap.length && before(heap[right]!, heap[smallest]!)) smallest = right
+        if (smallest === i) break
+        ;[heap[i], heap[smallest]] = [heap[smallest]!, heap[i]!]
+        i = smallest
+      }
+    }
+    return top
+  }
 }
 
 /**
@@ -87,39 +154,45 @@ interface BfsState {
  * 3. Can pass through at most 1 yellow biome across the route (0 or 1).
  * 4. Movement is strictly orthogonal (North, East, South, West).
  *
- * Uses multi-source BFS in a state space (coord, yellows) where yellows in {0, 1}.
- * Since step cost is uniform (= 1), BFS is guaranteed to find the shortest valid path.
+ * Uses A*, starting from every square of city A at once, over positions (coord, yellows) where
+ * yellows is 0 or 1. Each step costs 1 and the estimate of the steps left is the Manhattan
+ * distance to the nearest square of city B, so the first time a square of city B comes out of
+ * the queue, the path to it is a shortest valid one.
  */
 export function findShortestPathBetweenCities(
   board: Board,
   cityA: City,
   cityB: City,
 ): Coord[] | null {
-  const queue: BfsState[] = []
-  // Key: "q,r:yellows" -> parent BfsState | null
-  const visited = new Map<string, BfsState | null>()
+  const queue = new SearchQueue()
+  // Fewest steps found so far to each position, keyed "q,r:yellows".
+  const bestSteps = new Map<string, number>()
+  const done = new Set<string>()
+  let order = 0
 
-  for (const startCoord of cityA.coords) {
-    const state: BfsState = { coord: startCoord, yellows: 0 }
-    const stateKey = `${coordKey(startCoord)}:0`
-    visited.set(stateKey, null)
-    queue.push(state)
+  const add = (coord: Coord, yellows: number, steps: number, parent: SearchState | null) => {
+    const key = `${coordKey(coord)}:${yellows}`
+    if (done.has(key) || steps >= (bestSteps.get(key) ?? Infinity)) return
+    bestSteps.set(key, steps)
+    const estimate = steps + stepsAtLeast(coord, cityB)
+    queue.push({ coord, yellows, steps, estimate, order: order++, parent })
   }
 
-  while (queue.length > 0) {
-    const current = queue.shift()!
-    const currentKey = coordKey(current.coord)
+  for (const start of cityA.coords) add(start, 0, 0, null)
 
-    // Check if we have reached any square of City B
+  while (queue.size > 0) {
+    const current = queue.pop()
+    const currentKey = coordKey(current.coord)
+    const stateKey = `${currentKey}:${current.yellows}`
+    // A position can be queued more than once; only its first, shortest, visit counts.
+    if (done.has(stateKey)) continue
+    done.add(stateKey)
+
+    // Reached a square of City B: walk back to City A.
     if (cityB.coordKeys.has(currentKey)) {
-      // Reconstruct path backwards
       const path: Coord[] = []
-      let step: BfsState | null = current
-      while (step !== null) {
+      for (let step: SearchState | null = current; step; step = step.parent)
         path.unshift(step.coord)
-        const stepKey: string = `${coordKey(step.coord)}:${step.yellows}`
-        step = visited.get(stepKey) ?? null
-      }
       return path
     }
 
@@ -137,17 +210,12 @@ export function findShortestPathBetweenCities(
       // Do not re-enter city A
       if (cityA.coordKeys.has(nextCoordKey)) continue
 
-      const isYellow = square.terrain === 'yellow'
-      const nextYellows = current.yellows + (isYellow ? 1 : 0)
+      const nextYellows = current.yellows + (square.terrain === 'yellow' ? 1 : 0)
 
       // At most one yellow square along the route
       if (nextYellows > 1) continue
 
-      const nextStateKey = `${nextCoordKey}:${nextYellows}`
-      if (visited.has(nextStateKey)) continue
-
-      visited.set(nextStateKey, current)
-      queue.push({ coord: nextCoord, yellows: nextYellows })
+      add(nextCoord, nextYellows, current.steps + 1, current)
     }
   }
 

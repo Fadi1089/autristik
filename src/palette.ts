@@ -29,4 +29,6 @@ export const SCENE_COLORS = {
   placementInvalid: '#d9604a',
   /** The flash on a piece that just got surrounded by its own biomes. */
   gold: '#ffd24a',
+  /** The cream path of a road between cities. */
+  road: '#f1e2c0',
 } as const

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PlacementScore } from '../game/score'
-import { countWord, scoreLines } from './scoreNotes'
+import { countWord, scoreLines, signedPoints } from './scoreNotes'
 
 const score = (connections: number, surrounded: number[]): PlacementScore => ({
   connections,
@@ -44,6 +44,26 @@ describe('scoreLines', () => {
       const total = scoreLines(s).reduce((sum, line) => sum + line.points, 0)
       expect(total).toBe(s.points)
     }
+  })
+
+  it('ends with the road squares a placement added, or took away by shortening a road', () => {
+    expect(scoreLines(score(0, []), 4).at(-1)).toEqual({
+      points: 4,
+      reason: 'road squares',
+      gold: false,
+    })
+    expect(scoreLines(score(0, []), 1).at(-1)?.reason).toBe('road square')
+    expect(scoreLines(score(1, []), -3).at(-1)).toEqual({
+      points: -3,
+      reason: 'road shortened',
+      gold: false,
+    })
+    expect(scoreLines(score(1, []), 0)).toHaveLength(2)
+  })
+
+  it('signs the points, with a real minus for losses', () => {
+    expect(signedPoints(4)).toBe('+4')
+    expect(signedPoints(-3)).toBe('\u22123')
   })
 
   it('falls back to digits past ten', () => {

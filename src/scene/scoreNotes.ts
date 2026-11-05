@@ -16,12 +16,18 @@ export function countWord(n: number): string {
   return WORDS[n] ?? String(n)
 }
 
+/** Points with their sign, as the cloud shows them: "+3", "−2". */
+export function signedPoints(points: number): string {
+  return points < 0 ? `\u2212${-points}` : `+${points}`
+}
+
 /**
  * A placement's points, line by line: the base point for placing the piece, then its
- * matching sides, then the bonus for each piece it surrounded. Lines worth nothing are left
- * out, except the base point. They add up to the placement's points.
+ * matching sides, then the bonus for each piece it surrounded, then how the roads changed
+ * (negative when a shorter road replaced a longer one). Lines worth nothing are left out,
+ * except the base point. They add up to the placement's points plus `roadPoints`.
  */
-export function scoreLines(score: PlacementScore): ScoreLine[] {
+export function scoreLines(score: PlacementScore, roadPoints = 0): ScoreLine[] {
   const lines: ScoreLine[] = [{ points: PIECE_POINTS, reason: 'placed', gold: false }]
   const sides = score.connections
   if (sides > 0)
@@ -40,5 +46,12 @@ export function scoreLines(score: PlacementScore): ScoreLine[] {
           : `${countWord(surrounded)} tetrominoes surrounded`,
       gold: true,
     })
+  if (roadPoints > 0)
+    lines.push({
+      points: roadPoints,
+      reason: `road ${roadPoints === 1 ? 'square' : 'squares'}`,
+      gold: false,
+    })
+  else if (roadPoints < 0) lines.push({ points: roadPoints, reason: 'road shortened', gold: false })
   return lines
 }

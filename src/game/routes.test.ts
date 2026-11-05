@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { EMPTY_BOARD, withPiece } from './board'
 import type { Board } from './board'
-import { coord } from './coords'
-import { findCities, findRoutes, routeScore, routeTraversedCoords } from './routes'
+import { coord, coordKey, DIRECTIONS, neighbour } from './coords'
+import type { Coord } from './coords'
+import { createRng } from './random'
+import {
+  findCities,
+  findRoutes,
+  findShortestPathBetweenCities,
+  routeScore,
+  routeTraversedCoords,
+} from './routes'
+import type { City } from './routes'
 import type { Square, Terrain } from './tiles'
 
 const sq = (q: number, r: number, terrain: Terrain): Square => ({ coord: coord(q, r), terrain })
@@ -257,5 +266,66 @@ describe('findRoutes and route constraints', () => {
     expect(routes).toHaveLength(2)
     expect(routeScore(routes)).toBe(2)
     expect(routeTraversedCoords(routes)).toEqual([coord(2, 0), coord(5, 0)])
+  })
+})
+
+/** Steps on the shortest valid path by plain breadth-first search: the reference for A*. */
+function shortestByBreadthFirst(board: Board, from: City, to: City): number | null {
+  let frontier = from.coords.map((c) => ({ c, yellows: 0 }))
+  const seen = new Set(frontier.map(({ c }) => `${coordKey(c)}:0`))
+  for (let steps = 0; frontier.length > 0; steps++) {
+    if (frontier.some(({ c }) => to.coordKeys.has(coordKey(c)))) return steps
+    const next: { c: Coord; yellows: number }[] = []
+    for (const { c, yellows } of frontier)
+      for (const d of DIRECTIONS) {
+        const n = neighbour(c, d)
+        const square = board[coordKey(n)]
+        if (!square || square.terrain === 'blue' || square.terrain === 'green') continue
+        if (from.coordKeys.has(coordKey(n))) continue
+        const y = yellows + (square.terrain === 'yellow' ? 1 : 0)
+        const key = `${coordKey(n)}:${y}`
+        if (y > 1 || seen.has(key)) continue
+        seen.add(key)
+        next.push({ c: n, yellows: y })
+      }
+    frontier = next
+  }
+  return null
+}
+
+describe('findShortestPathBetweenCities', () => {
+  it('finds a road as short as breadth-first search does, keeping to the rules', () => {
+    const terrains: Terrain[] = ['black', 'red', 'red', 'yellow', 'green', 'blue']
+    const rng = createRng(7)
+    let compared = 0
+    for (let round = 0; round < 300; round++) {
+      // A random 12×12 board, with a city in two opposite corners.
+      let board: Board = EMPTY_BOARD
+      for (let q = 0; q < 12; q++)
+        for (let r = 0; r < 12; r++) {
+          const corner = (q < 3 && r < 2) || (q > 8 && r > 9)
+          const terrain = corner ? 'black' : terrains[Math.floor(rng.next() * terrains.length)]!
+          board = withPiece(board, [sq(q, r, terrain)])
+        }
+      const cities = findCities(board)
+      const a = cities.find((city) => city.coordKeys.has('0,0'))
+      const b = cities.find((city) => city.coordKeys.has('11,11'))
+      if (!a || !b || a === b) continue
+      compared++
+
+      const path = findShortestPathBetweenCities(board, a, b)
+      const expected = shortestByBreadthFirst(board, a, b)
+      expect(path && path.length - 1).toBe(expected)
+      if (!path) continue
+      const inner = path.slice(1, -1).map((c) => board[coordKey(c)]!.terrain)
+      expect(inner).not.toContain('green')
+      expect(inner).not.toContain('blue')
+      expect(inner.filter((t) => t === 'yellow').length).toBeLessThanOrEqual(1)
+      path.slice(1).forEach((c, i) => {
+        const prev = path[i]!
+        expect(Math.abs(c.q - prev.q) + Math.abs(c.r - prev.r)).toBe(1)
+      })
+    }
+    expect(compared).toBeGreaterThan(100)
   })
 })

@@ -1,0 +1,202 @@
+{
+  "format": "tristik-save",
+  "version": 1,
+  "note": "Two cities, each five black squares touching (a black bar with one more black square under one end), with a gap between them on the top row: no road joins them yet, so the score has no road points. Lay the all-red bar in hand flat in the gap: a dotted road joins the cities across its four squares, the cloud reads +1 placed, +4 road squares, and the score box shows +4 roads.",
+  "score": 11,
+  "seed": 2207636702,
+  "rotation": 0,
+  "current": {
+    "shape": "I",
+    "terrains": [
+      "red",
+      "red",
+      "red",
+      "red"
+    ]
+  },
+  "biomeProbabilities": {
+    "biomeCounts": {
+      "1": 15,
+      "2": 45,
+      "3": 25,
+      "4": 15
+    },
+    "biomeWeights": {
+      "black": 17.5,
+      "red": 30,
+      "green": 30,
+      "yellow": 17.5,
+      "blue": 5
+    }
+  },
+  "board": [
+    {
+      "q": 0,
+      "r": 0,
+      "terrain": "black",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 0,
+      "terrain": "black",
+      "piece": 0
+    },
+    {
+      "q": 2,
+      "r": 0,
+      "terrain": "black",
+      "piece": 0
+    },
+    {
+      "q": 3,
+      "r": 0,
+      "terrain": "black",
+      "piece": 0
+    },
+    {
+      "q": 0,
+      "r": 1,
+      "terrain": "black",
+      "piece": 1
+    },
+    {
+      "q": 1,
+      "r": 1,
+      "terrain": "red",
+      "piece": 1
+    },
+    {
+      "q": 2,
+      "r": 1,
+      "terrain": "red",
+      "piece": 1
+    },
+    {
+      "q": 3,
+      "r": 1,
+      "terrain": "red",
+      "piece": 1
+    },
+    {
+      "q": 0,
+      "r": 2,
+      "terrain": "green",
+      "piece": 2
+    },
+    {
+      "q": 1,
+      "r": 2,
+      "terrain": "green",
+      "piece": 2
+    },
+    {
+      "q": 2,
+      "r": 2,
+      "terrain": "green",
+      "piece": 2
+    },
+    {
+      "q": 3,
+      "r": 2,
+      "terrain": "green",
+      "piece": 2
+    },
+    {
+      "q": 4,
+      "r": 2,
+      "terrain": "green",
+      "piece": 3
+    },
+    {
+      "q": 5,
+      "r": 2,
+      "terrain": "green",
+      "piece": 3
+    },
+    {
+      "q": 6,
+      "r": 2,
+      "terrain": "green",
+      "piece": 3
+    },
+    {
+      "q": 7,
+      "r": 2,
+      "terrain": "green",
+      "piece": 3
+    },
+    {
+      "q": 8,
+      "r": 2,
+      "terrain": "green",
+      "piece": 4
+    },
+    {
+      "q": 9,
+      "r": 2,
+      "terrain": "green",
+      "piece": 4
+    },
+    {
+      "q": 10,
+      "r": 2,
+      "terrain": "green",
+      "piece": 4
+    },
+    {
+      "q": 11,
+      "r": 2,
+      "terrain": "green",
+      "piece": 4
+    },
+    {
+      "q": 8,
+      "r": 1,
+      "terrain": "red",
+      "piece": 5
+    },
+    {
+      "q": 9,
+      "r": 1,
+      "terrain": "red",
+      "piece": 5
+    },
+    {
+      "q": 10,
+      "r": 1,
+      "terrain": "red",
+      "piece": 5
+    },
+    {
+      "q": 11,
+      "r": 1,
+      "terrain": "black",
+      "piece": 5
+    },
+    {
+      "q": 8,
+      "r": 0,
+      "terrain": "black",
+      "piece": 6
+    },
+    {
+      "q": 9,
+      "r": 0,
+      "terrain": "black",
+      "piece": 6
+    },
+    {
+      "q": 10,
+      "r": 0,
+      "terrain": "black",
+      "piece": 6
+    },
+    {
+      "q": 11,
+      "r": 0,
+      "terrain": "black",
+      "piece": 6
+    }
+  ]
+}

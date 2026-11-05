@@ -12,6 +12,7 @@ import {
   upcomingTiles,
 } from './game'
 import type { GameState } from './game'
+import { findCities, routeScore } from './routes'
 import { parseSave, saveText } from './save'
 
 /** Every save in /saves, as raw text: they are read the same way the game reads a file. */
@@ -48,7 +49,7 @@ describe('the saves in /saves', () => {
   const names = Object.keys(files).map((path) => path.replace(/^.*\/(.*)\.json$/, '$1'))
 
   it('are all there, and each load and say what they show', () => {
-    expect(names).toHaveLength(10)
+    expect(names).toHaveLength(12)
     for (const name of names) expect(save(name).note.length, name).toBeGreaterThan(40)
   })
 
@@ -163,5 +164,55 @@ describe('the saves in /saves', () => {
     expect(boardSquares(game.board)).toHaveLength(4 * pieceCount(game.board))
     const again = parseSave(text)
     expect(again.ok && upcomingTiles(again.game)).toEqual(upcomingTiles(game))
+  })
+
+  it('11: two cities with nothing between them have no road, until a piece fills the gap', () => {
+    const { game } = save('11-roads')
+    expect(findCities(game.board).map((city) => city.coords.length)).toEqual([5, 5])
+    expect(game.routes).toEqual([])
+    const next = place(game, 5, 0)
+    expect(next.routes).toHaveLength(1)
+    expect(next.routes[0]!.traversedCoords).toEqual([
+      coord(4, 0),
+      coord(5, 0),
+      coord(6, 0),
+      coord(7, 0),
+    ])
+    expect(next.lastPlacement!.score.points).toBe(1)
+    expect(next.lastPlacement!.roadPoints).toBe(4)
+    expect(next.score).toBe(game.score + 5)
+    // It reloads to the same road and score.
+    const again = parseSave(saveText(next))
+    expect(again.ok && again.game.routes).toEqual(next.routes)
+    expect(again.ok && again.game.score).toBe(next.score)
+  })
+
+  it('12: a road takes the shortest way with at most one yellow, and its points follow it', () => {
+    const { game } = save('12-shortest-road')
+    expect(game.routes).toHaveLength(1)
+    expect(routeScore(game.routes)).toBe(6)
+    for (const c of game.routes[0]!.traversedCoords)
+      expect(getSquare(game.board, c)?.terrain).not.toBe('green')
+
+    const next = place(game, 5, 0)
+    expect(routeScore(next.routes)).toBe(4)
+    expect(next.routes[0]!.traversedCoords.map((c) => getSquare(next.board, c)!.terrain)).toEqual([
+      'yellow',
+      'red',
+      'red',
+      'red',
+    ])
+    expect(next.lastPlacement!.score).toMatchObject({ connections: 3, points: 4 })
+    expect(next.lastPlacement!.roadPoints).toBe(-2)
+    expect(next.score).toBe(game.score + 4 - 2)
+
+    // Two yellow squares in the gap: the road can't use it and stays six long.
+    const twoYellow = place(
+      { ...game, current: { shape: 'I', terrains: ['yellow', 'yellow', 'red', 'red'] } },
+      5,
+      0,
+    )
+    expect(routeScore(twoYellow.routes)).toBe(6)
+    expect(twoYellow.lastPlacement!.roadPoints).toBe(0)
   })
 })
