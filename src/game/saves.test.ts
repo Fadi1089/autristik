@@ -49,7 +49,7 @@ describe('the saves in /saves', () => {
   const names = Object.keys(files).map((path) => path.replace(/^.*\/(.*)\.json$/, '$1'))
 
   it('are all there, and each load and say what they show', () => {
-    expect(names).toHaveLength(12)
+    expect(names).toHaveLength(14)
     for (const name of names) expect(save(name).note.length, name).toBeGreaterThan(40)
   })
 
@@ -185,6 +185,34 @@ describe('the saves in /saves', () => {
     const again = parseSave(saveText(next))
     expect(again.ok && again.game.routes).toEqual(next.routes)
     expect(again.ok && again.game.score).toBe(next.score)
+  })
+
+  it('13: reaching the region target adds twenty points once and increments the bonus counter', () => {
+    const { game } = save('13-bonus-objective')
+    expect(game.bonus).toMatchObject({ placements: 10, completed: 0 })
+    const next = place(game, 0, 2)
+    expect(next.bonus).toMatchObject({
+      placements: 11,
+      completed: 1,
+      objective: { completed: true },
+    })
+    expect(next.lastPlacement!.bonusPoints).toBe(20)
+    expect(next.score).toBe(33)
+    const again = parseSave(saveText(next))
+    expect(again.ok && again.game.bonus).toEqual(next.bonus)
+  })
+
+  it('14: the last allowed placement expires an unmet bonus and proposes the next one', () => {
+    const { game } = save('14-bonus-deadline')
+    expect(game.bonus).toMatchObject({ placements: 19, completed: 0 })
+    const next = place(game, 0, 2)
+    expect(next.bonus).toMatchObject({
+      placements: 20,
+      completed: 0,
+      objective: { issuedAt: 20, completed: false },
+    })
+    expect(next.lastPlacement!.bonusPoints).toBe(0)
+    expect(next.score).toBe(11)
   })
 
   it('12: a road takes the shortest way with at most one yellow, and its points follow it', () => {

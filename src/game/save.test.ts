@@ -42,6 +42,7 @@ describe('saving and loading', () => {
     expect(loaded.rotation).toBe(3)
     expect(loaded.score).toBe(game.score)
     expect(loaded.seed).toBe(game.seed)
+    expect(loaded.bonus).toEqual(game.bonus)
     expect(loaded.biomeProbabilities).toEqual(game.biomeProbabilities ?? loaded.biomeProbabilities)
     expect(loaded.lastPlacement).toBeNull()
   })
@@ -58,6 +59,7 @@ describe('saving and loading', () => {
     }
     expect(b.board).toEqual(a.board)
     expect(b.score).toBe(a.score)
+    expect(b.bonus).toEqual(a.bonus)
   })
 
   it('keeps a note, and survives a second round trip unchanged', () => {
@@ -115,6 +117,46 @@ describe('rejecting broken saves', () => {
     const data = good()
     delete data.biomeProbabilities
     expect(fromSave(data).ok).toBe(true)
+  })
+
+  it('keeps old saves readable without inventing past objectives', () => {
+    const data = good()
+    delete data.bonus
+    const result = fromSave(data)
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(result.error)
+    expect(result.game.bonus).toBeUndefined()
+    expect(toSave(result.game).bonus).toBeUndefined()
+    expect(advance(result.game).bonus?.placements).toBe(4)
+  })
+
+  it('rejects invalid bonus counters, random state, target, biome, and deadline', () => {
+    const bonus = {
+      placements: 10,
+      completed: 0,
+      seed: 42,
+      objective: {
+        biome: 'green',
+        target: 7,
+        issuedAt: 10,
+        completed: false,
+      },
+    }
+    expect(error({ ...good(), bonus: { ...bonus, placements: -1 } })).toMatch(/bonus/)
+    expect(error({ ...good(), bonus: { ...bonus, completed: 2 } })).toMatch(/bonus/)
+    expect(error({ ...good(), bonus: { ...bonus, seed: -1 } })).toMatch(/bonus/)
+    for (const change of [
+      { target: 6 },
+      { target: 14 },
+      { target: 7.5 },
+      { biome: 'purple' },
+      { issuedAt: 9 },
+      { issuedAt: 20 },
+      { completed: true },
+    ])
+      expect(
+        error({ ...good(), bonus: { ...bonus, objective: { ...bonus.objective, ...change } } }),
+      ).toMatch(/bonus/)
   })
 
   it('saves a fresh game with the starting piece, its single tiles and its base point', () => {

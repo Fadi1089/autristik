@@ -58,6 +58,7 @@ Each piece scores when it is placed, and roads score for as long as they stand:
 | 1      | Each edge where the piece meets its own biome on another piece      |
 | 10     | Each piece, this one or one already down, that it leaves surrounded |
 | 1      | Each square a road crosses, while the road stands                   |
+| 20     | Each bonus objective completed within its ten-placement window      |
 
 A piece is surrounded when every one of its outer edges meets a square of its own biome on another
 piece. The moment it scores its 10 the whole piece flashes gold, like a camera flash. It only scores
@@ -68,6 +69,35 @@ surrounded a piece, then "+4 road squares" if it made a road longer or new, or "
 shortened" if a shorter road took over. The total sits in the top right, with the points the
 roads bring in now beside it ("+4 roads"). The starting piece counts for its base point, so a new
 game starts at 1, and resetting the grid puts the score back to 1.
+
+### Bonus objectives
+
+After the 10th player placement, and every ten placements after that, a bonus objective asks
+for a connected region of one biome. The biome is drawn uniformly from all five biomes,
+independently of the piece settings (including biomes whose piece weight is zero). Its size is
+drawn uniformly from 7 through 13 inclusive: each size has a 1/7 chance. A separate seeded random
+stream keeps these draws from changing the upcoming pieces.
+
+The next ten successful placements are the deadline: the objective proposed after placement 10
+can be completed on placements 11 through 20, including placement 20. That last placement is
+checked before the next objective is proposed. Invalid placements, rotations and skipped pieces
+do not advance the counter. Neither the starting tetromino nor the scattered single black tiles
+count as player placements.
+
+A region joins squares of the requested biome along their sides, across piece boundaries;
+diagonal contact does not join them. A placement must take a region from below the target to
+the target or higher, either by growing it or joining smaller regions. A region that was already
+large enough does not count retroactively, even if more squares are added to it; another region
+may still qualify. Success adds 20 points once and increments the completed-objective counter.
+Completing early leaves the completed objective visible until the next ten-placement milestone.
+An unmet objective is replaced at its deadline without a penalty.
+
+From the tenth player placement, the card in the top right, below the score, shows the current objective, placements left, and number
+completed this game. Its reward also appears in the placement's score cloud. New games and grid
+resets clear both objective counters along with the score. Saving and loading preserves the
+objective, deadline, counters and independent random state. Older saves remain readable: their
+placed tetrominoes determine the placement count, with no invented past completions; their first
+new objective is proposed at the next multiple of ten.
 
 ### Forests
 
@@ -169,7 +199,7 @@ game in progress stays as it was.
 
 A save holds `format` (`"tristik-save"`), `version` (1), an optional `note`, `score`, `seed` (the
 piece generator's state), `rotation`, `current` (the piece in hand: `shape` and its four
-`terrains`), `biomeProbabilities` and `board`, a list of squares (`q`, `r`, `terrain`, and the
+`terrains`), `biomeProbabilities`, the optional stage-8 `bonus` progress, and `board`, a list of squares (`q`, `r`, `terrain`, and the
 `piece` they belong to). Loading checks every field: each piece must have four joined squares, no
 two squares may share a cell, and the odds must be able to draw every piece they ask for.
 
@@ -192,6 +222,8 @@ claim in the notes is also checked automatically by `src/game/saves.test.ts`.
 | `10-long-game.json`                 | Forty moves in: many pieces, and the same queue after loading |
 | `11-roads.json`                     | Two cities with no road, until a piece fills the gap: +4      |
 | `12-shortest-road.json`             | A shorter road through one yellow takes over: −2              |
+| `13-bonus-objective.json`           | Grow six green squares to ten: +20 and one completed bonus    |
+| `14-bonus-deadline.json`            | Miss the final placement: the next objective replaces it      |
 
 ### Controls
 
@@ -361,6 +393,7 @@ src/
                  keyboard cursor limits
     game.ts      Game state: place, rotate, skip, draw, upcoming pieces, grid reset
     score.ts     Points for a placement, and which pieces it surrounded
+    bonus.ts     Timed region objectives, equal random draws, and twenty-point rewards
     routes.ts    Cities (five or more black squares) and the shortest roads joining them
     save.ts      Saving a game to JSON and loading it back, checking every field
     random.ts    Seedable PRNG so games are reproducible

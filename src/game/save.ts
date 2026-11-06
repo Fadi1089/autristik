@@ -1,5 +1,7 @@
 import { coordKey, DIRECTIONS, neighbour } from './coords'
 import type { Board, PlacedSquare } from './board'
+import { BONUS_INTERVAL, BONUS_MAX_SIZE, BONUS_MIN_SIZE } from './bonus'
+import type { BonusState } from './bonus'
 import type { GameState } from './game'
 import { findRoutes } from './routes'
 import { BIOMES, DEFAULT_BIOME_PROBABILITIES, SHAPES, validBiomeProbabilities } from './tiles'
@@ -32,6 +34,8 @@ export interface SaveFile {
   readonly current: Tetromino | null
   readonly biomeProbabilities: BiomeProbabilities
   readonly board: readonly SavedSquare[]
+  /** Optional for compatibility with saves made before stage 8. */
+  readonly bonus?: BonusState
 }
 
 export type LoadResult =
@@ -61,6 +65,7 @@ export function toSave(state: GameState, note?: string): SaveFile {
     seed: state.seed,
     rotation: state.rotation,
     current: state.current,
+    ...(state.bonus === undefined ? {} : { bonus: state.bonus }),
     biomeProbabilities: orderedProbabilities(
       state.biomeProbabilities ?? DEFAULT_BIOME_PROBABILITIES,
     ),
@@ -104,6 +109,47 @@ function readWeight(value: unknown, where: string): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100)
     fail(`${where} must be a number from 0 to 100`)
   return value
+}
+
+function readBonus(value: unknown): BonusState | undefined {
+  if (value === undefined) return undefined
+  if (!isObject(value)) fail('the bonus progress must be an object')
+  const { placements, completed, seed, objective } = value
+  if (!isInteger(placements) || placements < 0)
+    fail('the bonus placement count must be a whole number of 0 or more')
+  const maximumCompleted = Math.max(0, Math.floor((placements - 1) / BONUS_INTERVAL))
+  if (!isInteger(completed) || completed < 0 || completed > maximumCompleted)
+    fail('the completed bonus count does not match the placement count')
+  if (!isInteger(seed) || seed < 0 || seed > 0xffffffff)
+    fail('the bonus seed must be a whole number from 0 to 4294967295')
+  if (objective === null) return { placements, completed, seed, objective: null }
+  if (!isObject(objective)) fail('the bonus objective must be an object or null')
+  const { target, issuedAt } = objective
+  if (!isInteger(target) || target < BONUS_MIN_SIZE || target > BONUS_MAX_SIZE)
+    fail('the bonus target must be a whole number from 7 to 13')
+  if (
+    !isInteger(issuedAt) ||
+    issuedAt < BONUS_INTERVAL ||
+    issuedAt % BONUS_INTERVAL !== 0 ||
+    issuedAt > placements ||
+    placements >= issuedAt + BONUS_INTERVAL
+  )
+    fail('the bonus deadline does not match the placement count')
+  if (typeof objective.completed !== 'boolean')
+    fail('the bonus completion flag must be true or false')
+  if (objective.completed && (completed === 0 || placements === issuedAt))
+    fail('the bonus objective cannot already be completed at this placement')
+  return {
+    placements,
+    completed,
+    seed,
+    objective: {
+      biome: readTerrain(objective.biome, 'the bonus objective'),
+      target,
+      issuedAt,
+      completed: objective.completed,
+    },
+  }
 }
 
 function readProbabilities(value: unknown): BiomeProbabilities {
@@ -188,6 +234,7 @@ export function fromSave(data: unknown): LoadResult {
     if (!isInteger(data.rotation) || data.rotation < 0 || data.rotation > 3)
       fail('the rotation must be 0, 1, 2 or 3')
     const board = readBoard(data.board)
+    const bonus = readBonus(data.bonus)
     const game: GameState = {
       board,
       current: readPiece(data.current),
@@ -196,6 +243,7 @@ export function fromSave(data: unknown): LoadResult {
       lastPlacement: null,
       score: data.score,
       routes: findRoutes(board),
+      ...(bonus === undefined ? {} : { bonus }),
       biomeProbabilities: readProbabilities(data.biomeProbabilities),
     }
     return typeof data.note === 'string' ? { ok: true, game, note: data.note } : { ok: true, game }

@@ -1,0 +1,93 @@
+{
+  "format": "tristik-save",
+  "version": 1,
+  "note": "The first bonus objective asks for at least seven connected green squares. Six are already joined. Place the green O at (0, 2) to grow them to ten: the score rises from 10 to 33, including the twenty-point bonus, and Completed becomes 1. It stays completed until the next objective after placement 20.",
+  "score": 10,
+  "seed": 12345,
+  "rotation": 0,
+  "current": {
+    "shape": "O",
+    "terrains": [
+      "green",
+      "green",
+      "green",
+      "green"
+    ]
+  },
+  "bonus": {
+    "placements": 10,
+    "completed": 0,
+    "seed": 42,
+    "objective": {
+      "biome": "green",
+      "target": 7,
+      "issuedAt": 10,
+      "completed": false
+    }
+  },
+  "biomeProbabilities": {
+    "biomeCounts": {
+      "1": 15,
+      "2": 45,
+      "3": 25,
+      "4": 15
+    },
+    "biomeWeights": {
+      "black": 17.5,
+      "red": 30,
+      "green": 30,
+      "yellow": 17.5,
+      "blue": 5
+    }
+  },
+  "board": [
+    {
+      "q": 0,
+      "r": 0,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 0,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 0,
+      "r": 1,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 1,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 2,
+      "r": 0,
+      "terrain": "green",
+      "piece": 1
+    },
+    {
+      "q": 3,
+      "r": 0,
+      "terrain": "red",
+      "piece": 1
+    },
+    {
+      "q": 2,
+      "r": 1,
+      "terrain": "green",
+      "piece": 1
+    },
+    {
+      "q": 3,
+      "r": 1,
+      "terrain": "red",
+      "piece": 1
+    }
+  ]
+}

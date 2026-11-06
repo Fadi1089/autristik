@@ -5,7 +5,7 @@ import type { PlacementScore } from '../game/score'
 export interface ScoreLine {
   readonly points: number
   readonly reason: string
-  /** The surround bonus, drawn in gold. */
+  /** Surround and objective bonuses are drawn in gold. */
   readonly gold: boolean
 }
 
@@ -25,9 +25,9 @@ export function signedPoints(points: number): string {
  * A placement's points, line by line: the base point for placing the piece, then its
  * matching sides, then the bonus for each piece it surrounded, then how the roads changed
  * (negative when a shorter road replaced a longer one). Lines worth nothing are left out,
- * except the base point. They add up to the placement's points plus `roadPoints`.
+ * except the base point. They add up to the placement's points plus road and objective points.
  */
-export function scoreLines(score: PlacementScore, roadPoints = 0): ScoreLine[] {
+export function scoreLines(score: PlacementScore, roadPoints = 0, bonusPoints = 0): ScoreLine[] {
   const lines: ScoreLine[] = [{ points: PIECE_POINTS, reason: 'placed', gold: false }]
   const sides = score.connections
   if (sides > 0)
@@ -53,5 +53,7 @@ export function scoreLines(score: PlacementScore, roadPoints = 0): ScoreLine[] {
       gold: false,
     })
   else if (roadPoints < 0) lines.push({ points: roadPoints, reason: 'road shortened', gold: false })
+  if (bonusPoints > 0)
+    lines.push({ points: bonusPoints, reason: 'bonus objective completed', gold: true })
   return lines
 }

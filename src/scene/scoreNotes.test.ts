@@ -66,6 +66,12 @@ describe('scoreLines', () => {
     expect(signedPoints(-3)).toBe('\u22123')
   })
 
+  it('includes a distinct twenty-point line when a bonus objective is completed', () => {
+    const lines = scoreLines(score(2, [0]), -2, 20)
+    expect(lines.at(-1)).toEqual({ points: 20, reason: 'bonus objective completed', gold: true })
+    expect(lines.reduce((sum, line) => sum + line.points, 0)).toBe(13 - 2 + 20)
+  })
+
   it('falls back to digits past ten', () => {
     expect(countWord(12)).toBe('12')
   })

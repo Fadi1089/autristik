@@ -1,5 +1,7 @@
 import { createStartingBoard, withPiece } from './board'
 import type { Board } from './board'
+import { advanceBonus, createBonusState, legacyPlacements } from './bonus'
+import type { BonusState } from './bonus'
 import type { Coord } from './coords'
 import { canPlace, evaluatePlacement, placementAnchors } from './matching'
 import type { PlacementEvaluation } from './matching'
@@ -25,6 +27,7 @@ export interface PlacementResult extends PlacementPreview {
   readonly score: PlacementScore
   /** How much the road points changed: new roads add squares, a shorter road takes some away. */
   readonly roadPoints: number
+  readonly bonusPoints: number
 }
 
 export interface GameState {
@@ -35,10 +38,12 @@ export interface GameState {
   /** PRNG state used for the next draw. */
   readonly seed: number
   readonly lastPlacement: PlacementResult | null
-  /** Points scored on the board as it stands: every placement, plus the squares roads cross now. */
+  /** Placement and bonus points, plus the squares roads cross now. */
   readonly score: number
   /** The roads joining the cities on the board as it stands. */
   readonly routes: readonly Route[]
+  /** Absent only in saves made before bonus objectives were introduced. */
+  readonly bonus?: BonusState
   readonly biomeProbabilities?: BiomeProbabilities
 }
 
@@ -55,6 +60,7 @@ export function createGame(seed: number, biomeProbabilities?: BiomeProbabilities
     lastPlacement: null,
     score: PIECE_POINTS + routeScore(routes),
     routes,
+    bonus: createBonusState(seed),
     biomeProbabilities,
   }
 }
@@ -79,6 +85,7 @@ export function resetBoard(state: GameState): GameState {
     lastPlacement: null,
     score: PIECE_POINTS + routeScore(routes),
     routes,
+    bonus: createBonusState(state.seed),
   }
 }
 
@@ -169,15 +176,21 @@ export function placeCurrent(state: GameState, c: Coord): GameState {
 
   const routes = findRoutes(board)
   const roadPoints = routeScore(routes) - routeScore(state.routes)
+  const { bonus, points: bonusPoints } = advanceBonus(
+    state.bonus ?? createBonusState(state.seed, legacyPlacements(state.board)),
+    state.board,
+    board,
+  )
 
   return {
     board,
     current,
     rotation: 0,
     seed: rng.state,
-    lastPlacement: { ...preview, coord: c, squares, score, roadPoints },
-    score: state.score + score.points + roadPoints,
+    lastPlacement: { ...preview, coord: c, squares, score, roadPoints, bonusPoints },
+    score: state.score + score.points + roadPoints + bonusPoints,
     routes,
+    bonus,
     biomeProbabilities: state.biomeProbabilities,
   }
 }

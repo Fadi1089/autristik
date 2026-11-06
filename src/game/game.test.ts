@@ -28,6 +28,7 @@ import {
 import type { GameState } from './game'
 import { EMPTY_BOARD, withPiece } from './board'
 import type { BiomeProbabilities } from './tiles'
+import { createBonusState } from './bonus'
 
 const RED_ONLY: BiomeProbabilities = {
   biomeCounts: { 1: 0, 2: 0, 3: 0, 4: 100 },
@@ -91,6 +92,7 @@ describe('game flow', () => {
     const next = skipCurrent(lake)
     expect(next.current).toEqual(upcomingTiles(lake)[0])
     expect(next.board).toBe(lake.board)
+    expect(next.bonus).toBe(lake.bonus)
 
     const shore = {
       ...lake,
@@ -145,6 +147,64 @@ describe('game flow', () => {
   it('is not game over in standard play', () => {
     const game = createGame(3)
     expect(isGameOver(game)).toBe(false)
+  })
+})
+
+describe('bonus objectives in a game', () => {
+  it('counts only successful player placements, not starting pieces, invalid moves or rotations', () => {
+    const game = createGame(3)
+    expect(game.bonus?.placements).toBe(0)
+    expect(game.bonus?.objective).toBeNull()
+    expect(placeCurrent(game, { q: 0, r: 0 })).toBe(game)
+    expect(advance(game).bonus?.placements).toBe(1)
+  })
+
+  it('draws objectives without changing the piece in hand or the next-piece sequence', () => {
+    const game = createGame(12)
+    const nearMilestone = { ...game, bonus: { ...game.bonus!, placements: 9 } }
+    const a = advance(game)
+    const b = advance(nearMilestone)
+    expect(b.bonus?.objective?.issuedAt).toBe(10)
+    expect(a.bonus?.objective).toBeNull()
+    expect(b.current).toEqual(a.current)
+    expect(b.seed).toBe(a.seed)
+    expect(upcomingTiles(b)).toEqual(upcomingTiles(a))
+  })
+
+  it('adds the twenty-point objective reward to the other points scored by the placement', () => {
+    const board = withPiece(
+      withPiece(EMPTY_BOARD, [
+        { coord: { q: 0, r: 0 }, terrain: 'green' },
+        { coord: { q: 1, r: 0 }, terrain: 'green' },
+        { coord: { q: 0, r: 1 }, terrain: 'green' },
+        { coord: { q: 1, r: 1 }, terrain: 'green' },
+      ]),
+      [
+        { coord: { q: 2, r: 0 }, terrain: 'green' },
+        { coord: { q: 3, r: 0 }, terrain: 'red' },
+        { coord: { q: 2, r: 1 }, terrain: 'green' },
+        { coord: { q: 3, r: 1 }, terrain: 'red' },
+      ],
+    )
+    const game: GameState = {
+      ...createGame(5),
+      board,
+      current: { shape: 'O', terrains: ['green', 'green', 'green', 'green'] },
+      bonus: {
+        ...createBonusState(5),
+        placements: 10,
+        objective: { biome: 'green', target: 7, issuedAt: 10, completed: false },
+      },
+    }
+    const next = placeCurrent(game, { q: 0, r: 2 })
+    expect(next.bonus?.completed).toBe(1)
+    expect(next.lastPlacement?.bonusPoints).toBe(20)
+    expect(next.score).toBe(
+      game.score + next.lastPlacement!.score.points + next.lastPlacement!.roadPoints + 20,
+    )
+    const reset = resetBoard(next)
+    expect(reset.bonus).toMatchObject({ placements: 0, completed: 0, objective: null })
+    expect(reset.score).toBe(1)
   })
 })
 

@@ -1,0 +1,93 @@
+{
+  "format": "tristik-save",
+  "version": 1,
+  "note": "One placement remains to reach seven connected green squares. Place the red O at (0, 2): the green region stays at six, so the old objective expires without a bonus. A new objective is proposed after placement 20 with ten placements left; Completed remains 0 and the score becomes 11.",
+  "score": 10,
+  "seed": 12345,
+  "rotation": 0,
+  "current": {
+    "shape": "O",
+    "terrains": [
+      "red",
+      "red",
+      "red",
+      "red"
+    ]
+  },
+  "bonus": {
+    "placements": 19,
+    "completed": 0,
+    "seed": 42,
+    "objective": {
+      "biome": "green",
+      "target": 7,
+      "issuedAt": 10,
+      "completed": false
+    }
+  },
+  "biomeProbabilities": {
+    "biomeCounts": {
+      "1": 15,
+      "2": 45,
+      "3": 25,
+      "4": 15
+    },
+    "biomeWeights": {
+      "black": 17.5,
+      "red": 30,
+      "green": 30,
+      "yellow": 17.5,
+      "blue": 5
+    }
+  },
+  "board": [
+    {
+      "q": 0,
+      "r": 0,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 0,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 0,
+      "r": 1,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 1,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 2,
+      "r": 0,
+      "terrain": "green",
+      "piece": 1
+    },
+    {
+      "q": 3,
+      "r": 0,
+      "terrain": "red",
+      "piece": 1
+    },
+    {
+      "q": 2,
+      "r": 1,
+      "terrain": "green",
+      "piece": 1
+    },
+    {
+      "q": 3,
+      "r": 1,
+      "terrain": "red",
+      "piece": 1
+    }
+  ]
+}
