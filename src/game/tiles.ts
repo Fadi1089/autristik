@@ -121,7 +121,23 @@ export interface BiomeCountWeights {
   readonly 4: number
 }
 
+export type ShapeWeights = Readonly<Record<Shape, number>>
+
+/** Every shape equally likely. */
+export const DEFAULT_SHAPE_WEIGHTS: ShapeWeights = {
+  I: 10,
+  O: 10,
+  T: 10,
+  S: 10,
+  Z: 10,
+  J: 10,
+  L: 10,
+}
+
+/** The odds a piece is drawn with: its shape, how many distinct biomes it has, and which. */
 export interface BiomeProbabilities {
+  /** Relative chance of each shape; absent in saves from before it could be set, where all are equal. */
+  readonly shapeWeights?: ShapeWeights
   readonly biomeCounts: BiomeCountWeights
   readonly biomeWeights: Readonly<Record<Biome, number>>
 }
@@ -132,6 +148,7 @@ export interface BiomeProbabilities {
  * - Selection: Red 30%, Green 30%, Black 17.5%, Yellow 17.5%, Blue 5%.
  */
 export const DEFAULT_BIOME_PROBABILITIES: BiomeProbabilities = {
+  shapeWeights: DEFAULT_SHAPE_WEIGHTS,
   biomeCounts: {
     1: 15,
     2: 45,
@@ -158,17 +175,27 @@ export function largestBiomeCount(counts: BiomeCountWeights): 0 | 1 | 2 | 3 | 4 
   return 0
 }
 
+/** Shapes with a positive weight; the others are never drawn. */
+export function enabledShapes(weights: ShapeWeights = DEFAULT_SHAPE_WEIGHTS): Shape[] {
+  return SHAPES.filter((shape) => Number.isFinite(weights[shape]) && weights[shape] > 0)
+}
+
 /**
- * Settings that can always draw a piece exactly as asked: some biome count is enabled, and
- * at least as many biomes are enabled as the largest biome count, so a piece asking for
- * three distinct biomes always has three to pick from.
+ * Settings that can always draw a piece exactly as asked: some shape and some biome count are
+ * enabled, and at least as many biomes are enabled as the largest biome count, so a piece
+ * asking for three distinct biomes always has three to pick from.
  */
 export function validBiomeProbabilities({
+  shapeWeights,
   biomeCounts,
   biomeWeights,
 }: BiomeProbabilities): boolean {
   const largest = largestBiomeCount(biomeCounts)
-  return largest > 0 && enabledBiomes(biomeWeights).length >= largest
+  return (
+    enabledShapes(shapeWeights).length > 0 &&
+    largest > 0 &&
+    enabledBiomes(biomeWeights).length >= largest
+  )
 }
 
 export const BIOME_WEIGHTS = DEFAULT_BIOME_PROBABILITIES.biomeWeights
@@ -251,8 +278,23 @@ export function randomTerrains(rng: Rng, probs?: BiomeProbabilities): Terrains {
   return shuffle(squares, rng) as unknown as Terrains
 }
 
-/** Every shape is equally likely; biomes are drawn per the specified probabilities. */
+/**
+ * A shape drawn by weight. Equal weights draw exactly as the game always has, so the pieces of
+ * a seed, and of saves from before the shape weights, stay the same.
+ */
+export function pickShape(rng: Rng, weights: ShapeWeights = DEFAULT_SHAPE_WEIGHTS): Shape {
+  const pool = enabledShapes(weights)
+  if (pool.length === SHAPES.length && pool.every((shape) => weights[shape] === weights.I))
+    return SHAPES[Math.floor(rng.next() * SHAPES.length)]!
+  // Settings prevent an all-zero configuration, but a malformed direct caller still gets a piece.
+  if (pool.length === 0) return pickShape(rng)
+  return rng.weighted(
+    Object.fromEntries(pool.map((shape) => [shape, weights[shape]])) as Record<Shape, number>,
+  )
+}
+
+/** Shapes and biomes are drawn per the specified probabilities. */
 export function randomTetromino(rng: Rng, probs?: BiomeProbabilities): Tetromino {
-  const shape = SHAPES[Math.floor(rng.next() * SHAPES.length)]!
+  const shape = pickShape(rng, probs?.shapeWeights)
   return { shape, terrains: randomTerrains(rng, probs) }
 }

@@ -11,7 +11,8 @@ import { GridLines } from './GridLines'
 import { Ground } from './Ground'
 import { Lights } from './Lights'
 import { PlacementDust } from './PlacementDust'
-import { PlacementHints } from './PlacementHints'
+import { PlayArea } from './PlayArea'
+import { BonusHints, PlacementHints } from './PlacementHints'
 import { Roads } from './Roads'
 import { ScoreClouds } from './ScoreClouds'
 
@@ -23,8 +24,10 @@ export function Scene() {
       <Lights />
       <CameraRig />
       <Ground />
+      <PlayArea />
       <GridLines />
       <PlacementHints />
+      <BonusHints />
       <Board />
       <Roads />
       {/* The houses, trees and farms load models; the rest of the scene doesn't wait for them. */}

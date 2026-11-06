@@ -24,6 +24,10 @@ export const BIOME_LABELS = TERRAIN_LABELS
 export const SCENE_COLORS = {
   background: '#f3eadb',
   ground: '#e7dbc3',
+  /** A bounded grid's own ground, a shade lighter than the land around it. */
+  field: '#f1e8d6',
+  /** The wooden fence round a bounded grid: a warm, sanded pine. */
+  fence: '#d9a679',
   soil: '#9b7653',
   placementValid: '#6fbf63',
   placementInvalid: '#d9604a',

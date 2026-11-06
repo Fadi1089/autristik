@@ -130,6 +130,30 @@ describe('rejecting broken saves', () => {
     expect(advance(result.game).bonus?.placements).toBe(4)
   })
 
+  it('keeps the bonus history, and reads bonus progress saved before it was kept', () => {
+    const game = played(3, 25)
+    expect(game.bonus?.history).toHaveLength(1)
+    expect(load(saveText(game)).bonus).toEqual(game.bonus)
+    const data = toSave(game) as unknown as { bonus: Record<string, unknown> }
+    const bonus: Record<string, unknown> = { ...data.bonus, objective: null, placements: 21 }
+    bonus.completed = 0
+    delete bonus.history
+    const result = fromSave({ ...data, bonus })
+    expect(result.ok && result.game.bonus?.history).toEqual([])
+  })
+
+  it('rejects a bonus history out of order or with too many completions', () => {
+    const past = { biome: 'green', target: 7, issuedAt: 10, completed: false }
+    const bonus = { placements: 25, completed: 0, seed: 42, objective: { ...past, issuedAt: 20 } }
+    const ok = fromSave({ ...good(), bonus: { ...bonus, history: [past] } })
+    expect(ok.ok).toBe(true)
+    expect(error({ ...good(), bonus: { ...bonus, history: [past, past] } })).toMatch(/order/)
+    expect(error({ ...good(), bonus: { ...bonus, history: { 0: past } } })).toMatch(/list/)
+    expect(
+      error({ ...good(), bonus: { ...bonus, history: [{ ...past, completed: true }] } }),
+    ).toMatch(/completed/)
+  })
+
   it('rejects invalid bonus counters, random state, target, biome, and deadline', () => {
     const bonus = {
       placements: 10,

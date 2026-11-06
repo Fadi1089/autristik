@@ -30,13 +30,14 @@ export function Ghost() {
   const board = useGameStore((s) => s.board)
   const current = useGameStore((s) => s.current)
   const rotation = useGameStore((s) => s.rotation)
+  const mode = useGameStore((s) => s.mode)
 
   // Unrotated and anchored at the origin; the groups below animate its position and turn.
   const squares = useMemo(
     () => (current ? pieceSquares(current, 0, { q: 0, r: 0 }) : null),
     [current],
   )
-  const placeable = hover !== null && canPlaceCurrent({ board, current, rotation }, hover)
+  const placeable = hover !== null && canPlaceCurrent({ board, current, rotation, mode }, hover)
   const envelope = useMemo(() => createGhostEnvelope(squares ?? []), [squares])
   useEffect(() => () => envelope.dispose(), [envelope])
 
@@ -96,16 +97,21 @@ export function Ghost() {
   return (
     <group ref={slide} visible={hover !== null && squares !== null}>
       <group ref={ref}>
+        {/* Once a game with a limited supply is over there is no piece in hand to show. */}
         <group ref={spin}>
-          <PieceTile squares={squares ?? []} glow={placeable ? 0.12 : 0.04} />
-          <mesh geometry={envelope} renderOrder={2}>
-            <meshBasicMaterial
-              color={placeable ? SCENE_COLORS.placementValid : SCENE_COLORS.placementInvalid}
-              transparent
-              opacity={placeable ? 0.18 : 0.24}
-              depthWrite={false}
-            />
-          </mesh>
+          {squares && (
+            <>
+              <PieceTile squares={squares} glow={placeable ? 0.12 : 0.04} />
+              <mesh geometry={envelope} renderOrder={2}>
+                <meshBasicMaterial
+                  color={placeable ? SCENE_COLORS.placementValid : SCENE_COLORS.placementInvalid}
+                  transparent
+                  opacity={placeable ? 0.18 : 0.24}
+                  depthWrite={false}
+                />
+              </mesh>
+            </>
+          )}
         </group>
       </group>
       {placeable && (

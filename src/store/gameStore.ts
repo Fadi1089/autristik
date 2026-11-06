@@ -1,9 +1,18 @@
 import { create } from 'zustand'
 import { coordsEqual, neighbour } from '../game/coords'
 import type { Coord, Direction } from '../game/coords'
-import { createGame, placeCurrent, resetBoard, rotateCurrent, skipCurrent } from '../game/game'
+import {
+  createGame,
+  isGameOver,
+  placeCurrent,
+  resetBoard,
+  rotateCurrent,
+  skipCurrent,
+} from '../game/game'
 import type { GameState } from '../game/game'
 import { clampCursor } from '../game/matching'
+import { modeRules } from '../game/modes'
+import type { GameMode } from '../game/modes'
 import type { BiomeProbabilities } from '../game/tiles'
 import { useSettingsStore } from './settingsStore'
 
@@ -16,6 +25,11 @@ export interface GameStore extends GameState {
   readonly menuOpen: boolean
   /** False until the player first leaves the menu, so it can say "Play" instead of "Resume". */
   readonly started: boolean
+  /**
+   * The best performance score before this game ended, so its end can tell a new best; null
+   * until a performance game ends.
+   */
+  readonly bestBefore: number | null
 
   /** Pointer hover; switches off the keyboard cursor. */
   setHover(hover: Coord | null): void
@@ -28,7 +42,8 @@ export interface GameStore extends GameState {
   skip(): void
   setBiomeProbabilities(probabilities: BiomeProbabilities): void
   place(c: Coord): void
-  restart(seed?: number): void
+  /** A new game in `mode`, by default the one being played. */
+  restart(seed?: number, mode?: GameMode): void
   /** Clears the placed tiles back to a starting island; the queue carries on. */
   resetGrid(): void
   /** Carries on with a loaded game, and takes on its biome odds. */
@@ -49,12 +64,26 @@ function initialSeed(): number {
   return Number.isFinite(seed) ? seed : randomSeed()
 }
 
+/** Keeps a performance game's final score once it ends, remembering the best it had to beat. */
+function recordEnd(prev: GameState, next: GameState): Pick<GameStore, 'bestBefore'> | null {
+  if (isGameOver(prev) || !isGameOver(next)) return null
+  const settings = useSettingsStore.getState()
+  const bestBefore = settings.bestPerformance
+  settings.recordPerformance(next.score)
+  return { bestBefore }
+}
+
 export const useGameStore = create<GameStore>()((set) => ({
-  ...createGame(initialSeed(), useSettingsStore.getState().biomeProbabilities),
+  ...createGame(
+    initialSeed(),
+    useSettingsStore.getState().biomeProbabilities,
+    useSettingsStore.getState().mode,
+  ),
   hover: null,
   cursor: null,
   menuOpen: true,
   started: false,
+  bestBefore: null,
 
   setHover: (hover) =>
     set((s) => {
@@ -66,7 +95,7 @@ export const useGameStore = create<GameStore>()((set) => ({
   setCursor: (c) =>
     set((s) => {
       if (s.menuOpen) return s
-      const cursor = clampCursor(s.board, c)
+      const cursor = clampCursor(s.board, c, modeRules(s.mode).bounds)
       return { cursor, hover: cursor }
     }),
 
@@ -82,7 +111,12 @@ export const useGameStore = create<GameStore>()((set) => ({
 
   rotate: (turns) => set((s) => (s.menuOpen ? s : { rotation: rotateCurrent(s, turns).rotation })),
 
-  skip: () => set((s) => (s.menuOpen ? s : skipCurrent(s))),
+  skip: () =>
+    set((s) => {
+      if (s.menuOpen) return s
+      const next = skipCurrent(s)
+      return { ...next, ...recordEnd(s, next) }
+    }),
 
   setBiomeProbabilities: (biomeProbabilities) => set({ biomeProbabilities }),
 
@@ -92,29 +126,47 @@ export const useGameStore = create<GameStore>()((set) => ({
       const next = placeCurrent(s, c)
       if (next === s) return s
       // The keyboard cursor stays put; its square is now taken, so the ghost hides.
-      return { ...next, hover: s.cursor }
+      return { ...next, hover: s.cursor, ...recordEnd(s, next) }
     }),
 
-  restart: (seed = randomSeed()) =>
-    set({
-      ...createGame(seed, useSettingsStore.getState().biomeProbabilities),
-      hover: null,
-      cursor: null,
-      menuOpen: false,
-      started: true,
+  restart: (seed = randomSeed(), mode) =>
+    set((s) => {
+      const settings = useSettingsStore.getState()
+      const next = mode ?? s.mode ?? 'score'
+      settings.setMode(next)
+      return {
+        // Zustand merges, so a count left over from a performance game must be cleared.
+        piecesLeft: undefined,
+        ...createGame(seed, settings.biomeProbabilities, next),
+        hover: null,
+        cursor: null,
+        menuOpen: false,
+        started: true,
+        bestBefore: null,
+      }
     }),
 
   resetGrid: () =>
     set((s) => {
       const next = resetBoard(s)
-      return { ...next, hover: s.cursor }
+      return { ...next, hover: s.cursor, bestBefore: null }
     }),
 
   loadGame: (game) => {
     // The settings panel pushes its odds onto the game, so it must hold the loaded ones.
     if (game.biomeProbabilities)
       useSettingsStore.getState().setBiomeProbabilities(game.biomeProbabilities)
-    set({ ...game, hover: null, cursor: null, menuOpen: false, started: true })
+    // A save made before the modes is a score game; the fields left out of it are cleared.
+    set({
+      mode: undefined,
+      piecesLeft: undefined,
+      ...game,
+      hover: null,
+      cursor: null,
+      menuOpen: false,
+      started: true,
+      bestBefore: null,
+    })
   },
 
   openMenu: () => set({ menuOpen: true, hover: null }),

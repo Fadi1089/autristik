@@ -106,7 +106,8 @@ function describe(piece: Tetromino): string {
 function useAnchorsByRotation(): readonly (readonly Coord[])[] {
   const board = useGameStore((s) => s.board)
   const current = useGameStore((s) => s.current)
-  return anchorsByRotation({ board, current, rotation: 0 })
+  const mode = useGameStore((s) => s.mode)
+  return anchorsByRotation({ board, current, rotation: 0, mode })
 }
 
 /** Offers to skip the piece in hand when no angle of it fits anywhere on the board. */
@@ -114,10 +115,14 @@ export function StuckNotice() {
   const anchors = useAnchorsByRotation()
   const current = useGameStore((s) => s.current)
   const skip = useGameStore((s) => s.skip)
+  const limited = useGameStore((s) => s.piecesLeft !== undefined)
   if (!current || anchors.some((a) => a.length > 0)) return null
   return (
     <div className="card flex items-center gap-3 py-2 pr-2 pl-4 text-sm text-ink/75">
-      <span>This piece fits nowhere.</span>
+      <span>
+        This piece fits nowhere.
+        {limited && <span className="text-ink/55"> Skipping it uses it up.</span>}
+      </span>
       <button
         type="button"
         onClick={skip}
@@ -148,9 +153,10 @@ export function TileTray() {
   const rotation = useGameStore((s) => s.rotation)
   const seed = useGameStore((s) => s.seed)
   const biomeProbabilities = useGameStore((s) => s.biomeProbabilities)
+  const piecesLeft = useGameStore((s) => s.piecesLeft)
   const upcoming = useMemo(
-    () => upcomingTiles({ seed, biomeProbabilities }),
-    [seed, biomeProbabilities],
+    () => upcomingTiles({ seed, biomeProbabilities, piecesLeft }),
+    [seed, biomeProbabilities, piecesLeft],
   )
   const rotate = useGameStore((s) => s.rotate)
   const [spin, setSpin] = useState<Spin | null>(null)

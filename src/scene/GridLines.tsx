@@ -1,9 +1,11 @@
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
-import { Color, Vector2 } from 'three'
+import { Color, Vector2, Vector4 } from 'three'
 import type { ShaderMaterial } from 'three'
+import { modeRules } from '../game/modes'
+import { useGameStore } from '../store/gameStore'
 import { useViewStore } from '../store/viewStore'
-import { TILE_SIZE } from './layout'
+import { gridEdges, TILE_SIZE } from './layout'
 
 /** Line colour: a soft brown that reads on the sand-coloured ground. */
 const LINE_COLOR = '#8a7559'
@@ -30,7 +32,13 @@ const fragmentShader = /* glsl */ `
   uniform float cellSize;
   uniform vec3 color;
   uniform float maxOpacity;
+  uniform float clipped;
+  uniform vec4 clip;
   void main() {
+    // A bounded grid draws its lines only within it; the half-cell slack keeps its outline.
+    vec2 slack = vec2(cellSize * 0.02);
+    if (clipped > 0.5 && (any(lessThan(world, clip.xy - slack)) || any(greaterThan(world, clip.zw + slack))))
+      discard;
     vec2 coord = world / cellSize + 0.5;
     vec2 width = max(fwidth(coord), vec2(0.00001));
     vec2 edge = abs(fract(coord - 0.5) - 0.5) / width;
@@ -45,9 +53,11 @@ const fragmentShader = /* glsl */ `
 
 /**
  * Cell outlines on the ground, clearest around the centre of the view and fading out
- * towards the edges. Placed pieces stand on top and hide the lines beneath them.
+ * towards the edges. Placed pieces stand on top and hide the lines beneath them. On a bounded
+ * grid there are lines only within it.
  */
 export function GridLines() {
+  const bounds = useGameStore((s) => modeRules(s.mode).bounds)
   const uniforms = useMemo(
     () => ({
       centre: { value: new Vector2() },
@@ -55,8 +65,10 @@ export function GridLines() {
       cellSize: { value: TILE_SIZE },
       color: { value: new Color(LINE_COLOR) },
       maxOpacity: { value: MAX_OPACITY },
+      clipped: { value: bounds ? 1 : 0 },
+      clip: { value: new Vector4(...(bounds ? gridEdges(bounds) : [0, 0, 0, 0])) },
     }),
-    [],
+    [bounds],
   )
   const material = useRef<ShaderMaterial>(null)
 
@@ -74,7 +86,12 @@ export function GridLines() {
   })
 
   return (
-    <mesh rotation-x={-Math.PI / 2} position-y={0.001} renderOrder={1}>
+    <mesh
+      key={bounds ? 'bounded' : 'open'}
+      rotation-x={-Math.PI / 2}
+      position-y={0.001}
+      renderOrder={1}
+    >
       <planeGeometry args={[400, 400]} />
       <shaderMaterial
         ref={material}

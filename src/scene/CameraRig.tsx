@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { ComponentRef } from 'react'
 import { Vector3 } from 'three'
 import { boardSquares } from '../game/board'
+import { modeRules } from '../game/modes'
 import { useGameStore } from '../store/gameStore'
 import { useViewStore } from '../store/viewStore'
 import { coordToWorld } from './layout'
@@ -41,14 +42,22 @@ export function CameraRig() {
   /** Heading to return to when the menu closes, since the menu slowly orbits the board. */
   const headingBeforeMenu = useRef(0)
   const board = useGameStore((s) => s.board)
+  const grid = useGameStore((s) => modeRules(s.mode).bounds)
   const menuOpen = useGameStore((s) => s.menuOpen)
   const canvas = useThree((s) => s.gl.domElement)
 
   const bounds = useMemo(() => {
     const xs: number[] = []
     const zs: number[] = []
-    for (const tile of boardSquares(board)) {
-      const [x, z] = coordToWorld(tile.coord)
+    // A bounded grid can be panned over in full, however little of it is built on yet.
+    const corners = grid
+      ? [
+          { q: grid.minQ, r: grid.minR },
+          { q: grid.maxQ, r: grid.maxR },
+        ]
+      : []
+    for (const coord of [...boardSquares(board).map((tile) => tile.coord), ...corners]) {
+      const [x, z] = coordToWorld(coord)
       xs.push(x)
       zs.push(z)
     }
@@ -58,7 +67,7 @@ export function CameraRig() {
       minZ: Math.min(...zs) - PAN_MARGIN,
       maxZ: Math.max(...zs) + PAN_MARGIN,
     }
-  }, [board])
+  }, [board, grid])
 
   useEffect(() => {
     const azimuth = useViewStore.getState().azimuth

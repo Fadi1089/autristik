@@ -1,4 +1,5 @@
 import type { Coord } from '../game/coords'
+import type { GridBounds } from '../game/modes'
 import type { Terrain } from '../game/tiles'
 
 /** World-space size of one grid cell; each cell holds one terrain square, as big as a 2×2 tile's squares were. */
@@ -24,6 +25,14 @@ export const BIOME_HEIGHT = TERRAIN_HEIGHT
 
 export function coordToWorld({ q, r }: Coord): [x: number, z: number] {
   return [q * TILE_SIZE, r * TILE_SIZE]
+}
+
+/** A bounded grid's outer cell edges in world space: west, north, east, south. */
+export function gridEdges(bounds: GridBounds): [x0: number, z0: number, x1: number, z1: number] {
+  const [x0, z0] = coordToWorld({ q: bounds.minQ, r: bounds.minR })
+  const [x1, z1] = coordToWorld({ q: bounds.maxQ, r: bounds.maxR })
+  const half = TILE_SIZE / 2
+  return [x0 - half, z0 - half, x1 + half, z1 + half]
 }
 
 export function worldToCoord(x: number, z: number): Coord {

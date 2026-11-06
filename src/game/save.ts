@@ -1,8 +1,10 @@
 import { coordKey, DIRECTIONS, neighbour } from './coords'
 import type { Board, PlacedSquare } from './board'
 import { BONUS_INTERVAL, BONUS_MAX_SIZE, BONUS_MIN_SIZE } from './bonus'
-import type { BonusState } from './bonus'
+import type { BonusObjective, BonusState } from './bonus'
 import type { GameState } from './game'
+import { inBounds, isGameMode, modeRules } from './modes'
+import type { GameMode, GridBounds } from './modes'
 import { findRoutes } from './routes'
 import { BIOMES, DEFAULT_BIOME_PROBABILITIES, SHAPES, validBiomeProbabilities } from './tiles'
 import type { BiomeProbabilities, Rotation, Terrain, Terrains, Tetromino } from './tiles'
@@ -36,6 +38,10 @@ export interface SaveFile {
   readonly board: readonly SavedSquare[]
   /** Optional for compatibility with saves made before stage 8. */
   readonly bonus?: BonusState
+  /** Absent in saves made before the modes, which are score games. */
+  readonly mode?: GameMode
+  /** Pieces still to come, the one in hand included; only in a game with a limited supply. */
+  readonly piecesLeft?: number
 }
 
 export type LoadResult =
@@ -44,10 +50,18 @@ export type LoadResult =
 
 /** The odds with their keys in a fixed order, so a save's text depends only on the game. */
 function orderedProbabilities({
+  shapeWeights,
   biomeCounts,
   biomeWeights,
 }: BiomeProbabilities): BiomeProbabilities {
   return {
+    ...(shapeWeights === undefined
+      ? {}
+      : {
+          shapeWeights: Object.fromEntries(
+            SHAPES.map((shape) => [shape, shapeWeights[shape]]),
+          ) as BiomeProbabilities['shapeWeights'],
+        }),
     biomeCounts: { 1: biomeCounts[1], 2: biomeCounts[2], 3: biomeCounts[3], 4: biomeCounts[4] },
     biomeWeights: Object.fromEntries(
       BIOMES.map((biome) => [biome, biomeWeights[biome]]),
@@ -65,6 +79,8 @@ export function toSave(state: GameState, note?: string): SaveFile {
     seed: state.seed,
     rotation: state.rotation,
     current: state.current,
+    ...(state.mode === undefined ? {} : { mode: state.mode }),
+    ...(state.piecesLeft === undefined ? {} : { piecesLeft: state.piecesLeft }),
     ...(state.bonus === undefined ? {} : { bonus: state.bonus }),
     biomeProbabilities: orderedProbabilities(
       state.biomeProbabilities ?? DEFAULT_BIOME_PROBABILITIES,
@@ -111,10 +127,23 @@ function readWeight(value: unknown, where: string): number {
   return value
 }
 
-function readBonus(value: unknown): BonusState | undefined {
+/** One objective, checked for a sound target and a milestone placement to be issued at. */
+function readObjective(value: unknown, where: string): BonusObjective {
+  if (!isObject(value)) fail(`${where} must be an object`)
+  const { target, issuedAt, completed } = value
+  if (!isInteger(target) || target < BONUS_MIN_SIZE || target > BONUS_MAX_SIZE)
+    fail(`the target of ${where} must be a whole number from 7 to 13`)
+  if (!isInteger(issuedAt) || issuedAt < BONUS_INTERVAL || issuedAt % BONUS_INTERVAL !== 0)
+    fail(`${where} must be issued at a multiple of ${BONUS_INTERVAL} placements`)
+  if (typeof completed !== 'boolean') fail(`the completion flag of ${where} must be true or false`)
+  return { biome: readTerrain(value.biome, where), target, issuedAt, completed }
+}
+
+/** `ended`: the game is over, so its last objective may have closed before its ten placements. */
+function readBonus(value: unknown, ended = false): BonusState | undefined {
   if (value === undefined) return undefined
   if (!isObject(value)) fail('the bonus progress must be an object')
-  const { placements, completed, seed, objective } = value
+  const { placements, completed, seed } = value
   if (!isInteger(placements) || placements < 0)
     fail('the bonus placement count must be a whole number of 0 or more')
   const maximumCompleted = Math.max(0, Math.floor((placements - 1) / BONUS_INTERVAL))
@@ -122,34 +151,36 @@ function readBonus(value: unknown): BonusState | undefined {
     fail('the completed bonus count does not match the placement count')
   if (!isInteger(seed) || seed < 0 || seed > 0xffffffff)
     fail('the bonus seed must be a whole number from 0 to 4294967295')
-  if (objective === null) return { placements, completed, seed, objective: null }
-  if (!isObject(objective)) fail('the bonus objective must be an object or null')
-  const { target, issuedAt } = objective
-  if (!isInteger(target) || target < BONUS_MIN_SIZE || target > BONUS_MAX_SIZE)
-    fail('the bonus target must be a whole number from 7 to 13')
+
+  // Saves from before the history was kept have none; their past objectives stay unknown.
+  if (value.history !== undefined && !Array.isArray(value.history))
+    fail('the bonus history must be a list')
+  const history = ((value.history ?? []) as unknown[]).map((entry) =>
+    readObjective(entry, 'a past bonus objective'),
+  )
+  history.forEach((past, i) => {
+    const next = history[i + 1]?.issuedAt
+    const inOrder =
+      next !== undefined
+        ? past.issuedAt + BONUS_INTERVAL <= next
+        : past.issuedAt + BONUS_INTERVAL <= placements ||
+          (ended && value.objective === null && past.issuedAt <= placements)
+    if (!inOrder) fail('the past bonus objectives must come in order, ten placements apart')
+  })
+  if (history.filter((past) => past.completed).length > completed)
+    fail('the bonus history has more completed objectives than the completed count')
+
+  if (value.objective === null) return { placements, completed, seed, objective: null, history }
+  const objective = readObjective(value.objective, 'the bonus objective')
   if (
-    !isInteger(issuedAt) ||
-    issuedAt < BONUS_INTERVAL ||
-    issuedAt % BONUS_INTERVAL !== 0 ||
-    issuedAt > placements ||
-    placements >= issuedAt + BONUS_INTERVAL
+    objective.issuedAt > placements ||
+    placements >= objective.issuedAt + BONUS_INTERVAL ||
+    (history.length > 0 && history.at(-1)!.issuedAt + BONUS_INTERVAL !== objective.issuedAt)
   )
     fail('the bonus deadline does not match the placement count')
-  if (typeof objective.completed !== 'boolean')
-    fail('the bonus completion flag must be true or false')
-  if (objective.completed && (completed === 0 || placements === issuedAt))
+  if (objective.completed && (completed === 0 || placements === objective.issuedAt))
     fail('the bonus objective cannot already be completed at this placement')
-  return {
-    placements,
-    completed,
-    seed,
-    objective: {
-      biome: readTerrain(objective.biome, 'the bonus objective'),
-      target,
-      issuedAt,
-      completed: objective.completed,
-    },
-  }
+  return { placements, completed, seed, objective, history }
 }
 
 function readProbabilities(value: unknown): BiomeProbabilities {
@@ -158,7 +189,18 @@ function readProbabilities(value: unknown): BiomeProbabilities {
     fail('the biome odds need biomeCounts and biomeWeights')
   const counts = value.biomeCounts
   const weights = value.biomeWeights
+  // Saves from before the shape weights draw every shape equally, so they leave it out.
+  if (value.shapeWeights !== undefined && !isObject(value.shapeWeights))
+    fail('the shape weights must be an object')
+  const shapes = value.shapeWeights
   const probabilities: BiomeProbabilities = {
+    ...(shapes === undefined
+      ? {}
+      : {
+          shapeWeights: Object.fromEntries(
+            SHAPES.map((shape) => [shape, readWeight(shapes[shape], `the ${shape} weight`)]),
+          ) as BiomeProbabilities['shapeWeights'],
+        }),
     biomeCounts: {
       1: readWeight(counts[1], 'the odds of 1 biome'),
       2: readWeight(counts[2], 'the odds of 2 biomes'),
@@ -170,7 +212,7 @@ function readProbabilities(value: unknown): BiomeProbabilities {
     ) as BiomeProbabilities['biomeWeights'],
   }
   if (!validBiomeProbabilities(probabilities))
-    fail('the biome odds ask for more biomes per piece than they allow')
+    fail('the odds leave no shape to draw, or ask for more biomes per piece than they allow')
   return probabilities
 }
 
@@ -192,7 +234,7 @@ function connected(squares: readonly PlacedSquare[]): boolean {
   return seen.size === squares.length
 }
 
-function readBoard(value: unknown): Board {
+function readBoard(value: unknown, bounds: GridBounds | null): Board {
   if (!Array.isArray(value) || value.length === 0) fail('the board needs at least one piece')
   const board: Record<string, PlacedSquare> = {}
   const pieces = new Map<number, PlacedSquare[]>()
@@ -201,6 +243,7 @@ function readBoard(value: unknown): Board {
     if (!isObject(entry)) fail(`${where} must be an object`)
     const { q, r, piece } = entry
     if (!isInteger(q) || !isInteger(r)) fail(`${where} needs whole-number q and r`)
+    if (!inBounds(bounds, { q, r })) fail(`${where} (${q}, ${r}) lies off the grid`)
     if (!isInteger(piece) || piece < 0) fail(`${where} needs a piece number of 0 or more`)
     const key = coordKey({ q, r })
     if (board[key]) fail(`two squares sit on the same cell (${q}, ${r})`)
@@ -233,11 +276,24 @@ export function fromSave(data: unknown): LoadResult {
       fail('the seed must be a whole number from 0 to 4294967295')
     if (!isInteger(data.rotation) || data.rotation < 0 || data.rotation > 3)
       fail('the rotation must be 0, 1, 2 or 3')
-    const board = readBoard(data.board)
-    const bonus = readBonus(data.bonus)
+    if (data.mode !== undefined && !isGameMode(data.mode))
+      fail(`unknown game mode ${JSON.stringify(data.mode)}`)
+    const mode = data.mode as GameMode | undefined
+    const rules = modeRules(mode)
+    const current = readPiece(data.current)
+    const piecesLeft = data.piecesLeft
+    if (rules.pieces === null) {
+      if (piecesLeft !== undefined) fail('only a performance game counts its pieces left')
+    } else {
+      if (!isInteger(piecesLeft) || piecesLeft < 0 || piecesLeft > rules.pieces)
+        fail(`the pieces left must be a whole number from 0 to ${rules.pieces}`)
+      if (piecesLeft === 0 && current !== null) fail('a game with no pieces left has none in hand')
+    }
+    const board = readBoard(data.board, rules.bounds)
+    const bonus = readBonus(data.bonus, rules.pieces !== null && current === null)
     const game: GameState = {
       board,
-      current: readPiece(data.current),
+      current,
       rotation: data.rotation as Rotation,
       seed: data.seed,
       lastPlacement: null,
@@ -245,6 +301,8 @@ export function fromSave(data: unknown): LoadResult {
       routes: findRoutes(board),
       ...(bonus === undefined ? {} : { bonus }),
       biomeProbabilities: readProbabilities(data.biomeProbabilities),
+      ...(mode === undefined ? {} : { mode }),
+      ...(piecesLeft === undefined ? {} : { piecesLeft: piecesLeft as number }),
     }
     return typeof data.note === 'string' ? { ok: true, game, note: data.note } : { ok: true, game }
   } catch (error) {

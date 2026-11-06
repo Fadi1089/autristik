@@ -1,6 +1,7 @@
 import { Html } from '@react-three/drei'
 import { useMemo } from 'react'
 import type { PlacementScore } from '../game/score'
+import { modeRules } from '../game/modes'
 import { useGameStore } from '../store/gameStore'
 import { BASE_HEIGHT, coordToWorld, PASS_THROUGH } from './layout'
 import { scoreLines, signedPoints } from './scoreNotes'
@@ -48,6 +49,7 @@ function Cloud({
  */
 export function ScoreClouds() {
   const lastPlacement = useGameStore((s) => s.lastPlacement)
+  const scored = useGameStore((s) => modeRules(s.mode).scored)
   const menuOpen = useGameStore((s) => s.menuOpen)
 
   const at = useMemo(() => {
@@ -58,7 +60,7 @@ export function ScoreClouds() {
     return [x, CLOUD_HEIGHT, z] as const
   }, [lastPlacement])
 
-  if (menuOpen || !lastPlacement || !at) return null
+  if (menuOpen || !scored || !lastPlacement || !at) return null
   return (
     // Keyed on the placement, so each one starts its cloud afresh.
     <Html key={at.join()} position={at} center style={PASS_THROUGH} zIndexRange={[10, 0]}>

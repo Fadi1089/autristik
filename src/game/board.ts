@@ -1,5 +1,7 @@
 import { coordKey } from './coords'
 import type { Coord } from './coords'
+import { inBounds } from './modes'
+import type { GridBounds } from './modes'
 import type { Rng } from './random'
 import { pieceSquares, randomTetromino } from './tiles'
 import type { BiomeProbabilities, Square } from './tiles'
@@ -66,9 +68,14 @@ const steps = (a: Coord, b: Coord) => Math.max(Math.abs(a.q - b.q), Math.abs(a.r
  * A random tetromino at the origin to build around, and five to eight single black squares
  * scattered round it, a little way out, each a piece of its own. The tetromino isn't all blue
  * unless the settings leave no choice, since only blue could ever be laid against it. The
- * black squares stand well apart from it and from one another, touching nothing.
+ * black squares stand well apart from it and from one another, touching nothing, and on the
+ * grid when there is one.
  */
-export function createStartingBoard(rng: Rng, biomeProbabilities?: BiomeProbabilities): Board {
+export function createStartingBoard(
+  rng: Rng,
+  biomeProbabilities?: BiomeProbabilities,
+  bounds: GridBounds | null = null,
+): Board {
   let piece = randomTetromino(rng, biomeProbabilities)
   for (let i = 0; i < STARTING_REDRAWS && piece.terrains.every((t) => t === 'blue'); i++)
     piece = randomTetromino(rng, biomeProbabilities)
@@ -86,6 +93,7 @@ export function createStartingBoard(rng: Rng, biomeProbabilities?: BiomeProbabil
         const c = { q, r }
         const away = Math.min(...start.map((s) => steps(s.coord, c)))
         if (
+          inBounds(bounds, c) &&
           away >= STARTING_TILE_NEAREST &&
           away <= STARTING_TILE_FARTHEST &&
           tiles.every((t) => steps(t, c) >= STARTING_TILE_APART)

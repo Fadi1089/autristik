@@ -22,15 +22,44 @@ Tailwind CSS v4. It deploys to GitLab Pages.
 ## How to play
 
 There are five biomes: black, red, green, yellow and blue, one per board cell. Each of the seven
-shapes is equally likely. A piece first draws how many distinct biomes it has (by default 1: 15%,
+shapes is equally likely by default. A piece first draws how many distinct biomes it has (by default 1: 15%,
 2: 45%, 3: 25%, 4: 15%), then picks that many different biomes by weight (red and green 30,
 black and yellow 17.5, blue 5). Each picked biome gets one square. The squares left over are
 filled from the picked biomes only, in proportion to their weights scaled to 100% among them:
-a red and blue piece fills each spare square with red 30/35 of the time and blue 5/35. Both
-sets of odds can be changed in the settings. A placed piece is one low block whose squares meet
+a red and blue piece fills each spare square with red 30/35 of the time and blue 5/35. All
+three sets of odds (shapes, biome counts and biomes) can be changed in the settings, in every mode. A placed piece is one low block whose squares meet
 flush, with slightly rounded outer corners, and a thin strip of ground separates it from its
 neighbours. Cell outlines are drawn on the ground, strongest at the centre of the view and fading
 towards the edges.
+
+### Modes
+
+Play or New game in the menu offers three modes. The one played last is selected first.
+
+| Mode        | What it is                                                                      |
+| ----------- | ------------------------------------------------------------------------------- |
+| Creation    | No score and no rules: lay each piece on any free cells, anywhere               |
+| Score       | The endless game described below, with points and bonus objectives              |
+| Performance | The score game with 50 pieces on a 10 × 20 grid: make the highest score you can |
+
+**Creation.** A piece only needs free cells: it doesn't have to touch the board, and any biome
+can go against blue. Two squares still can't share a cell. There is no score, no score cloud and
+no bonus objective; a card saying "Creation, Free build" stands where the score would be. Roads,
+houses, forests and farms still grow as usual. There is no green placement area, since every
+free cell is one.
+
+**Performance.** The rules and the scoring are those of the score game, on a grid of 10 columns
+by 20 rows, drawn as a lighter field inside a wooden fence of pointed pickets and two rails, with cell lines only within it. The
+starting piece sits near its centre and the single black tiles all land inside it. No square may
+go off the grid. A card beside the score counts the pieces left, the one in hand included, from
+50 down, and turns clay for the last five; the tray never shows more pieces than are left.
+Skipping a piece that fits nowhere uses it up. The game ends when the 50th piece is placed or
+skipped, or earlier if the grid has no room left for any piece (no four free cells joined
+together beside the board). The 200 cells can't hold all 50 pieces, so packing them well counts.
+A card then gives the final score, why the game ended, the pieces placed, the bonus objectives met
+and the points from roads, with "New best!" or the best score so far, which the browser keeps.
+"Play again" starts another performance game. The last placement settles the open bonus
+objective and proposes no new one. Reset grid in this mode deals the 50 pieces again.
 
 ### Rules
 
@@ -45,7 +74,7 @@ contact. It is never all blue, unless the settings allow nothing but blue, since
 ever be laid against it. Squares within the same piece can sit next to each other in any
 combination. Squares that only meet at a corner don't count as touching.
 
-There is no timer or end: the game keeps drawing pieces. Add `?seed=123` to the URL to replay
+In the score game there is no timer or end: it keeps drawing pieces. Add `?seed=123` to the URL to replay
 the same sequence of pieces.
 
 ### Score
@@ -92,10 +121,34 @@ may still qualify. Success adds 20 points once and increments the completed-obje
 Completing early leaves the completed objective visible until the next ten-placement milestone.
 An unmet objective is replaced at its deadline without a penalty.
 
-From the tenth player placement, the card in the top right, below the score, shows the current objective, placements left, and number
-completed this game. Its reward also appears in the placement's score cloud. New games and grid
-resets clear both objective counters along with the score. Saving and loading preserves the
-objective, deadline, counters and independent random state. Older saves remain readable: their
+From the tenth player placement, a card below the score shows the current objective ("Grow a
+green patch", 5/8) and a meter with one segment per square asked for, filled in the biome's
+colour up to the largest region that can still count. Under it are the placements left, which
+turn clay for the last three, and, when the board already has a region at the target, a reminder
+that it doesn't count. The card rises in afresh for each new objective and counts the objectives
+done this game.
+
+Earlier objectives stack behind the current card like a deck of cards, newest first, with the
+edges of up to three showing below it. Each is a small card with the patch it asked for, its
+placements, and "✓ +20" or "Missed". Hovering the stack spreads them into a list to scroll
+through, with the current card staying put on top; moving away stacks them again. On a touch
+screen a tap spreads them, a drag scrolls, and a tap elsewhere stacks them.
+
+On the board, the empty cells beside that largest region blink three times, in a darker shade of
+the biome asked for, when the objective appears, then fade away: a square of the biome there grows
+the region. The card's Hint button blinks them again. Cells touching a region that is already too big, or touching blue, are
+left out.
+
+The card's (?) button opens two screenshots from the game: a patch of four grown to eight
+("Counts") and a patch that was already eight before the objective ("Doesn't count"), each with a
+one-line reason. Esc or a click elsewhere closes it.
+
+Its reward also appears in the placement's score cloud, and a light sprinkle of confetti drifts
+down from the top of the screen, in gold, paper cream and the objective's biome, fading out about
+halfway down. It never takes a click, and it is left out for players who prefer reduced motion. New games and grid
+resets clear both objective counters and the earlier objectives along with the score. Saving and
+loading preserves the objective, deadline, counters, earlier objectives and independent random
+state; saves from before the earlier objectives were kept load with none. Older saves remain readable: their
 placed tetrominoes determine the placement count, with no invented past completions; their first
 new objective is proposed at the next multiple of ten.
 
@@ -165,7 +218,8 @@ end of a road don't count; a black square that isn't part of a city does.
 
 ### Playing
 
-- The game opens on the menu. Move between its items with the arrow keys or the mouse and press
+- The game opens on the menu. Play (or New game) shows the three modes to pick from; Up and Down
+  move between them too. Move between the menu items with the arrow keys or the mouse and press
   `Enter` to pick one. During play, `Esc` pauses into the menu and pressing it again resumes. The
   button in the top left opens the menu too.
 - A flat green area on the ground covers every cell the piece in hand can reach at a spot where
@@ -192,16 +246,19 @@ end of a road don't count; a black square that isn't part of a city does.
 
 Save game in the menu downloads the game in progress as a JSON file, such as
 `tristik-2026-11-03-1642.json`. Load game picks such a file and carries on exactly where it was
-left: same board, piece in hand and angle, score, upcoming pieces and biome odds (which also go
+left: same mode, board, piece in hand and angle, pieces left, score, upcoming pieces and biome odds (which also go
 into Settings, so later pieces keep coming the same way). There is one game at a time: loading
 replaces the game in progress. A file that isn't a valid save is refused with the reason, and the
 game in progress stays as it was.
 
 A save holds `format` (`"tristik-save"`), `version` (1), an optional `note`, `score`, `seed` (the
 piece generator's state), `rotation`, `current` (the piece in hand: `shape` and its four
-`terrains`), `biomeProbabilities`, the optional stage-8 `bonus` progress, and `board`, a list of squares (`q`, `r`, `terrain`, and the
+`terrains`, or `null` once a performance game is over), `mode` (`"creation"`, `"score"` or
+`"performance"`; absent in older saves, which are score games), `piecesLeft` (performance only),
+`biomeProbabilities` (with `shapeWeights`; older saves without them draw every shape equally), the optional stage-8 `bonus` progress, and `board`, a list of squares (`q`, `r`, `terrain`, and the
 `piece` they belong to). Loading checks every field: each piece must have four joined squares, no
-two squares may share a cell, and the odds must be able to draw every piece they ask for.
+two squares may share a cell, a performance board must lie on its grid with 0 to 50 pieces left,
+and the odds must be able to draw every piece they ask for.
 
 ### Test saves
 
@@ -224,6 +281,8 @@ claim in the notes is also checked automatically by `src/game/saves.test.ts`.
 | `12-shortest-road.json`             | A shorter road through one yellow takes over: −2              |
 | `13-bonus-objective.json`           | Grow six green squares to ten: +20 and one completed bonus    |
 | `14-bonus-deadline.json`            | Miss the final placement: the next objective replaces it      |
+| `15-creation.json`                  | Creation mode: no score, red goes against blue or far away    |
+| `16-performance-last-piece.json`    | Performance mode, one piece left: the next ends the game      |
 
 ### Controls
 
@@ -248,8 +307,9 @@ provides a fallback. A layout can also be chosen under Shortcuts and stays fixed
 Every key except `Esc` can be changed under Menu > Shortcuts (two keys per action, saved in the
 browser).
 
-Menu > Settings lets you tune the relative chances of each biome count and the relative weights
-used to pick biomes. The percentages shown are the normalized odds. Changes apply to pieces
+Menu > Settings lets you tune, in any mode, the relative chances of each of the seven shapes, of
+each biome count and the relative weights used to pick biomes. At least one shape must keep a
+weight above 0. The percentages shown are the normalized odds. Changes apply to pieces
 drawn next, including the tray previews. A zero weight excludes a biome. At least as many biomes
 must keep a weight above 0 as the largest biome count above 0, so a piece always gets the number
 of distinct biomes it asks for. For example, with 3-biome pieces enabled, the last three biomes
@@ -305,7 +365,8 @@ npm run test:watch  # watch mode
 Tests live next to the code (`src/**/*.test.ts`). They cover coordinates, the seven shapes and their
 rotations, biome draws and their settings, edge matching, the placement rules (contact, overlap and
 blue), where a piece fits at each angle, skipping a piece that fits nowhere, how far the keyboard
-cursor can go, the green placement area, scoring, saving and loading (and rejecting broken saves),
+cursor can go, the three modes (free placement, the bounded grid, the pieces left and the end of a
+performance game, the shape weights), the green placement area, scoring, saving and loading (and rejecting broken saves),
 every test save in `saves/`, the game flow, the upcoming pieces, the grid reset, key bindings and
 keyboard layouts, mapping the pointer onto the canvas, the piece outlines drawn on the board, the
 ghost's shell, the landing dust and the time format.
@@ -391,7 +452,8 @@ src/
                  and the single black tiles round it
     matching.ts  Placement rules (contact, overlap, blue), where a piece fits, edge matching,
                  keyboard cursor limits
-    game.ts      Game state: place, rotate, skip, draw, upcoming pieces, grid reset
+    game.ts      Game state: place, rotate, skip, draw, upcoming pieces, grid reset, end of a game
+    modes.ts     The three modes: free placement, scoring, the performance grid and piece count
     score.ts     Points for a placement, and which pieces it surrounded
     bonus.ts     Timed region objectives, equal random draws, and twenty-point rewards
     routes.ts    Cities (five or more black squares) and the shortest roads joining them
@@ -409,10 +471,13 @@ src/
     pieceGeometry.ts  A piece's soil and biome blocks as one geometry, with rounded outer corners
     PieceTile.tsx     A single piece on its own (used for the ghost)
     Ghost.tsx, ghostEnvelope.ts  Preview of the piece in hand: slides, spins, green or red shell
-    PlacementHints.tsx, placementArea.ts  Green ground area the piece can cover where it fits
+    PlacementHints.tsx, placementArea.ts  Green ground area the piece can cover where it fits,
+                      and the cells that blink, in a darker shade of its biome, where the bonus objective's patch can grow
     Ground.tsx        Ground plane; also the pointer target for picking cells
     canvasEvents.ts   Pointer events measured from the canvas, whatever element they land on
-    GridLines.tsx     Cell outlines that fade out from the centre of the view
+    GridLines.tsx     Cell outlines that fade out from the centre of the view, kept to the grid
+                      in performance mode
+    PlayArea.tsx      The performance grid's lighter field and its picket fence
     PlacementDust.tsx, dust.ts  Dust and specks when a piece lands
     GoldFlash.tsx     A quick gold flash over a piece when surrounding it scores 10
     ScoreClouds.tsx, scoreNotes.ts  A cloud listing what each placement scored, line by line
@@ -429,8 +494,10 @@ src/
     useAfterDrop.ts   Holds roads, houses and trees back until the piece just placed has landed
     Lights.tsx        Hemisphere fill and a shadow-casting sun that follows the camera
     CameraRig.tsx     MapControls with zoom and tilt limits, scroll pivot, clamped to the board
-  ui/        Tailwind overlay: HUD (menu, reset, score, camera buttons, piece tray, skip
-             notice), main menu (with save and load), biome settings and keyboard shortcuts
+  ui/        Tailwind overlay: HUD (menu, reset, score, pieces left, camera buttons, piece tray,
+             skip notice, bonus objective and its help, end of a performance game), main menu
+             (with the mode picker, save and load), shape and biome settings, keyboard
+             shortcuts, and the confetti for a completed bonus objective
   palette.ts Colours shared by the scene and the HUD
   assets/models/  The city houses and grass, the trees, the farms and the road pieces, as GLB
                   (see Credits)

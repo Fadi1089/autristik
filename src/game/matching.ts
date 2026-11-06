@@ -2,6 +2,8 @@ import { coordKey, DIRECTIONS, neighbour, parseCoordKey } from './coords'
 import type { Coord, Direction } from './coords'
 import { boardSquares, getSquare, isEmpty, isOccupied } from './board'
 import type { Board } from './board'
+import { inBounds, modeRules } from './modes'
+import type { GridBounds, ModeRules } from './modes'
 import { pieceSquares, shapeOffsets } from './tiles'
 import type { Rotation, Square, Terrain, Tetromino } from './tiles'
 
@@ -66,12 +68,25 @@ export function blueConflict(placed: Terrain, placing: Terrain): boolean {
   return placed === 'blue' && placing !== 'blue'
 }
 
+/** The parts of a mode's rules that decide where a piece may go. */
+export type PlacementRules = Pick<ModeRules, 'free' | 'bounds'>
+
+/** The score game's rules: contact and blue apply, on an endless board. */
+export const SCORE_RULES: PlacementRules = modeRules('score')
+
 /**
- * A piece can't overlap the board and must touch it along at least one edge; only the
- * first piece on an empty board goes anywhere. Only blue may be laid against blue already on the board.
+ * A piece can't overlap the board or leave the grid, and must touch the board along at least
+ * one edge; only the first piece on an empty board goes anywhere. Only blue may be laid
+ * against blue already on the board. Free rules (creation) keep only the overlap and the grid.
  */
-export function canPlace(board: Board, squares: readonly Square[]): boolean {
-  if (squares.some((s) => isOccupied(board, s.coord))) return false
+export function canPlace(
+  board: Board,
+  squares: readonly Square[],
+  rules: PlacementRules = SCORE_RULES,
+): boolean {
+  if (squares.some((s) => isOccupied(board, s.coord) || !inBounds(rules.bounds, s.coord)))
+    return false
+  if (rules.free) return true
   let touches = false
   for (const square of squares)
     for (const direction of DIRECTIONS) {
@@ -86,9 +101,15 @@ export function canPlace(board: Board, squares: readonly Square[]): boolean {
 
 /**
  * Every anchor where `piece` fits at `rotation`, in a stable order. A fitting piece touches
- * the board, so one of its squares sits on an open cell next to it.
+ * the board, so one of its squares sits on an open cell next to it. Under free rules a piece
+ * fits far from the board too; those spots are left out, so this lists the ones beside it.
  */
-export function placementAnchors(board: Board, piece: Tetromino, rotation: Rotation): Coord[] {
+export function placementAnchors(
+  board: Board,
+  piece: Tetromino,
+  rotation: Rotation,
+  rules: PlacementRules = SCORE_RULES,
+): Coord[] {
   const offsets = shapeOffsets(piece.shape, rotation)
   const tried = new Set<string>()
   const anchors: Coord[] = []
@@ -98,7 +119,7 @@ export function placementAnchors(board: Board, piece: Tetromino, rotation: Rotat
       const key = coordKey(at)
       if (tried.has(key)) continue
       tried.add(key)
-      if (canPlace(board, pieceSquares(piece, rotation, at))) anchors.push(at)
+      if (canPlace(board, pieceSquares(piece, rotation, at), rules)) anchors.push(at)
     }
   return anchors.sort((a, b) => a.r - b.r || a.q - b.q)
 }
@@ -116,9 +137,15 @@ export function placementCandidates(board: Board): Coord[] {
 }
 
 /**
- * Keeps a keyboard cursor (a piece's anchor) near enough to explore and place freely.
+ * Keeps a keyboard cursor (a piece's anchor) near enough to explore and place freely, and on
+ * the grid when there is one, since the anchor is one of the piece's own squares.
  */
-export function clampCursor(board: Board, c: Coord): Coord {
+export function clampCursor(board: Board, c: Coord, bounds: GridBounds | null = null): Coord {
+  if (bounds)
+    return {
+      q: Math.min(bounds.maxQ, Math.max(bounds.minQ, c.q)),
+      r: Math.min(bounds.maxR, Math.max(bounds.minR, c.r)),
+    }
   const squares = boardSquares(board)
   const qs = squares.length > 0 ? squares.map((s) => s.coord.q) : [0]
   const rs = squares.length > 0 ? squares.map((s) => s.coord.r) : [0]
@@ -146,4 +173,36 @@ export function nearest(coords: readonly Coord[], c: Coord): Coord | null {
 /** The open cell closest to `c`, for dropping a keyboard cursor somewhere useful. */
 export function nearestCandidate(board: Board, c: Coord): Coord | null {
   return nearest(placementCandidates(board), c)
+}
+
+/**
+ * Whether some tetromino could still go on the grid: four free cells joined along their sides,
+ * beside the board. Any four such cells make one of the seven shapes, and an all-blue piece
+ * goes against any biome, so this holds exactly while some piece could be laid. An endless
+ * board always has room.
+ */
+export function hasRoom(board: Board, bounds: GridBounds | null): boolean {
+  if (bounds === null) return true
+  const seen = new Set<string>()
+  for (let q = bounds.minQ; q <= bounds.maxQ; q++)
+    for (let r = bounds.minR; r <= bounds.maxR; r++) {
+      const start = { q, r }
+      if (isOccupied(board, start) || seen.has(coordKey(start))) continue
+      // Flood the free cells joined to this one, noting whether any of them touches the board.
+      seen.add(coordKey(start))
+      const region = [start]
+      let touches = false
+      for (let i = 0; i < region.length; i++)
+        for (const direction of DIRECTIONS) {
+          const n = neighbour(region[i]!, direction)
+          if (!inBounds(bounds, n)) continue
+          if (isOccupied(board, n)) touches = true
+          else if (!seen.has(coordKey(n))) {
+            seen.add(coordKey(n))
+            region.push(n)
+          }
+        }
+      if (touches && region.length >= 4) return true
+    }
+  return false
 }

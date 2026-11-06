@@ -4,6 +4,7 @@ import { Scene } from './scene/Scene'
 import { useGameStore } from './store/gameStore'
 import { HUD } from './ui/HUD'
 import { Menu } from './ui/Menu'
+import { ScreenConfetti } from './ui/ScreenConfetti'
 import { useKeyboardShortcuts } from './ui/useKeyboardShortcuts'
 import { useKeyboardLayoutDetection } from './ui/useKeyboardLayoutDetection'
 
@@ -23,6 +24,7 @@ export function App() {
         <Scene />
       </Canvas>
       {!menuOpen && <HUD />}
+      <ScreenConfetti />
       {menuOpen && <Menu />}
     </main>
   )

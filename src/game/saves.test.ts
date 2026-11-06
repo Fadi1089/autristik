@@ -5,6 +5,7 @@ import {
   anchorsByRotation,
   canPlaceCurrent,
   currentSquares,
+  endReason,
   isStuck,
   placeCurrent,
   resetBoard,
@@ -49,7 +50,7 @@ describe('the saves in /saves', () => {
   const names = Object.keys(files).map((path) => path.replace(/^.*\/(.*)\.json$/, '$1'))
 
   it('are all there, and each load and say what they show', () => {
-    expect(names).toHaveLength(14)
+    expect(names).toHaveLength(16)
     for (const name of names) expect(save(name).note.length, name).toBeGreaterThan(40)
   })
 
@@ -242,5 +243,36 @@ describe('the saves in /saves', () => {
     )
     expect(routeScore(twoYellow.routes)).toBe(6)
     expect(twoYellow.lastPlacement!.roadPoints).toBe(0)
+  })
+
+  it('15: creation lays a piece against blue or far away, never on a taken cell', () => {
+    const { game } = save('15-creation')
+    expect(game.mode).toBe('creation')
+    expect(game.score).toBe(0)
+    expect(getSquare(game.board, coord(4, -1))!.terrain).toBe('blue')
+    // The pond is a whole piece of its own, laid on free cells.
+    expect(boardSquares(game.board).filter((s) => s.piece === 6)).toHaveLength(4)
+    const besideBlue = place(game, 6, -1)
+    expect(besideBlue.score).toBe(0)
+    expect(besideBlue.bonus).toEqual(game.bonus)
+    place(game, 12, 12)
+    expect(canPlaceCurrent(game, coord(4, -1))).toBe(false)
+  })
+
+  it('16: the last performance piece ends the game', () => {
+    const { game } = save('16-performance-last-piece')
+    expect(game.mode).toBe('performance')
+    expect(game.piecesLeft).toBe(1)
+    expect(upcomingTiles(game)).toEqual([])
+    const end = isStuck(game)
+      ? skipCurrent(game)
+      : placeCurrent(
+          { ...game, rotation: anchorsByRotation(game).findIndex((a) => a.length > 0) as 0 },
+          anchorsByRotation(game).find((a) => a.length > 0)![0]!,
+        )
+    expect(end.current).toBeNull()
+    expect(end.piecesLeft).toBe(0)
+    expect(endReason(end)).toBe('pieces')
+    expect(end.bonus?.objective).toBeNull()
   })
 })

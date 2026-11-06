@@ -17,12 +17,15 @@ interface ViewStore {
   /** Camera moves requested from the keyboard, consumed by the camera rig each frame. */
   readonly pivotRequest: number
   readonly zoomRequest: number
+  /** Bumped to blink the cells where the bonus objective's patch can grow. */
+  readonly bonusHintRequest: number
 
   setView(view: { azimuth: number; polar: number; focusX: number; focusZ: number }): void
   /** Positive pivots the camera to the right around the board. */
   requestPivot(radians: number): void
   /** Positive zooms in; each unit is a factor of e in distance. */
   requestZoom(amount: number): void
+  requestBonusHint(): void
 }
 
 /** Main camera state shared with the HUD and keyboard controls. */
@@ -33,10 +36,12 @@ export const useViewStore = create<ViewStore>()((set) => ({
   focusZ: 0,
   pivotRequest: 0,
   zoomRequest: 0,
+  bonusHintRequest: 0,
 
   setView: (view) => set(view),
   requestPivot: (radians) => set((s) => ({ pivotRequest: s.pivotRequest + radians })),
   requestZoom: (amount) => set((s) => ({ zoomRequest: s.zoomRequest + amount })),
+  requestBonusHint: () => set((s) => ({ bonusHintRequest: s.bonusHintRequest + 1 })),
 }))
 
 // As for the game store: a hot update would split the page across two copies of the view.

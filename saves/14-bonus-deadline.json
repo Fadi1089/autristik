@@ -23,7 +23,8 @@
       "target": 7,
       "issuedAt": 10,
       "completed": false
-    }
+    },
+    "history": []
   },
   "biomeProbabilities": {
     "biomeCounts": {

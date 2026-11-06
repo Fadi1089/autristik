@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
+import {
+  GAME_MODES,
+  MODE_LABELS,
+  PERFORMANCE_HEIGHT,
+  PERFORMANCE_PIECES,
+  PERFORMANCE_WIDTH,
+} from '../game/modes'
+import type { GameMode } from '../game/modes'
 import { parseSave, saveText } from '../game/save'
 import type { Biome } from '../game/tiles'
 import { SCENE_COLORS, TERRAIN_COLORS } from '../palette'
@@ -9,7 +17,92 @@ import villageArt from '../assets/menu-village.webp'
 import { GameSettings } from './GameSettings'
 import { KeySettings } from './KeySettings'
 
-type Panel = 'settings' | 'shortcuts'
+type Panel = 'play' | 'settings' | 'shortcuts'
+
+const PANEL_TITLES: Readonly<Record<Panel, string>> = {
+  play: 'New game',
+  settings: 'Settings',
+  shortcuts: 'Shortcuts',
+}
+
+/** What each mode is, in a line, and what sets it apart, in a few words. */
+const MODE_DETAILS: Readonly<Record<GameMode, { line: string; facts: readonly string[] }>> = {
+  creation: {
+    line: 'Lay pieces anywhere, any biome against any other. Just build.',
+    facts: ['No score', 'No rules', 'Endless'],
+  },
+  score: {
+    line: 'Grow the world piece by piece for points and bonus objectives.',
+    facts: ['Score', 'Endless'],
+  },
+  performance: {
+    line: `${PERFORMANCE_PIECES} pieces on a small grid. Make every one count.`,
+    facts: [`${PERFORMANCE_PIECES} pieces`, `${PERFORMANCE_WIDTH} × ${PERFORMANCE_HEIGHT} grid`],
+  },
+}
+
+/** The three modes to start a new game in; the one played last is selected first. */
+function ModePicker({ onPick }: { onPick: (mode: GameMode) => void }) {
+  const lastMode = useSettingsStore((s) => s.mode)
+  const best = useSettingsStore((s) => s.bestPerformance)
+  const list = useRef<HTMLUListElement>(null)
+
+  // Up / Down move between the modes, like the menu items.
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+    const buttons = [...(list.current?.querySelectorAll<HTMLButtonElement>('button') ?? [])]
+    const at = buttons.indexOf(document.activeElement as HTMLButtonElement)
+    if (at < 0) return
+    e.preventDefault()
+    const step = e.key === 'ArrowDown' ? 1 : -1
+    buttons[(at + step + buttons.length) % buttons.length]?.focus({ preventScroll: true })
+  }
+
+  return (
+    <ul ref={list} onKeyDown={onKeyDown} className="space-y-3">
+      {GAME_MODES.map((mode) => (
+        <li key={mode}>
+          <button
+            type="button"
+            autoFocus={mode === lastMode}
+            onClick={() => onPick(mode)}
+            onPointerEnter={(e) => e.currentTarget.focus({ preventScroll: true })}
+            className="group w-full rounded-2xl bg-paper px-4 py-3.5 text-left shadow-[inset_0_0_0_1px_rgb(59_46_34/0.12)] transition outline-none hover:shadow-[inset_0_0_0_2px_rgb(59_46_34/0.5)] focus-visible:shadow-[inset_0_0_0_2px_rgb(59_46_34/0.5)] focus:shadow-[inset_0_0_0_2px_rgb(59_46_34/0.5)] active:scale-[0.98]"
+          >
+            <span className="flex items-baseline justify-between gap-3">
+              <span className="font-display text-xl font-semibold text-ink">
+                {MODE_LABELS[mode]}
+              </span>
+              {mode === lastMode && (
+                <span className="text-[0.65rem] font-semibold tracking-[0.08em] text-ink/45 uppercase">
+                  Last played
+                </span>
+              )}
+            </span>
+            <span className="mt-1 block text-sm leading-snug text-ink/70">
+              {MODE_DETAILS[mode].line}
+            </span>
+            <span className="mt-2.5 flex flex-wrap gap-1.5">
+              {MODE_DETAILS[mode].facts.map((fact) => (
+                <span
+                  key={fact}
+                  className="rounded-full bg-ink/7 px-2 py-0.5 text-[0.7rem] font-semibold text-ink/70"
+                >
+                  {fact}
+                </span>
+              ))}
+              {mode === 'performance' && best > 0 && (
+                <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[0.7rem] font-semibold text-ink/80 tabular-nums">
+                  Best {best}
+                </span>
+              )}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 /** A file name for a save, stamped with the local date and time: tristik-2026-11-03-1642.json. */
 function saveFileName(date = new Date()): string {
@@ -118,6 +211,7 @@ export function Menu() {
   // No panel shows the village art; picking a panel again goes back to it.
   const [panel, setPanel] = useState<Panel | null>(null)
   const started = useGameStore((s) => s.started)
+  const mode = useGameStore((s) => s.mode ?? 'score')
   const closeMenu = useGameStore((s) => s.closeMenu)
   const restart = useGameStore((s) => s.restart)
   const loadGame = useGameStore((s) => s.loadGame)
@@ -207,19 +301,23 @@ export function Menu() {
             {canResume ? (
               <MenuItem primary autoFocus onClick={closeMenu} delay={220}>
                 Resume
+                <span className="self-end pb-1 font-sans text-xs font-semibold tracking-[0.08em] text-ink/45 uppercase">
+                  {MODE_LABELS[mode]}
+                </span>
               </MenuItem>
             ) : (
               <MenuItem
                 primary
                 autoFocus
-                onClick={started ? () => restart() : closeMenu}
+                pressed={panel === 'play'}
+                onClick={() => toggle('play')}
                 delay={220}
               >
-                {started ? 'New game' : 'Play'}
+                Play
               </MenuItem>
             )}
             {canResume && (
-              <MenuItem onClick={() => restart()} delay={270}>
+              <MenuItem pressed={panel === 'play'} onClick={() => toggle('play')} delay={270}>
                 New game
               </MenuItem>
             )}
@@ -266,8 +364,14 @@ export function Menu() {
             key={panel}
             className="card animate-rise self-center p-6 sm:p-8 lg:max-h-full lg:overflow-y-auto"
           >
-            <h2 className="eyebrow mb-5">{panel === 'shortcuts' ? 'Shortcuts' : 'Settings'}</h2>
-            {panel === 'shortcuts' ? <KeySettings /> : <GameSettings />}
+            <h2 className="eyebrow mb-5">{PANEL_TITLES[panel]}</h2>
+            {panel === 'play' ? (
+              <ModePicker onPick={(picked) => restart(undefined, picked)} />
+            ) : panel === 'shortcuts' ? (
+              <KeySettings />
+            ) : (
+              <GameSettings />
+            )}
           </aside>
         ) : (
           <div

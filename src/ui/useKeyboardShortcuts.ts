@@ -38,7 +38,7 @@ export function useKeyboardShortcuts() {
         return
       }
       // Leave Enter, Space and friends to the menu buttons.
-      if (game.menuOpen || isGameOver()) return
+      if (game.menuOpen || isGameOver(game)) return
 
       const action = actionForCode(settings.bindings, keyCodeForLayout(e, settings.layout))
       if (!action) return

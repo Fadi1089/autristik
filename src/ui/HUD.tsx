@@ -1,9 +1,13 @@
+import { isGameOver } from '../game/game'
+import { modeRules } from '../game/modes'
 import { useGameStore } from '../store/gameStore'
 import { CAMERA_PIVOT_STEP, useViewStore } from '../store/viewStore'
 import { useKeyHint } from './useKeyHint'
 import { CameraLeftIcon, CameraRightIcon, MenuIcon, ResetGridIcon } from './icons'
 import { Score } from './Score'
 import { BonusObjective } from './BonusObjective'
+import { GameOver } from './GameOver'
+import { CreationBadge, PiecesLeft } from './ModeStatus'
 import { StuckNotice, TileTray } from './TileTray'
 
 function CameraControls() {
@@ -49,6 +53,12 @@ function CameraControls() {
 export function HUD() {
   const openMenu = useGameStore((s) => s.openMenu)
   const resetGrid = useGameStore((s) => s.resetGrid)
+  const rules = useGameStore((s) => modeRules(s.mode))
+  const over = useGameStore(isGameOver)
+  const resetTitle =
+    rules.pieces === null
+      ? 'Reset grid: clear the placed tetrominoes back to a starting piece'
+      : `Reset grid: clear the placed tetrominoes back to a starting piece, with ${rules.pieces} pieces to place again`
 
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-4 select-none sm:p-6">
@@ -68,7 +78,7 @@ export function HUD() {
               type="button"
               onClick={resetGrid}
               aria-label="Reset grid"
-              title="Reset grid: clear the placed tetrominoes back to a starting piece"
+              title={resetTitle}
               className="group card flex size-14 flex-col items-center justify-center gap-1 text-ink/75 transition hover:text-ink active:scale-95 sm:size-[4.6rem] sm:gap-1.5"
             >
               <span
@@ -80,13 +90,20 @@ export function HUD() {
               <ResetGridIcon className="hud-pictogram origin-bottom-left transition-transform duration-300 ease-out group-hover:-rotate-12" />
             </button>
           </div>
-          <Score />
+          {rules.scored ? (
+            <div className="flex items-start gap-2 sm:gap-3">
+              <PiecesLeft />
+              <Score />
+            </div>
+          ) : (
+            <CreationBadge />
+          )}
         </header>
-        <BonusObjective />
+        {rules.scored && !over && <BonusObjective />}
       </div>
 
       <footer className="flex flex-col items-center gap-2 sm:gap-3">
-        <StuckNotice />
+        {over ? <GameOver /> : <StuckNotice />}
         <div className="flex flex-col items-center gap-1 sm:flex-row sm:justify-center sm:gap-3">
           <CameraControls />
           <TileTray />

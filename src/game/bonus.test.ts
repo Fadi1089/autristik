@@ -3,6 +3,8 @@ import type { Board } from './board'
 import {
   advanceBonus,
   BONUS_POINTS,
+  bonusProgress,
+  bonusTargetCells,
   createBonusState,
   drawBonusObjective,
   legacyPlacements,
@@ -59,6 +61,51 @@ describe('bonus regions', () => {
   })
 })
 
+describe('bonus progress', () => {
+  it('counts the largest region of the biome, ignoring other biomes', () => {
+    const board = { ...row(4), ...row(2, 0, 2), ...row(6, 0, 4, 'red') }
+    expect(bonusProgress(board, objective)).toEqual({ size: 4, stale: 0 })
+    expect(bonusProgress({}, objective)).toEqual({ size: 0, stale: 0 })
+  })
+
+  it('skips regions that were already at the target, and counts them as stale', () => {
+    expect(bonusProgress({ ...row(9), ...row(3, 0, 2) }, objective)).toEqual({ size: 3, stale: 1 })
+  })
+
+  it('is full once the objective is completed', () => {
+    expect(bonusProgress(row(9), { ...objective, completed: true })).toEqual({
+      size: objective.target,
+      stale: 0,
+    })
+  })
+})
+
+describe('bonus target cells', () => {
+  const keys = (board: Board, o = objective) =>
+    bonusTargetCells(board, o).map((c) => `${c.q},${c.r}`)
+
+  it('rings the largest region that can still count with the empty cells beside it', () => {
+    expect(keys({ ...row(2), ...row(1, 5) })).toEqual(['0,-1', '1,-1', '-1,0', '2,0', '0,1', '1,1'])
+  })
+
+  it('leaves out cells touching a region that is already too big', () => {
+    // A row of 2 at r = 2, under a row of 9 at r = 0: the cells between them touch both.
+    const cells = keys({ ...row(9), ...row(2, 0, 2) })
+    expect(cells).toEqual(['-1,2', '2,2', '0,3', '1,3'])
+  })
+
+  it('leaves out cells against blue, unless the objective is blue', () => {
+    const board = { ...row(1), ...row(1, 1, 0, 'blue') }
+    expect(keys(board)).toEqual(['0,-1', '-1,0', '0,1'])
+    expect(keys(board, { ...objective, biome: 'blue' })).toContain('2,0')
+  })
+
+  it('is empty once completed, or with nothing to grow', () => {
+    expect(keys(row(3), { ...objective, completed: true })).toEqual([])
+    expect(keys(row(3, 0, 0, 'red'))).toEqual([])
+  })
+})
+
 describe('objective timing and reward', () => {
   it('first proposes an objective after the tenth player placement, then every ten', () => {
     let bonus = createBonusState(12)
@@ -69,6 +116,17 @@ describe('objective timing and reward', () => {
       expect(bonus.placements).toBe(i)
       expect(bonus.objective?.issuedAt ?? null).toBe(i < 10 ? null : Math.floor(i / 10) * 10)
     }
+  })
+
+  it('files each objective in the history, done or missed, when the next one comes', () => {
+    let bonus = createBonusState(12)
+    for (let i = 1; i <= 30; i++) bonus = advanceBonus(bonus, {}, {}).bonus
+    expect(bonus.history.map((past) => past.issuedAt)).toEqual([10, 20])
+    expect(bonus.history.every((past) => !past.completed)).toBe(true)
+    const done = advanceBonus(active(15), row(6), row(7)).bonus
+    let later = done
+    for (let i = 16; i <= 20; i++) later = advanceBonus(later, {}, {}).bonus
+    expect(later.history).toEqual([{ ...objective, completed: true }])
   })
 
   it('does not award an objective on the placement that proposes it', () => {

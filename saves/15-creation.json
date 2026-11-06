@@ -1,0 +1,129 @@
+{
+  "format": "tristik-save",
+  "version": 1,
+  "note": "Creation mode: no score and no rules. The red O in hand goes against the blue pond with its anchor at (6, -1), or far from everything at (12, 12); only a taken cell, such as (4, -1), refuses it.",
+  "score": 0,
+  "seed": 1007908578,
+  "rotation": 0,
+  "current": {
+    "shape": "O",
+    "terrains": [
+      "red",
+      "red",
+      "red",
+      "red"
+    ]
+  },
+  "mode": "creation",
+  "bonus": {
+    "placements": 0,
+    "completed": 0,
+    "seed": 1779032461,
+    "objective": null,
+    "history": []
+  },
+  "biomeProbabilities": {
+    "shapeWeights": {
+      "I": 10,
+      "O": 10,
+      "T": 10,
+      "S": 10,
+      "Z": 10,
+      "J": 10,
+      "L": 10
+    },
+    "biomeCounts": {
+      "1": 15,
+      "2": 45,
+      "3": 25,
+      "4": 15
+    },
+    "biomeWeights": {
+      "black": 17.5,
+      "red": 30,
+      "green": 30,
+      "yellow": 17.5,
+      "blue": 5
+    }
+  },
+  "board": [
+    {
+      "q": 0,
+      "r": 0,
+      "terrain": "red",
+      "piece": 0
+    },
+    {
+      "q": 1,
+      "r": 0,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": -1,
+      "r": 1,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": 0,
+      "r": 1,
+      "terrain": "green",
+      "piece": 0
+    },
+    {
+      "q": -8,
+      "r": 7,
+      "terrain": "black",
+      "piece": 1
+    },
+    {
+      "q": 4,
+      "r": -7,
+      "terrain": "black",
+      "piece": 2
+    },
+    {
+      "q": -3,
+      "r": 8,
+      "terrain": "black",
+      "piece": 3
+    },
+    {
+      "q": -7,
+      "r": 0,
+      "terrain": "black",
+      "piece": 4
+    },
+    {
+      "q": -5,
+      "r": -3,
+      "terrain": "black",
+      "piece": 5
+    },
+    {
+      "q": 4,
+      "r": -1,
+      "terrain": "blue",
+      "piece": 6
+    },
+    {
+      "q": 5,
+      "r": -1,
+      "terrain": "blue",
+      "piece": 6
+    },
+    {
+      "q": 4,
+      "r": 0,
+      "terrain": "blue",
+      "piece": 6
+    },
+    {
+      "q": 5,
+      "r": 0,
+      "terrain": "blue",
+      "piece": 6
+    }
+  ]
+}

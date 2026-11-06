@@ -89,13 +89,22 @@ describe('biome probability preferences', () => {
       biomeCounts: { 1: 0, 2: 100, 3: 0, 4: 0 },
       biomeWeights: { black: 0, red: 75, green: 25, yellow: 0, blue: 0 },
     }
+    const { DEFAULT_SHAPE_WEIGHTS } = await import('../game/tiles')
+    store.getState().setShapeWeight('O', 0)
+    // Odds from before the shape weights take every shape back to equal.
     store.getState().setBiomeProbabilities(twoBiomes)
-    expect(store.getState().biomeProbabilities).toEqual(twoBiomes)
+    expect(store.getState().biomeProbabilities).toEqual({
+      shapeWeights: DEFAULT_SHAPE_WEIGHTS,
+      ...twoBiomes,
+    })
     store.getState().setBiomeProbabilities({
       ...twoBiomes,
       biomeCounts: { 1: 0, 2: 0, 3: 100, 4: 0 },
     })
-    expect(store.getState().biomeProbabilities).toEqual(twoBiomes)
+    expect(store.getState().biomeProbabilities).toEqual({
+      shapeWeights: DEFAULT_SHAPE_WEIGHTS,
+      ...twoBiomes,
+    })
   })
 
   it('only raises a biome count once enough biomes are enabled', async () => {
@@ -137,6 +146,7 @@ describe('biome probability preferences', () => {
     const { DEFAULT_BIOME_PROBABILITIES } = await import('../game/tiles')
     const store = (await import('./settingsStore')).useSettingsStore
     expect(store.getState().biomeProbabilities).toEqual({
+      shapeWeights: DEFAULT_BIOME_PROBABILITIES.shapeWeights,
       biomeCounts: { 1: 0, 2: 0, 3: 99, 4: 0 },
       biomeWeights: DEFAULT_BIOME_PROBABILITIES.biomeWeights,
     })
@@ -158,6 +168,7 @@ describe('biome probability preferences', () => {
     const { DEFAULT_BIOME_PROBABILITIES } = await import('../game/tiles')
     const store = (await import('./settingsStore')).useSettingsStore
     expect(store.getState().biomeProbabilities).toEqual({
+      shapeWeights: DEFAULT_BIOME_PROBABILITIES.shapeWeights,
       biomeCounts: { 1: 0, 2: 100, 3: 0, 4: 0 },
       biomeWeights: DEFAULT_BIOME_PROBABILITIES.biomeWeights,
     })
@@ -182,5 +193,43 @@ describe('biome probability preferences', () => {
     )
     store.getState().setBiomeWeight('blue', Number.POSITIVE_INFINITY)
     expect(store.getState().biomeProbabilities.biomeWeights.blue).toBe(5)
+  })
+
+  it('keeps at least one shape, and remembers saved shape weights', async () => {
+    saved.set(
+      'autristik:settings',
+      JSON.stringify({
+        version: 2,
+        state: {
+          biomeProbabilities: {
+            shapeWeights: { I: 50, O: 0, T: 0, S: 0, Z: 0, J: 0, L: 0 },
+            biomeCounts: { 1: 15, 2: 45, 3: 25, 4: 15 },
+            biomeWeights: { black: 17.5, red: 30, green: 30, yellow: 17.5, blue: 5 },
+          },
+        },
+      }),
+    )
+    const store = (await import('./settingsStore')).useSettingsStore
+    expect(store.getState().biomeProbabilities.shapeWeights).toMatchObject({ I: 50, O: 0 })
+    store.getState().setShapeWeight('I', 0)
+    expect(store.getState().biomeProbabilities.shapeWeights!.I).toBe(50)
+    store.getState().setShapeWeight('T', 5)
+    store.getState().setShapeWeight('I', 0)
+    expect(store.getState().biomeProbabilities.shapeWeights).toMatchObject({ I: 0, T: 5 })
+  })
+})
+
+describe('game modes', () => {
+  it('remembers the last mode and the best performance score', async () => {
+    const store = (await import('./settingsStore')).useSettingsStore
+    expect(store.getState()).toMatchObject({ mode: 'score', bestPerformance: 0 })
+    store.getState().setMode('performance')
+    store.getState().recordPerformance(120)
+    store.getState().recordPerformance(80)
+    expect(store.getState()).toMatchObject({ mode: 'performance', bestPerformance: 120 })
+
+    vi.resetModules()
+    const again = (await import('./settingsStore')).useSettingsStore
+    expect(again.getState()).toMatchObject({ mode: 'performance', bestPerformance: 120 })
   })
 })
