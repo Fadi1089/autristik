@@ -2,7 +2,7 @@
 #
 # Releasing: a commit on main with a message starting with "(RELEASE)" is squashed onto
 # prod once its tests pass. The push to prod starts a prod pipeline, and only prod
-# deploys GitLab Pages. Needs a RELEASE_TOKEN CI/CD variable (see README).
+# deploys GitLab Pages. Needs a RELEASE_TOKEN CI/CD variable (see docs/DEVELOPMENT.md).
 image: node:24-alpine
 
 stages:
@@ -49,7 +49,7 @@ release:
     - |
       if [ -z "${RELEASE_TOKEN:-}" ]; then
         echo "RELEASE_TOKEN is not set. Add a project access token with write_repository"
-        echo "as a masked CI/CD variable named RELEASE_TOKEN (see README)."
+        echo "as a masked CI/CD variable named RELEASE_TOKEN (see docs/DEVELOPMENT.md)."
         exit 1
       fi
     - apk add --no-cache git >/dev/null
