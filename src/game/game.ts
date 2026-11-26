@@ -1,4 +1,5 @@
 import { createStartingBoard, withPiece } from './board'
+import { growLandscape } from './landscape'
 import type { Board } from './board'
 import { advanceBonus, closeBonus, createBonusState, legacyPlacements } from './bonus'
 import type { BonusState } from './bonus'
@@ -8,6 +9,7 @@ import type { PlacementEvaluation } from './matching'
 import { modeRules } from './modes'
 import type { GameMode } from './modes'
 import { createRng } from './random'
+import type { Rng } from './random'
 import { findRoutes, routeScore } from './routes'
 import type { Route } from './routes'
 import { PIECE_POINTS, scorePlacement } from './score'
@@ -56,6 +58,21 @@ export interface GameState {
   readonly piecesLeft?: number
 }
 
+/** Keeps the landscape's draws apart from the pieces' draws. */
+const LANDSCAPE_SALT = 0x5bd1e995
+
+/** The board a game in `mode` starts on: a generated landscape, or a piece and its tiles. */
+function startingBoard(
+  rng: Rng,
+  mode: GameMode | undefined,
+  biomeProbabilities?: BiomeProbabilities,
+): Board {
+  const rules = modeRules(mode)
+  return rules.landscape
+    ? growLandscape(createRng(rng.state ^ LANDSCAPE_SALT))
+    : createStartingBoard(rng, biomeProbabilities, rules.bounds)
+}
+
 /** A score game's base point for its starting piece; a game that isn't scored stays at 0. */
 function startingScore(mode: GameMode | undefined, routes: readonly Route[]): number {
   return modeRules(mode).scored ? PIECE_POINTS + routeScore(routes) : 0
@@ -68,7 +85,7 @@ export function createGame(
 ): GameState {
   const rules = modeRules(mode)
   const rng = createRng(seed)
-  const board = createStartingBoard(rng, biomeProbabilities, rules.bounds)
+  const board = startingBoard(rng, mode, biomeProbabilities)
   const current = randomTetromino(rng, biomeProbabilities)
   const routes = findRoutes(board)
   return {
@@ -108,10 +125,10 @@ export function upcomingTiles(
 export function resetBoard(state: GameState): GameState {
   const rules = modeRules(state.mode)
   // A separate sequence for the island, so the upcoming tiles stay exactly as shown.
-  const board = createStartingBoard(
+  const board = startingBoard(
     createRng(state.seed ^ 0x9e3779b9),
+    state.mode,
     state.biomeProbabilities,
-    rules.bounds,
   )
   const routes = findRoutes(board)
   let { current, rotation, seed } = state

@@ -1,11 +1,14 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { MeshStandardMaterial } from 'three'
 import type { BufferGeometry, Mesh } from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import type { PlacedSquare } from '../game/board'
 import { boardSquares } from '../game/board'
 import { coordKey } from '../game/coords'
 import { useGameStore } from '../store/gameStore'
+import { isRevealing, revealNow, useRevealStore } from '../store/revealStore'
+import type { Reveal } from '../store/revealStore'
 import { pieceGeometry } from './pieceGeometry'
 import { pieceWater, waterMaterial, waterTime } from './pieceWater'
 
@@ -39,17 +42,77 @@ function prune(keep: ReadonlySet<Built>) {
     }
 }
 
+/** The blocks' look, shared by the pieces of a landscape growing in, each drawn on its own. */
+const blockMaterial = new MeshStandardMaterial({
+  vertexColors: true,
+  flatShading: true,
+  roughness: 0.9,
+})
+
+/**
+ * A landscape growing in: the pieces shown so far, each its own mesh, easing down one after
+ * another in the order their cells collapsed, from the centre out.
+ */
+function GrowingPieces({
+  pieces,
+  shown,
+  reveal,
+}: {
+  pieces: ReadonlyMap<number, readonly PlacedSquare[]>
+  shown: number
+  reveal: Reveal
+}) {
+  const meshes = useRef(new Map<number, Mesh>())
+  useFrame(() => {
+    const now = revealNow()
+    for (const [id, mesh] of meshes.current) {
+      const t = Math.min(1, Math.max(0, (now - reveal.start - id * reveal.step) / DROP_SECONDS))
+      mesh.position.y = DROP_HEIGHT * (1 - t) ** 3
+    }
+  })
+  return (
+    <group>
+      {[...pieces]
+        .filter(([id]) => id < shown)
+        .map(([id, squares]) => {
+          const built = geometryFor(squares)
+          return (
+            <mesh
+              key={id}
+              ref={(mesh) => {
+                if (mesh) meshes.current.set(id, mesh)
+                else meshes.current.delete(id)
+              }}
+              geometry={built.blocks}
+              material={blockMaterial}
+              position-y={DROP_HEIGHT}
+              castShadow
+              receiveShadow
+            >
+              {built.water && (
+                <mesh geometry={built.water} material={waterMaterial} receiveShadow />
+              )}
+            </mesh>
+          )
+        })}
+    </group>
+  )
+}
+
 const merged = (geometries: readonly BufferGeometry[]) =>
   geometries.length > 0 ? mergeGeometries([...geometries]) : null
 
 /**
- * Placed pieces, merged into one mesh: each a soil block topped by its biomes, with slightly
+ * Placed pieces, merged into one mesh, except while a landscape grows in: each a soil block topped by its biomes, with slightly
  * rounded outer corners, and live water on its blue squares. The piece just placed has its own
  * meshes while it eases down, its water riding down with it.
  */
 export function Board() {
   const board = useGameStore((s) => s.board)
   const lastPlacement = useGameStore((s) => s.lastPlacement)
+  const revealing = useRevealStore(isRevealing)
+  const reveal = useRevealStore((s) => s.reveal)
+  const shown = useRevealStore((s) => s.shown)
 
   /** Each piece's squares, by piece id. */
   const pieces = useMemo(() => {
@@ -94,6 +157,7 @@ export function Board() {
   // Ease the most recently placed piece down onto the board.
   useFrame(({ clock }, delta) => {
     waterTime.value = clock.elapsedTime
+    useRevealStore.getState().tick(revealNow(), DROP_SECONDS)
     const anim = drop.current
     const mesh = droppingRef.current
     if (!anim || !mesh) return
@@ -102,6 +166,8 @@ export function Board() {
     mesh.position.y = DROP_HEIGHT * (1 - t) ** 3
     if (t >= 1) drop.current = null
   })
+
+  if (revealing && reveal) return <GrowingPieces pieces={pieces} shown={shown} reveal={reveal} />
 
   return (
     <group>

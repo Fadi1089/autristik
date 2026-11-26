@@ -8,12 +8,11 @@ import { coordKey } from '../game/coords'
 import { createRng } from '../game/random'
 import { findCities } from '../game/routes'
 import { CITY_PALETTES, GRASS_PALETTES } from '../palette'
-import { useGameStore } from '../store/gameStore'
 import { BASE_HEIGHT, coordToWorld, TERRAIN_HEIGHT, TILE_SIZE } from './layout'
 import type { Model, Prop, Spot } from './props'
 import { PropMeshes } from './PropMeshes'
 import { freeSpot, hash, meshesOf, paletteAt, paletteMaterial, pick } from './props'
-import { useAfterDrop } from './useAfterDrop'
+import { useScenery } from './useScenery'
 
 /**
  * Width of a house's widest side. The models come with their widest side 1 long, standing on
@@ -132,12 +131,10 @@ function useModels(): { models: Model[]; houseKinds: number } {
  */
 export function Cities() {
   const { models, houseKinds } = useModels()
-  const board = useGameStore((s) => s.board)
-  const lastPlacement = useGameStore((s) => s.lastPlacement)
-  const latest = useMemo(() => propsOf(board, models, houseKinds), [board, models, houseKinds])
-  const props = useAfterDrop(latest, lastPlacement !== null)
-  // Only a placement grows props; a loaded game or a reset shows its cities at once.
-  return <PropMeshes props={props} models={models} grow={lastPlacement !== null} />
+  const { board, grow } = useScenery()
+  const props = useMemo(() => propsOf(board, models, houseKinds), [board, models, houseKinds])
+  // Only a placement or a landscape growing in grows props; a loaded game shows its cities at once.
+  return <PropMeshes props={props} models={models} grow={grow} />
 }
 
 useGLTF.preload(housesUrl, false)

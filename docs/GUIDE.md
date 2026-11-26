@@ -17,12 +17,13 @@ towards the edges.
 
 ## Modes
 
-Play or New game in the menu offers three modes. The one played last is selected first.
+Play or New game in the menu offers four modes. The one played last is selected first.
 
 | Mode        | What it is                                                                      |
 | ----------- | ------------------------------------------------------------------------------- |
 | Creation    | No score and no rules: lay each piece on any free cells, anywhere               |
 | Score       | The endless game described below, with points and bonus objectives              |
+| Landscape   | The score game, started in a world grown by wave function collapse              |
 | Performance | The score game with 50 pieces on a 10 × 20 grid: make the highest score you can |
 
 **Creation.** A piece only needs free cells: it doesn't have to touch the board, and any biome
@@ -30,6 +31,14 @@ can go against blue. Two squares still can't share a cell. There is no score, no
 no bonus objective; a card saying "Creation, Free build" stands where the score would be. Roads,
 houses, forests and farms still grow as usual. There is no green placement area, since every
 free cell is one.
+
+**Landscape.** The rules and the scoring are those of the score game, but instead of a single
+piece the game starts in a landscape about fifteen cells across: woods, autumn woods, fields with
+their herds, ponds and towns, with clearings left empty between them. Build into the clearings
+and out past the edge; filling a clearing with the biome round it closes pieces in for 10 points
+each. Towns that grew far apart have no road until you lay one a way through. Reset grid grows a
+new landscape. Its starting score is 1, plus any roads it was grown with. How the landscape is
+grown is described [below](#landscapes).
 
 **Performance.** The rules and the scoring are those of the score game, on a grid of 10 columns
 by 20 rows, drawn as a lighter field inside a wooden fence of pointed pickets and two rails, with cell lines only within it. The
@@ -199,9 +208,47 @@ How a road is found (`src/game/routes.ts`):
 Each square counts once, even where two roads share it. The cities' own black squares at either
 end of a road don't count; a black square that isn't part of a city does.
 
+## Landscapes
+
+A landscape is grown by wave function collapse (`src/game/landscape.ts`), on a disc seven cells
+in radius round the centre of the board:
+
+1. **Every cell starts open.** Each cell of the disc could still become any of six things: one of
+   the five biomes, or a clearing left empty. Cells on the rim can't be blue, since the open ground
+   beyond the disc counts as a clearing.
+2. **Which states may meet.** A table says which states may lie side by side: water lies among
+   woods and fields, never beside a town or a clearing, so a pond never stops a player with the
+   only-blue rule; towns stand among fields and autumn woods, not green woods or water; fields go
+   with anything.
+3. **Collapse.** The centre settles first. After that, the cell whose outcome is most nearly
+   certain (the lowest Shannon entropy over what it can still become) is settled next, picking
+   one of its states at random by weight. A state's weight grows with each patch of it beside the
+   cell, less as that patch nears twelve cells, so the world comes out in patches rather than
+   speckle without one biome flooding it. Clearings also grow likelier towards the rim, so the
+   world frays out at its edge.
+4. **Propagation.** Settling a cell strikes out what its neighbours can no longer sit beside;
+   each neighbour that loses something passes the change on to its own, until nothing more
+   changes. Since fields go with anything, a cell never runs out of options.
+5. **Clean-up.** A clearing shut in on every side with fewer than four cells could never take a
+   piece, so it is filled with the biome most of its neighbours share among those that can sit
+   beside them all.
+6. **Pieces.** Each patch of one biome is cut into tetrominoes, starting from its most hemmed-in
+   cells; the cells left over are joined into mixed tetrominoes, like the player's own pieces,
+   and the rest stay as single tiles.
+
+The same seed always grows the same landscape.
+
+A new landscape, from a new game or Reset grid, grows in before your eyes: its pieces drop in one
+after another in the order their cells collapsed, so the world spreads out from the centre the
+way it was grown, all of them within about two seconds. Trees, fields and houses pop up on each
+piece as it lands, and the roads are laid stone by stone once the last piece is down. The piece in
+hand and the green area wait until then. A click, a tap or `Enter` brings the rest in at once (it
+doesn't place the piece). Players who prefer reduced motion get the whole landscape at once, and a
+loaded game shows its board as it is.
+
 ## Playing
 
-- The game opens on the menu. Play (or New game) shows the three modes to pick from; Up and Down
+- The game opens on the menu. Play (or New game) shows the four modes to pick from; Up and Down
   move between them too. Move between the menu items with the arrow keys or the mouse and press
   `Enter` to pick one. During play, `Esc` pauses into the menu and pressing it again resumes. The
   button in the top left opens the menu too.
@@ -236,7 +283,7 @@ game in progress stays as it was.
 
 A save holds `format` (`"tristik-save"`), `version` (1), an optional `note`, `score`, `seed` (the
 piece generator's state), `rotation`, `current` (the piece in hand: `shape` and its four
-`terrains`, or `null` once a performance game is over), `mode` (`"creation"`, `"score"` or
+`terrains`, or `null` once a performance game is over), `mode` (`"creation"`, `"score"`, `"landscape"` or
 `"performance"`; absent in older saves, which are score games), `piecesLeft` (performance only),
 `biomeProbabilities` (with `shapeWeights`; older saves without them draw every shape equally), the optional stage-8 `bonus` progress, and `board`, a list of squares (`q`, `r`, `terrain`, and the
 `piece` they belong to). Loading checks every field: each piece must have four joined squares, no

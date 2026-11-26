@@ -37,8 +37,8 @@ find their own way between towns.
   one per square of road between towns.
 - **Chase bonus objectives**: every ten placements the game asks for a patch of one biome
   (seven to thirteen squares) and gives you ten placements to grow it, for 20 points.
-- **Pick a mode**: Creation (free building, no rules), Score (endless) or Performance (50
-  pieces on a 10 × 20 grid, best score kept).
+- **Pick a mode**: Creation (free building, no rules), Score (endless), Landscape (endless,
+  starting in a generated world) or Performance (50 pieces on a 10 × 20 grid, best score kept).
 
 Mouse, touch or keyboard alone, with rebindable keys and AZERTY support. Games save to and load
 from a JSON file, and `?seed=123` in the URL replays the same pieces.
@@ -51,9 +51,14 @@ from a JSON file, and `?seed=123` in the URL replays the same pieces.
   longer road with no yellow isn't discarded for a shorter one that spent its only yellow.
   Kruskal's algorithm then keeps the shortest set of roads that links every town it can.
   ([`routes.ts`](src/game/routes.ts))
+- **Worlds grown by wave function collapse.** Landscape mode starts in a world where every cell
+  begins as any biome or a clearing. The most nearly certain cell settles first, its neighbours
+  lose whatever can't sit beside it, and the change ripples on until the whole disc is settled.
+  Each new world then drops in piece by piece in the order its cells collapsed.
+  ([`landscape.ts`](src/game/landscape.ts))
 - **Pure game core.** All rules live in `src/game/` as plain TypeScript with no React or Three.js
   imports, enforced by ESLint. A seedable PRNG makes every game reproducible.
-- **234 tests** across 23 files, including one test save per feature in [`saves/`](saves) whose
+- **252 tests** across 25 files, including one test save per feature in [`saves/`](saves) whose
   every claim is checked automatically.
 - **Procedural scenery.** Live water on blue squares, trees that fall over and grow back when a
   road passes through, harvested wheat, animals hopping out of the way. Models are rebuilt from

@@ -35,13 +35,17 @@ const MODE_DETAILS: Readonly<Record<GameMode, { line: string; facts: readonly st
     line: 'Grow the world piece by piece for points and bonus objectives.',
     facts: ['Score', 'Endless'],
   },
+  landscape: {
+    line: 'Start in a world grown by wave function collapse. Build into its clearings.',
+    facts: ['Score', 'Generated world', 'Endless'],
+  },
   performance: {
     line: `${PERFORMANCE_PIECES} pieces on a small grid. Make every one count.`,
     facts: [`${PERFORMANCE_PIECES} pieces`, `${PERFORMANCE_WIDTH} × ${PERFORMANCE_HEIGHT} grid`],
   },
 }
 
-/** The three modes to start a new game in; the one played last is selected first. */
+/** The modes to start a new game in; the one played last is selected first. */
 function ModePicker({ onPick }: { onPick: (mode: GameMode) => void }) {
   const lastMode = useSettingsStore((s) => s.mode)
   const best = useSettingsStore((s) => s.bestPerformance)

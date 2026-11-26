@@ -17,7 +17,9 @@ npm run dev
 Open the URL Vite prints. It includes the base path, e.g. <http://localhost:5173/autristik/>.
 
 In dev builds the Zustand store is exposed as `window.gameStore` for debugging from the console,
-e.g. `gameStore.getState().restart(42)`.
+e.g. `gameStore.getState().restart(42)`. The landscape reveal is `window.revealStore`; to watch
+one grow slowly, start a landscape game and then run
+`revealStore.setState((s) => ({ reveal: { ...s.reveal, start: performance.now() / 1000, step: 0.15 } }))`.
 
 Other scripts:
 
@@ -38,8 +40,10 @@ npm run test:watch  # watch mode
 Tests live next to the code (`src/**/*.test.ts`). They cover coordinates, the seven shapes and their
 rotations, biome draws and their settings, edge matching, the placement rules (contact, overlap and
 blue), where a piece fits at each angle, skipping a piece that fits nowhere, how far the keyboard
-cursor can go, the three modes (free placement, the bounded grid, the pieces left and the end of a
-performance game, the shape weights), the green placement area, scoring, saving and loading (and rejecting broken saves),
+cursor can go, the four modes (free placement, the bounded grid, the pieces left and the end of a
+performance game, the shape weights), the landscape generator (its adjacency table, the patches
+it cuts into pieces in the order they collapsed, no clearing too small to build into), the
+landscape growing in (its pace, skipping it, reduced motion), the green placement area, scoring, saving and loading (and rejecting broken saves),
 every test save in `saves/`, the game flow, the upcoming pieces, the grid reset, key bindings and
 keyboard layouts, mapping the pointer onto the canvas, the piece outlines drawn on the board, the
 ghost's shell, the landing dust and the time format.
@@ -134,7 +138,9 @@ src/
     matching.ts  Placement rules (contact, overlap, blue), where a piece fits, edge matching,
                  keyboard cursor limits
     game.ts      Game state: place, rotate, skip, draw, upcoming pieces, grid reset, end of a game
-    modes.ts     The three modes: free placement, scoring, the performance grid and piece count
+    modes.ts     The four modes: free placement, scoring, the generated landscape, the
+                 performance grid and piece count
+    landscape.ts The landscape a landscape game starts in, grown by wave function collapse
     score.ts     Points for a placement, and which pieces it surrounded
     bonus.ts     Timed region objectives, equal random draws, and twenty-point rewards
     routes.ts    Cities (five or more black squares) and the shortest roads joining them
@@ -146,9 +152,12 @@ src/
     gameStore.ts      Game state plus hover, keyboard cursor and menu
     viewStore.ts      Camera angles and focus, plus keyboard pivot/zoom requests
     settingsStore.ts  Key bindings, keyboard layout and biome odds, saved to localStorage
+    revealStore.ts    A new landscape growing in: how many of its pieces are shown and landed
   scene/     React Three Fiber components
     layout.ts         Cell size, heights, and the boxes that draw a piece with its inset outline
-    Board.tsx         Placed pieces merged into one mesh, plus the one easing down after placing
+    Board.tsx         Placed pieces merged into one mesh, plus the one easing down after placing,
+                      or each piece on its own while a landscape grows in
+    useScenery.ts     The board and roads the trees, fields, houses and roads grow from
     pieceGeometry.ts  A piece's soil and biome blocks as one geometry, with rounded outer corners
     PieceTile.tsx     A single piece on its own (used for the ghost)
     Ghost.tsx, ghostEnvelope.ts  Preview of the piece in hand: slides, spins, green or red shell

@@ -15,15 +15,13 @@ import type { Board } from '../game/board'
 import { boardSquares } from '../game/board'
 import { coordKey } from '../game/coords'
 import { createRng } from '../game/random'
-import type { Route } from '../game/routes'
 import { AUTUMN_PALETTES, FOREST_PALETTES } from '../palette'
-import { useGameStore } from '../store/gameStore'
 import { BASE_HEIGHT, coordToWorld, TERRAIN_HEIGHT, TILE_SIZE } from './layout'
 import { PropMeshes } from './PropMeshes'
 import type { Model, Prop, Spot } from './props'
 import { freeSpot, hash, meshesOf, paletteAt, paletteMaterial, pick } from './props'
 import { clearOfRoads, roadDeparture } from './roadClearing'
-import { useAfterDrop } from './useAfterDrop'
+import { useScenery } from './useScenery'
 
 /** Height of the tallest tree at its usual size; the models come with the tallest 1 high. */
 const TREE_HEIGHT = 0.6 * TILE_SIZE
@@ -233,14 +231,7 @@ function FallingLeaves({ board }: { board: Board }) {
  */
 export function Forests() {
   const models = useTreeModels()
-  const board = useGameStore((s) => s.board)
-  const routes = useGameStore((s) => s.routes)
-  const lastPlacement = useGameStore((s) => s.lastPlacement)
-  const latest = useMemo(() => ({ board, routes }), [board, routes])
-  const shown = useAfterDrop<{ board: Board; routes: readonly Route[] }>(
-    latest,
-    lastPlacement !== null,
-  )
+  const shown = useScenery()
   const trees = useMemo(() => treesOf(shown.board, models), [shown.board, models])
   const standing = useMemo(
     () => clearOfRoads(trees, shown.routes, models),
@@ -249,12 +240,7 @@ export function Forests() {
 
   return (
     <>
-      <PropMeshes
-        props={standing}
-        models={models}
-        grow={lastPlacement !== null}
-        departure={roadDeparture}
-      />
+      <PropMeshes props={standing} models={models} grow={shown.grow} departure={roadDeparture} />
       <FallingLeaves board={shown.board} />
     </>
   )

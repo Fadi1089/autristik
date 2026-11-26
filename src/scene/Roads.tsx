@@ -7,13 +7,11 @@ import type { Board } from '../game/board'
 import { getSquare } from '../game/board'
 import type { CoordKey } from '../game/coords'
 import { directionOffset } from '../game/coords'
-import type { Route } from '../game/routes'
 import { ROAD_STONES } from '../palette'
-import { useGameStore } from '../store/gameStore'
 import { BASE_HEIGHT, coordToWorld, TERRAIN_HEIGHT, TILE_SIZE } from './layout'
 import type { RoadCell, RoadPiece } from './roadPieces'
 import { appearOrder, roadCells, roadStarts } from './roadPieces'
-import { useAfterDrop } from './useAfterDrop'
+import { useScenery } from './useScenery'
 
 /** Time from one cell of a new road to the next, as its stones appear from start to end. */
 const STEP_SECONDS = 0.12
@@ -242,16 +240,9 @@ const shapeOf = (cell: RoadCell) => `${cell.piece}${cell.turns}`
  */
 export function Roads() {
   const models = useRoadModels()
-  const routes = useGameStore((s) => s.routes)
-  const board = useGameStore((s) => s.board)
-  const lastPlacement = useGameStore((s) => s.lastPlacement)
   const clock = useThree((s) => s.clock)
-
-  const latest = useMemo(() => ({ routes, board }), [routes, board])
-  const shown = useAfterDrop<{ routes: readonly Route[]; board: Board }>(
-    latest,
-    lastPlacement !== null,
-  )
+  const shown = useScenery()
+  const { grow } = shown
   const mesh = useRef<Mesh>(null)
   /** The shape of each cell's road last drawn, so only new or changed cells appear. */
   const known = useRef(new Map<CoordKey, string>())
@@ -260,8 +251,9 @@ export function Roads() {
     if (!mesh.current) return
     const cells = roadCells(shown.routes)
     const shapes = new Map(cells.map((cell) => [cell.key, shapeOf(cell)]))
-    // Only a placement makes roads appear; a loaded game or a reset shows its roads at once.
-    const order = lastPlacement
+    // Only a placement or a landscape growing in lays roads stone by stone; a loaded game shows
+    // its roads at once.
+    const order = grow
       ? appearOrder(shown.routes, (key) => known.current.get(key) !== shapes.get(key))
       : new Map<CoordKey, number>()
     known.current = shapes
@@ -273,7 +265,7 @@ export function Roads() {
     })
     mesh.current.geometry.dispose()
     mesh.current.geometry = geometry
-  }, [shown, models, lastPlacement, clock])
+  }, [shown.routes, shown.board, models, grow, clock])
 
   useFrame(({ clock }) => {
     time.value = clock.elapsedTime

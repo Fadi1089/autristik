@@ -6,15 +6,13 @@ import type { Board } from '../game/board'
 import { boardSquares } from '../game/board'
 import { coordKey } from '../game/coords'
 import { createRng } from '../game/random'
-import type { Route } from '../game/routes'
 import { WHEAT_PALETTES } from '../palette'
-import { useGameStore } from '../store/gameStore'
 import { BASE_HEIGHT, coordToWorld, TERRAIN_HEIGHT, TILE_SIZE } from './layout'
 import { PropMeshes } from './PropMeshes'
 import type { Model, Prop, Spot } from './props'
 import { freeSpot, hash, ownColourMaterial, paletteAt, paletteMaterial, pick } from './props'
 import { clearOfRoads, roadDeparture } from './roadClearing'
-import { useAfterDrop } from './useAfterDrop'
+import { useScenery } from './useScenery'
 
 /** Width of a clump of wheat, before each one is drawn bigger or smaller. */
 const WHEAT_SIZE = 0.34 * TILE_SIZE
@@ -209,27 +207,13 @@ function useFarmModels(): Model[] {
  */
 export function Farms() {
   const models = useFarmModels()
-  const board = useGameStore((s) => s.board)
-  const routes = useGameStore((s) => s.routes)
-  const lastPlacement = useGameStore((s) => s.lastPlacement)
-  const latest = useMemo(() => ({ board, routes }), [board, routes])
-  const shown = useAfterDrop<{ board: Board; routes: readonly Route[] }>(
-    latest,
-    lastPlacement !== null,
-  )
+  const shown = useScenery()
   const farms = useMemo(() => farmsOf(shown.board, models), [shown.board, models])
   const standing = useMemo(
     () => clearOfRoads(farms, shown.routes, models),
     [farms, shown.routes, models],
   )
-  return (
-    <PropMeshes
-      props={standing}
-      models={models}
-      grow={lastPlacement !== null}
-      departure={roadDeparture}
-    />
-  )
+  return <PropMeshes props={standing} models={models} grow={shown.grow} departure={roadDeparture} />
 }
 
 useGLTF.preload(farmUrl, false, true)

@@ -10,10 +10,12 @@ import {
   skipCurrent,
 } from '../game/game'
 import type { GameState } from '../game/game'
+import { pieceCount } from '../game/board'
 import { clampCursor } from '../game/matching'
 import { modeRules } from '../game/modes'
 import type { GameMode } from '../game/modes'
 import type { BiomeProbabilities } from '../game/tiles'
+import { isRevealing, useRevealStore } from './revealStore'
 import { useSettingsStore } from './settingsStore'
 
 export interface GameStore extends GameState {
@@ -73,6 +75,13 @@ function recordEnd(prev: GameState, next: GameState): Pick<GameStore, 'bestBefor
   return { bestBefore }
 }
 
+/** A landscape just grown grows in piece by piece; any other board is simply there. */
+function revealBoard(game: Pick<GameState, 'board' | 'mode'>): void {
+  const reveal = useRevealStore.getState()
+  if (modeRules(game.mode).landscape) reveal.begin(pieceCount(game.board))
+  else reveal.clear()
+}
+
 export const useGameStore = create<GameStore>()((set) => ({
   ...createGame(
     initialSeed(),
@@ -120,16 +129,22 @@ export const useGameStore = create<GameStore>()((set) => ({
 
   setBiomeProbabilities: (biomeProbabilities) => set({ biomeProbabilities }),
 
-  place: (c) =>
+  place: (c) => {
+    // A click while the landscape grows in brings it all in rather than placing blind.
+    if (isRevealing(useRevealStore.getState())) {
+      useRevealStore.getState().finish()
+      return
+    }
     set((s) => {
       if (s.menuOpen) return s
       const next = placeCurrent(s, c)
       if (next === s) return s
       // The keyboard cursor stays put; its square is now taken, so the ghost hides.
       return { ...next, hover: s.cursor, ...recordEnd(s, next) }
-    }),
+    })
+  },
 
-  restart: (seed = randomSeed(), mode) =>
+  restart: (seed = randomSeed(), mode) => {
     set((s) => {
       const settings = useSettingsStore.getState()
       const next = mode ?? s.mode ?? 'score'
@@ -144,15 +159,20 @@ export const useGameStore = create<GameStore>()((set) => ({
         started: true,
         bestBefore: null,
       }
-    }),
+    })
+    revealBoard(useGameStore.getState())
+  },
 
-  resetGrid: () =>
+  resetGrid: () => {
     set((s) => {
       const next = resetBoard(s)
       return { ...next, hover: s.cursor, bestBefore: null }
-    }),
+    })
+    revealBoard(useGameStore.getState())
+  },
 
   loadGame: (game) => {
+    useRevealStore.getState().clear()
     // The settings panel pushes its odds onto the game, so it must hold the loaded ones.
     if (game.biomeProbabilities)
       useSettingsStore.getState().setBiomeProbabilities(game.biomeProbabilities)

@@ -1,17 +1,19 @@
 import type { Coord } from './coords'
 
 /**
- * Three ways to play:
+ * Four ways to play:
  * - creation: no score and no placement rules, just pieces to lay anywhere free;
  * - score: the endless scored game;
+ * - landscape: the scored game, started in a world grown by wave function collapse;
  * - performance: the scored game with fifty pieces on a ten by twenty grid.
  */
-export const GAME_MODES = ['creation', 'score', 'performance'] as const
+export const GAME_MODES = ['creation', 'score', 'landscape', 'performance'] as const
 export type GameMode = (typeof GAME_MODES)[number]
 
 export const MODE_LABELS: Readonly<Record<GameMode, string>> = {
   creation: 'Creation',
   score: 'Score',
+  landscape: 'Landscape',
   performance: 'Performance',
 }
 
@@ -48,16 +50,20 @@ export interface ModeRules {
   readonly bounds: GridBounds | null
   /** How many pieces the game deals, or null for an endless supply. */
   readonly pieces: number | null
+  /** The game starts in a generated landscape instead of on a single piece. */
+  readonly landscape: boolean
 }
 
 const RULES: Readonly<Record<GameMode, ModeRules>> = {
-  creation: { free: true, scored: false, bounds: null, pieces: null },
-  score: { free: false, scored: true, bounds: null, pieces: null },
+  creation: { free: true, scored: false, bounds: null, pieces: null, landscape: false },
+  score: { free: false, scored: true, bounds: null, pieces: null, landscape: false },
+  landscape: { free: false, scored: true, bounds: null, pieces: null, landscape: true },
   performance: {
     free: false,
     scored: true,
     bounds: PERFORMANCE_BOUNDS,
     pieces: PERFORMANCE_PIECES,
+    landscape: false,
   },
 }
 

@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { SCENE_COLORS } from '../palette'
+import { isRevealing, useRevealStore } from '../store/revealStore'
 import { Board } from './Board'
 import { CameraRig } from './CameraRig'
 import { Cities } from './Cities'
@@ -17,6 +18,8 @@ import { Roads } from './Roads'
 import { ScoreClouds } from './ScoreClouds'
 
 export function Scene() {
+  // The piece in hand and where it fits wait until a growing landscape has settled.
+  const revealing = useRevealStore(isRevealing)
   return (
     <>
       <color attach="background" args={[SCENE_COLORS.background]} />
@@ -26,7 +29,7 @@ export function Scene() {
       <Ground />
       <PlayArea />
       <GridLines />
-      <PlacementHints />
+      {!revealing && <PlacementHints />}
       <BonusHints />
       <Board />
       <Roads />
@@ -41,7 +44,7 @@ export function Scene() {
         <Farms />
       </Suspense>
       <GoldFlash />
-      <Ghost />
+      {!revealing && <Ghost />}
       <PlacementDust />
       <ScoreClouds />
     </>
