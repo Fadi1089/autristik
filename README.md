@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong><a href="https://autristic.pages.unistra.fr/autristik/">Try it out in your browser!</a></strong>, no install needed.
+  <strong><a href="https://fadi1089.github.io/autristik/">Try it out in your browser!</a></strong>, no install needed.
 </p>
 
 A cozy tile-placement game in the spirit of Dorfromantik, played with tetrominoes. Each piece is
@@ -17,7 +17,7 @@ tiles scattered round it, four to seven squares out and well apart from one anot
 towards.
 
 Built with Vite, React, TypeScript, Three.js (via @react-three/fiber and drei), Zustand and
-Tailwind CSS v4. It deploys to GitLab Pages.
+Tailwind CSS v4. It deploys to GitLab Pages and to GitHub Pages.
 
 ## How to play
 
@@ -440,6 +440,14 @@ In the `pages` job, `BASE_PATH` comes from `CI_PAGES_URL` when GitLab provides i
 on self-hosted instances with their own Pages domain and with the "unique domain" setting (where
 the site sits at the domain root). If neither is available it uses `/$CI_PROJECT_NAME/`. To force
 a value, set a `BASE_PATH` CI/CD variable in the project settings.
+
+### GitHub mirror
+
+The repository is mirrored on GitHub. There, every push to `main` runs
+`.github/workflows/pages.yml`: the same lint, Prettier check, tests and build as the `test` job,
+then a deploy to GitHub Pages at `https://fadi1089.github.io/autristik/`. The base path comes from
+GitHub's Pages settings, so it follows a renamed repo or a custom domain. Pages must be set to
+deploy from GitHub Actions (Settings > Pages > Source).
 
 ## Project layout
 
